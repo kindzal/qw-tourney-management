@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title><?= appTitle ?></title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    nav { margin-bottom: 20px; }
+    nav button { margin-right: 10px; padding: 8px 12px; cursor: pointer; }
+    section { display: none; margin-top: 20px; }
+    section.active { display: block; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+    th { background: #eee; }
+    .loading { font-style: italic; color: #666; }
+    /* Header */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .app-logo {
+      max-height: 112px;
+      max-width: 201px;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <h1><?= appTitle ?></h1>
+
+    <? if (logoUrl) { ?>
+      <img
+        src="<?= logoUrl ?>"   
+        class="app-logo"
+      />
+    <? } ?>
+  </header>
+
+  <nav>
+    <button data-target="standings">Standings</button>
+    <button data-target="teams">Teams</button>
+    <button data-target="players">Players Ranking</button>    
+  </nav>
+
+  <section id="standings">
+    <h2>Standings</h2>
+    <div id="standings-output" class="loading">Loading…</div>
+  </section>
+
+  <section id="teams">
+    <h2>Teams</h2>
+    <div id="teams-output" class="loading">Loading…</div>
+  </section>
+
+  <section id="players">
+    <h2>Players</h2>
+    <div id="players-output" class="loading">Loading…</div>
+  </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const baseUrl = "<?= baseUrl ?>";
+      const defaultPage = "<?= defaultPage ?>";
+
+      const sections = document.querySelectorAll("section");
+      const buttons = document.querySelectorAll("nav button");
+
+      // SPA navigation
+      buttons.forEach(btn => {
+        btn.addEventListener("click", () => {
+          const target = btn.getAttribute("data-target");
+          sections.forEach(sec => sec.classList.remove("active"));
+          document.getElementById(target).classList.add("active");
+        });
+      });
+
+      // Default: show Teams first
+      document.getElementById(defaultPage).classList.add("active");
+
+      // --------------------
+      // Helper: render JSON as table
+      // --------------------
+      function renderTable(containerId, data) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+        if (!data || data.length === 0) {
+          container.textContent = "No data available.";
+          return;
+        }
+
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        const tbody = document.createElement("tbody");
+
+        // Headers from first object keys
+        const headers = Object.keys(data[0]);
+        const trHead = document.createElement("tr");
+        headers.forEach(h => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        // Rows
+        data.forEach(row => {
+          const tr = document.createElement("tr");
+          headers.forEach(h => {
+            const td = document.createElement("td");
+            td.textContent = row[h];
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        container.appendChild(table);
+      }
+
+      // --------------------
+      // Fetch and render Teams
+      // --------------------
+      fetch(baseUrl + "?endpoint=teams")
+        .then(r => r.json())
+        .then(data => renderTable("teams-output", data))
+        .catch(err => {
+          document.getElementById("teams-output").textContent = "Error loading teams: " + err;
+        });
+
+      // --------------------
+      // Fetch and render Players
+      // --------------------
+      fetch(baseUrl + "?endpoint=players")
+        .then(r => r.json())
+        .then(data => renderTable("players-output", data))
+        .catch(err => {
+          document.getElementById("players-output").textContent = "Error loading players: " + err;
+        });
+
+      // --------------------
+      // Fetch and render Standings
+      // --------------------
+      fetch(baseUrl + "?endpoint=standings")
+        .then(r => r.json())
+        .then(data => renderTable("standings-output", data))
+        .catch(err => {
+          document.getElementById("standings-output").textContent = "Error loading standings: " + err;
+        });
+
+    });
+  </script>
+
+</body>
+</html>
