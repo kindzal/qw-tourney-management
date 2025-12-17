@@ -492,6 +492,7 @@ function updateTeams() {
   const standingsSheet = ss.getSheetByName("Standings");
   const teamGamesSheet = ss.getSheetByName("TeamGames");
   const teamsSheet = ss.getSheetByName("Teams");
+  const scheduleSheet = ss.getSheetByName("Schedule");
 
   const gamesData = gamesSheet.getDataRange().getValues();
   const headers = gamesData[0];
@@ -517,11 +518,29 @@ function updateTeams() {
     if (tag) teamNameLookup[tag] = name || tag;
   });
 
+  // -------------------------------------------------------
+  // Build schedule lookup (team names → round)
+  // -------------------------------------------------------
+  const scheduleData = scheduleSheet.getDataRange().getValues().slice(1);
+  const roundLookup = {}; // "teamA|teamB" -> round
+
+  scheduleData.forEach(row => {
+    const round = row[0];
+    const teamA = row[1];
+    const teamB = row[2];
+    if (!round || !teamA || !teamB) return;
+
+    const a = String(teamA).trim().toLowerCase();
+    const b = String(teamB).trim().toLowerCase();
+    roundLookup[`${a}|${b}`] = round;
+    roundLookup[`${b}|${a}`] = round;
+  });
+
   const teamStats = {};
   const mapGroups = {};
   const gameMaps = {};
   const gameToMapTeams = {}; // game ID -> { teamA: X maps, teamB: Y maps }
-  
+
   // Step 1: Group rows by URL (each map)
   for (const row of data) {
     const url = row[urlCol];
@@ -529,15 +548,26 @@ function updateTeams() {
     mapGroups[url].push(row);
   }
 
-  // Step 2: Count map wins/losses per team
+  // Step 2: Count map wins/losses per team (once per team per map)
   for (const [url, rows] of Object.entries(mapGroups)) {
-    const gameId = rows[0][serverCol] + "|" + rows[0][matchTagCol] + "|" + String(rows[0][dateCol]).substring(0, 10);
-    
+    const gameId =
+      rows[0][serverCol] +
+      "|" +
+      rows[0][matchTagCol] +
+      "|" +
+      String(rows[0][dateCol]).substring(0, 10);
+
     const teamMapWon = {};
-    
-    if (!gameMaps[gameId]) gameMaps[gameId] = { maps: [], mapDate: rows[0][dateCol] }; // store date
-    gameMaps[gameId].maps.push({ mapName: rows[0][mapNameCol], mapUrl: rows[0][urlCol], mapDate: rows[0][dateCol] });
-           
+
+    if (!gameMaps[gameId])
+      gameMaps[gameId] = { maps: [], mapDate: rows[0][dateCol] };
+
+    gameMaps[gameId].maps.push({
+      mapName: rows[0][mapNameCol],
+      mapUrl: rows[0][urlCol],
+      mapDate: rows[0][dateCol] // store map date for sorting
+    });
+
     for (const row of rows) {
       const team = row[teamCol];
       const mapWon = row[mapWonCol] == 1;
@@ -548,7 +578,12 @@ function updateTeams() {
 
     for (const [team, won] of Object.entries(teamMapWon)) {
       if (!teamStats[team]) {
-        teamStats[team] = { mapWins: 0, mapLosses: 0, gameWins: 0, gameLosses: 0 };
+        teamStats[team] = {
+          mapWins: 0,
+          mapLosses: 0,
+          gameWins: 0,
+          gameLosses: 0
+        };
       }
       if (won) {
         teamStats[team].mapWins += 1;
@@ -577,16 +612,16 @@ function updateTeams() {
     const loser = scoreA > scoreB ? teamB : teamA;
 
     teamStats[winner].gameWins += 1;
-    teamStats[loser].gameLosses += 1;    
+    teamStats[loser].gameLosses += 1;
   }
 
   // Step 4: Prepare sorted stats
   const sortedTeams = Object.entries(teamStats)
     .map(([team, stats]) => ({
       teamTag: team,
-      teamName: teamNameLookup[team] || team, // NEW
+      teamName: teamNameLookup[team] || team,
       ...stats,
-      diff: stats.mapWins - stats.mapLosses,
+      diff: stats.mapWins - stats.mapLosses
     }))
     .sort((a, b) => {
       if (b.diff !== a.diff) return b.diff - a.diff;
@@ -598,40 +633,39 @@ function updateTeams() {
   sortedTeams.forEach((entry, index) => {
     standingsOutput.push([
       index + 1,
-      entry.teamName, // NEW
+      entry.teamName,
       `${entry.gameWins}-${entry.gameLosses}`,
       `${entry.mapWins}-${entry.mapLosses}`,
-      entry.diff,
+      entry.diff
     ]);
   });
 
   standingsSheet.clearContents();
   standingsSheet
     .getRange(1, 1, standingsOutput.length, standingsOutput[0].length)
+    .setNumberFormat("@STRING@")
     .setValues(standingsOutput);
-    
+
   // ---------------------------------------------
-  // TeamGames with hyperlink maps (sorted by date)
+  // TeamGames with hyperlink maps (sorted by date, round)
   // ---------------------------------------------
   teamGamesSheet.clearContents();
 
-  const maxMaps = Math.max(
-    ...Object.values(gameMaps).map(g => g.maps.length)
-  );
+  const maxMaps = Math.max(...Object.values(gameMaps).map(g => g.maps.length));
 
-  const tgHeader = ["#", "Team A", "Score", "Team B"];
+  const tgHeader = ["#", "Round", "Team A", "Score", "Team B"];
   for (let i = 1; i <= maxMaps; i++) tgHeader.push("Map " + i);
 
   const tgOutput = [tgHeader];
   let gameIndex = 1;
 
-  // SORT gameMaps by mapDate
+  // Sort games by mapDate
   const sortedGameEntries = Object.entries(gameMaps).sort(
     ([, a], [, b]) => new Date(a.mapDate) - new Date(b.mapDate)
   );
 
   for (const [gameId, gameData] of sortedGameEntries) {
-    const maps = gameData.maps;
+    let maps = gameData.maps;
     const scores = gameToMapTeams[gameId];
     if (!scores) continue;
 
@@ -640,17 +674,26 @@ function updateTeams() {
 
     const [teamA, teamB] = teams;
 
+    // convert team tags → names
     const fullA = teamNameLookup[teamA] || teamA;
     const fullB = teamNameLookup[teamB] || teamB;
 
+    // Sort maps by mapDate
+    maps.sort((a, b) => new Date(a.mapDate) - new Date(b.mapDate));
+
     const scoreStr = `${scores[teamA]}-${scores[teamB]}`;
 
-    // Sort maps by mapDate ascending
-    maps.sort((a, b) => new Date(a.mapDate) - new Date(b.mapDate));
-    
+    // Determine round using team names
+    const nameA = String(fullA).trim().toLowerCase();
+    const nameB = String(fullB).trim().toLowerCase();
+    const round =
+      roundLookup[`${nameA}|${nameB}`] ??
+      roundLookup[`${nameB}|${nameA}`] ??
+      "";
+
     // Build each map as a hyperlink formula
-    const mapCells = maps.map(m =>
-      `=HYPERLINK("${m.mapUrl}", "${m.mapName}")`
+    const mapCells = maps.map(
+      m => `=HYPERLINK("${m.mapUrl}", "${m.mapName}")`
     );
 
     // Pad empty columns
@@ -658,6 +701,7 @@ function updateTeams() {
 
     tgOutput.push([
       gameIndex++,
+      round,
       fullA,
       scoreStr,
       fullB,
@@ -665,9 +709,9 @@ function updateTeams() {
     ]);
   }
 
-  // Write TeamGames sheet (must use setValues for formulas)
+  // Write TeamGames sheet
   teamGamesSheet
-    .getRange(1, 1, tgOutput.length, tgOutput[0].length).setNumberFormat("@STRING@")
+    .getRange(1, 1, tgOutput.length, tgOutput[0].length)
     .setValues(tgOutput);
 
   // Optional: auto-resize
