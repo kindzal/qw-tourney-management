@@ -491,12 +491,46 @@ function updateTeams() {
   const gamesSheet = ss.getSheetByName("Games");
   const standingsSheet = ss.getSheetByName("Standings");
   const teamGamesSheet = ss.getSheetByName("TeamGames");
+  const teamGamesPlayoffSheet =
+    ss.getSheetByName("TeamGamesPlayoffs") ||
+    ss.insertSheet("TeamGamesPlayoffs");
   const teamsSheet = ss.getSheetByName("Teams");
   const scheduleSheet = ss.getSheetByName("Schedule");
+  const otherConfigSheet = ss.getSheetByName("OtherConfig");
 
+  // -------------------------------------------------------
+  // Read OtherConfig (key -> value)
+  // -------------------------------------------------------
+  const configData = otherConfigSheet.getDataRange().getValues();
+  const config = {};
+  configData.forEach(([key, value]) => {
+    if (key) config[String(key).trim()] = value;
+  });
+
+  // === FIX: Parse Playoffs start date (DD/MM/YYYY-safe)
+  const rawPlayoffsDate = config["Playoffs start date"];
+  if (!rawPlayoffsDate) {
+    throw new Error("Missing 'Playoffs start date' in OtherConfig");
+  }
+  let playoffsStartDate;
+
+  if (rawPlayoffsDate instanceof Date) {
+    playoffsStartDate = rawPlayoffsDate;
+  } else {
+    const [dd, mm, yyyy] = String(rawPlayoffsDate).split("/");
+    playoffsStartDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  }
+
+  if (isNaN(playoffsStartDate.getTime())) {
+    throw new Error("Invalid or missing 'Playoffs start date' in OtherConfig");
+  }
+
+  // -------------------------------------------------------
+  // Load Games data
+  // -------------------------------------------------------
   const gamesData = gamesSheet.getDataRange().getValues();
   const headers = gamesData[0];
-  const data = gamesData.slice(1); // Exclude header
+  const data = gamesData.slice(1);
 
   const urlCol = headers.indexOf("URL");
   const serverCol = headers.indexOf("Server");
@@ -505,51 +539,73 @@ function updateTeams() {
   const teamCol = headers.indexOf("Team");
   const mapWonCol = headers.indexOf("Map Won");
   const mapNameCol = headers.indexOf("Map");
+  const fragsCol = headers.indexOf("Frags");
 
   // -------------------------------------------------------
-  // Build team lookup table (teamTag → teamName)
+  // Team lookup (tag -> name)
   // -------------------------------------------------------
-  const teamsData = teamsSheet.getDataRange().getValues().slice(1); // remove header
+  const teamsData = teamsSheet.getDataRange().getValues().slice(1);
   const teamNameLookup = {};
-
-  teamsData.forEach(row => {
-    const tag = row[0];
-    const name = row[1];
+  teamsData.forEach(([tag, name]) => {
     if (tag) teamNameLookup[tag] = name || tag;
   });
 
   // -------------------------------------------------------
-  // Build schedule lookup (team names → round)
+  // Schedule lookup (team names -> round)
   // -------------------------------------------------------
   const scheduleData = scheduleSheet.getDataRange().getValues().slice(1);
-  const roundLookup = {}; // "teamA|teamB" -> round
-
-  scheduleData.forEach(row => {
-    const round = row[0];
-    const teamA = row[1];
-    const teamB = row[2];
-    if (!round || !teamA || !teamB) return;
-
-    const a = String(teamA).trim().toLowerCase();
-    const b = String(teamB).trim().toLowerCase();
-    roundLookup[`${a}|${b}`] = round;
-    roundLookup[`${b}|${a}`] = round;
+  const roundLookup = {};
+  scheduleData.forEach(([round, a, b]) => {
+    if (!round || !a || !b) return;
+    const A = String(a).trim().toLowerCase();
+    const B = String(b).trim().toLowerCase();
+    roundLookup[`${A}|${B}`] = round;
+    roundLookup[`${B}|${A}`] = round;
   });
 
   const teamStats = {};
   const mapGroups = {};
   const gameMaps = {};
-  const gameToMapTeams = {}; // game ID -> { teamA: X maps, teamB: Y maps }
+  const gameToMapTeams = {};
 
-  // Step 1: Group rows by URL (each map)
+  // -------------------------------------------------------
+  // Group rows by map URL
+  // -------------------------------------------------------
   for (const row of data) {
     const url = row[urlCol];
     if (!mapGroups[url]) mapGroups[url] = [];
     mapGroups[url].push(row);
   }
 
-  // Step 2: Count map wins/losses per team (once per team per map)
+  // -------------------------------------------------------
+  // Process maps
+  // -------------------------------------------------------
   for (const [url, rows] of Object.entries(mapGroups)) {
+
+    // === FIX: Parse gameDate (DD/MM/YYYY-safe)
+    const rawDate = rows[0][dateCol];
+    let gameDate;
+
+    if (rawDate instanceof Date) {
+      gameDate = rawDate;
+    } else {
+      // Convert "2025-12-07 20:06:11 +0000"
+      // to      "2025-12-07T20:06:11+00:00"
+      const iso = String(rawDate)
+        .replace(" ", "T")
+        .replace(/ ([+-]\d{2})(\d{2})$/, "$1:$2");
+
+      gameDate = new Date(iso);
+    }
+    
+    Logger.log({
+      gameDate,
+      playoffsStartDate,
+      isPlayoff: gameDate >= playoffsStartDate
+    });
+
+    const isPlayoff = gameDate >= playoffsStartDate;
+
     const gameId =
       rows[0][serverCol] +
       "|" +
@@ -557,168 +613,144 @@ function updateTeams() {
       "|" +
       String(rows[0][dateCol]).substring(0, 10);
 
-    const teamMapWon = {};
-
-    if (!gameMaps[gameId])
-      gameMaps[gameId] = { maps: [], mapDate: rows[0][dateCol] };
+    if (!gameMaps[gameId]) {
+      gameMaps[gameId] = {
+        maps: [],
+        mapDate: gameDate,
+        isPlayoff
+      };
+    }
 
     gameMaps[gameId].maps.push({
       mapName: rows[0][mapNameCol],
       mapUrl: rows[0][urlCol],
-      mapDate: rows[0][dateCol] // store map date for sorting
+      mapDate: gameDate
     });
 
-    for (const row of rows) {
-      const team = row[teamCol];
-      const mapWon = row[mapWonCol] == 1;
-      if (!teamMapWon.hasOwnProperty(team)) {
-        teamMapWon[team] = mapWon;
+    const teamMapWon = {};
+    rows.forEach(r => {
+      if (!teamMapWon.hasOwnProperty(r[teamCol])) {
+        teamMapWon[r[teamCol]] = r[mapWonCol] == 1;
+      }
+    });
+
+    // Only count standings for PRE-playoffs
+    if (!isPlayoff) {
+      for (const [team, won] of Object.entries(teamMapWon)) {
+        if (!teamStats[team]) {
+          teamStats[team] = { mapWins: 0, mapLosses: 0, gameWins: 0, gameLosses: 0 };
+        }
+        won ? teamStats[team].mapWins++ : teamStats[team].mapLosses++;
       }
     }
 
+    if (!gameToMapTeams[gameId]) gameToMapTeams[gameId] = {};
     for (const [team, won] of Object.entries(teamMapWon)) {
-      if (!teamStats[team]) {
-        teamStats[team] = {
-          mapWins: 0,
-          mapLosses: 0,
-          gameWins: 0,
-          gameLosses: 0
-        };
-      }
-      if (won) {
-        teamStats[team].mapWins += 1;
-      } else {
-        teamStats[team].mapLosses += 1;
-      }
-
-      if (!gameToMapTeams[gameId]) gameToMapTeams[gameId] = {};
       if (!gameToMapTeams[gameId][team]) gameToMapTeams[gameId][team] = 0;
-      if (won) gameToMapTeams[gameId][team] += 1;
+      if (won) gameToMapTeams[gameId][team]++;
     }
   }
 
-  // Step 3: Determine game wins/losses from map scores
-  for (const [gameId, teamScores] of Object.entries(gameToMapTeams)) {
-    const teams = Object.keys(teamScores);
-    if (teams.length !== 2) continue; // skip malformed games
-
-    const [teamA, teamB] = teams;
-    const scoreA = teamScores[teamA];
-    const scoreB = teamScores[teamB];
-
-    if (scoreA === scoreB) continue; // draw or error, skip
-
-    const winner = scoreA > scoreB ? teamA : teamB;
-    const loser = scoreA > scoreB ? teamB : teamA;
-
-    teamStats[winner].gameWins += 1;
-    teamStats[loser].gameLosses += 1;
-  }
-
-  // Step 4: Prepare sorted stats
-  const sortedTeams = Object.entries(teamStats)
-    .map(([team, stats]) => ({
-      teamTag: team,
-      teamName: teamNameLookup[team] || team,
-      ...stats,
-      diff: stats.mapWins - stats.mapLosses
-    }))
-    .sort((a, b) => {
-      if (b.diff !== a.diff) return b.diff - a.diff;
-      return b.gameWins - a.gameWins;
-    });
-
-  // Step 5: Write standings table
-  const standingsOutput = [["#", "Team", "Games", "Maps", "Diff"]];
-  sortedTeams.forEach((entry, index) => {
-    standingsOutput.push([
-      index + 1,
-      entry.teamName,
-      `${entry.gameWins}-${entry.gameLosses}`,
-      `${entry.mapWins}-${entry.mapLosses}`,
-      entry.diff
-    ]);
-  });
-
-  standingsSheet.clearContents();
-  standingsSheet
-    .getRange(1, 1, standingsOutput.length, standingsOutput[0].length)
-    .setNumberFormat("@STRING@")
-    .setValues(standingsOutput);
-
-  // ---------------------------------------------
-  // TeamGames with hyperlink maps (sorted by date, round)
-  // ---------------------------------------------
-  teamGamesSheet.clearContents();
-
-  const maxMaps = Math.max(...Object.values(gameMaps).map(g => g.maps.length));
-
-  const tgHeader = ["#", "Round", "Team A", "Score", "Team B"];
-  for (let i = 1; i <= maxMaps; i++) tgHeader.push("Map " + i);
-
-  const tgOutput = [tgHeader];
-  let gameIndex = 1;
-
-  // Sort games by mapDate
-  const sortedGameEntries = Object.entries(gameMaps).sort(
-    ([, a], [, b]) => new Date(a.mapDate) - new Date(b.mapDate)
-  );
-
-  for (const [gameId, gameData] of sortedGameEntries) {
-    let maps = gameData.maps;
-    const scores = gameToMapTeams[gameId];
-    if (!scores) continue;
+  // -------------------------------------------------------
+  // Game wins/losses (PRE-playoffs only)
+  // -------------------------------------------------------
+  for (const [gameId, scores] of Object.entries(gameToMapTeams)) {
+    if (gameMaps[gameId].isPlayoff) continue;
 
     const teams = Object.keys(scores);
     if (teams.length !== 2) continue;
 
-    const [teamA, teamB] = teams;
+    const [a, b] = teams;
+    if (scores[a] === scores[b]) continue;
 
-    // convert team tags → names
-    const fullA = teamNameLookup[teamA] || teamA;
-    const fullB = teamNameLookup[teamB] || teamB;
+    const winner = scores[a] > scores[b] ? a : b;
+    const loser = winner === a ? b : a;
 
-    // Sort maps by mapDate
-    maps.sort((a, b) => new Date(a.mapDate) - new Date(b.mapDate));
+    teamStats[winner].gameWins++;
+    teamStats[loser].gameLosses++;
+  }
 
-    const scoreStr = `${scores[teamA]}-${scores[teamB]}`;
+  // -------------------------------------------------------
+  // Write Standings (GROUP STAGE ONLY)
+  // -------------------------------------------------------
+  const sortedTeams = Object.entries(teamStats)
+    .map(([team, s]) => ({
+      teamName: teamNameLookup[team] || team,
+      ...s,
+      diff: s.mapWins - s.mapLosses
+    }))
+    .sort((a, b) => b.diff - a.diff || b.gameWins - a.gameWins);
 
-    // Determine round using team names
-    const nameA = String(fullA).trim().toLowerCase();
-    const nameB = String(fullB).trim().toLowerCase();
-    const round =
-      roundLookup[`${nameA}|${nameB}`] ??
-      roundLookup[`${nameB}|${nameA}`] ??
-      "";
+  const standingsOutput = [["#", "Team", "Games", "Maps", "Diff"]];
+  sortedTeams.forEach((t, i) =>
+    standingsOutput.push([
+      i + 1,
+      t.teamName,
+      `${t.gameWins}-${t.gameLosses}`,
+      `${t.mapWins}-${t.mapLosses}`,
+      t.diff > 0 ? `+${t.diff}` : String(t.diff)
+    ])
+  );
 
-    // Build each map as a hyperlink formula
-    const mapCells = maps.map(
-      m => `=HYPERLINK("${m.mapUrl}", "${m.mapName}")`
-    );
+  standingsSheet
+    .clearContents()
+    .getRange(1, 1, standingsOutput.length, standingsOutput[0].length).setNumberFormat("@STRING@")
+    .setValues(standingsOutput);
 
-    // Pad empty columns
-    while (mapCells.length < maxMaps) mapCells.push("");
+  // -------------------------------------------------------
+  // TeamGames + TeamGamesPlayoff (unchanged)
+  // -------------------------------------------------------
+  teamGamesSheet.clearContents();
+  teamGamesPlayoffSheet.clearContents();
 
-    tgOutput.push([
-      gameIndex++,
-      round,
+  const maxMaps = Math.max(...Object.values(gameMaps).map(g => g.maps.length));
+
+  const header = ["#", "Round", "TeamA", "MapsWonA", "Score", "TeamB", "MapsWonB", "AllMapsJSON"];
+
+  const tgOut = [header];
+  const tgPOOut = [header];
+
+  let i1 = 1, i2 = 1;
+
+  const sortedGames = Object.entries(gameMaps).sort((a, b) => a[1].mapDate - b[1].mapDate);
+
+  for (const [gameId, g] of sortedGames) {
+    const scores = gameToMapTeams[gameId];
+    if (!scores) continue;
+
+    const [tA, tB] = Object.keys(scores);
+    if (!tA || !tB) continue;
+
+    const fullA = teamNameLookup[tA] || tA;
+    const fullB = teamNameLookup[tB] || tB;
+
+    g.maps.sort((a, b) => a.mapDate - b.mapDate);
+
+    const allMapsJSON = JSON.stringify(
+      g.maps.map(m => {
+        let aFrags = 0, bFrags = 0;
+        mapGroups[m.mapUrl].forEach(r => {
+          if (r[teamCol] === tA) aFrags += Number(r[fragsCol]);
+          if (r[teamCol] === tB) bFrags += Number(r[fragsCol]);
+        });
+        return { mapName: m.mapName, teamAFrags: aFrags, teamBFrags: bFrags, gameUrl: m.mapUrl };
+      })
+    );  
+
+    const row = [
+      g.isPlayoff ? i2++ : i1++,
+      roundLookup[`${fullA.toLowerCase()}|${fullB.toLowerCase()}`] || "",
       fullA,
-      scoreStr,
+      scores[tA],
+      `${scores[tA]}-${scores[tB]}`,
       fullB,
-      ...mapCells
-    ]);
+      scores[tB],
+      allMapsJSON
+    ];
+
+    g.isPlayoff ? tgPOOut.push(row) : tgOut.push(row);
   }
 
-  // Write TeamGames sheet
-  teamGamesSheet
-    .getRange(1, 1, tgOutput.length, tgOutput[0].length)
-    .setValues(tgOutput);
-
-  // Optional: auto-resize
-  try {
-    teamGamesSheet.autoResizeColumns(1, 9);
-    standingsSheet.autoResizeColumns(1, 9);
-  } catch (e) {
-    // ignore
-  }
+  teamGamesSheet.getRange(1, 1, tgOut.length, tgOut[0].length).setNumberFormat("@STRING@").setValues(tgOut);
+  teamGamesPlayoffSheet.getRange(1, 1, tgPOOut.length, tgPOOut[0].length).setNumberFormat("@STRING@").setValues(tgPOOut);
 }
