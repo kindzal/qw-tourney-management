@@ -14,9 +14,10 @@ function doGet(e) {
   template.appTitle = CONFIG.appTitle; // inject app title
   template.defaultPage = CONFIG.defaultPage;
   template.logoUrl = CONFIG.logoUrl;
+  template.wikiUrl = CONFIG.wikiUrl;
     
   return template
-    .evaluate()
+    .evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setTitle(CONFIG.appTitle)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); 
 }
