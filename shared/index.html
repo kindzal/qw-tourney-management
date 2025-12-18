@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><?= appTitle ?></title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700|Droid+Sans+Mono|Roboto:500">
+
+<style>
+  body {
+    font-family: 'Open Sans', Arial, sans-serif;
+    margin: 20px;
+  }
+
+  nav button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+
+  section { display: none; margin-top: 20px; }
+  section.active { display: block; }
+
+  table {
+    border-collapse: collapse;
+    table-layout: auto;
+    margin-top: 10px;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+
+  th { background: #eee; }
+  .loading { color:#666; }
+
+  .app-header {
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:20px;
+  }
+
+  .app-logo {
+    max-height:112px;
+    max-width:201px;
+    object-fit:contain;
+  }
+
+  h1, h2, h3, .round-header {
+    font-family: 'Roboto', 'Open Sans', Arial, sans-serif;
+    font-weight: 500;
+  }
+
+  /* ======================
+     BRACKET (DESKTOP)
+     ====================== */
+
+  .bracket-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    margin-top: 20px;
+  }
+
+  .round-block {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .round-header {
+    font-size: 1.2em;
+    font-weight: bold;
+  }
+
+ .round-games {
+    display: flex;
+    gap: 40px;
+    align-items: stretch;
+    flex-wrap: nowrap;
+  }
+
+  .bracket-game {
+    width: 280px;
+    flex-shrink: 0; 
+  }
+
+  .bracket-match {
+    background:#fafafa;
+    border:1px solid #ccc;
+    padding:8px;
+    border-radius:4px;
+    position: relative;
+  }
+
+  .bracket-player {
+    display:flex;
+    justify-content:space-between;
+    gap: 8px;
+    padding:4px 6px;
+    word-break: break-word;
+  }
+
+  .bracket-player.winner {
+    font-weight:bold;
+    background:#e8f4e8;
+  }
+
+  .bracket-score {
+    font-family: 'Droid Sans Mono', monospace;
+    min-width: 24px;
+    text-align: right;
+  }
+
+  .info-icon {
+    display:block;
+    text-align:center;
+    cursor:pointer;
+    color:#0055aa;
+    margin: 4px 0;
+  }
+
+  .info-icon.disabled {
+    visibility: hidden;   /* keeps space */
+    pointer-events: none; /* no clicks */
+  }
+
+  /* ======================
+     POPUP
+     ====================== */
+
+  .bracket-popup-wrapper {
+    display:none;
+    position:absolute;
+    top:100%;
+    left:0;
+    margin-top:6px;
+    background:#fffefc;
+    border:1px solid #bbb;
+    border-radius:4px;
+    padding:8px;
+    z-index:100;
+    min-width:280px;
+    max-width:420px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-170%);
+  }
+
+  .bracket-popup-header {
+    display:flex;
+    justify-content:space-between;
+    font-weight:bold;
+    margin-bottom:6px;
+    gap: 8px;
+  }
+
+  .bracket-popup-body-match {
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom:4px;
+  }
+
+  .map-name {
+    flex-grow:1;
+    text-align:center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+
+  .app-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .app-header h1 {
+    margin: 0;
+  } 
+
+  .wiki-link {
+    display: inline-block;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #0055aa;
+    text-decoration: none;
+    border: 1px solid #cdddee;
+    border-radius: 4px;
+    background: #f7faff;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .wiki-link:hover {
+    background: #eaf2ff;
+    border-color: #99bbea;
+  }
+
+  /* ======================
+     MOBILE
+     ====================== */
+
+  @media (max-width: 768px) {   
+    
+    body { margin: 10px; font-size: 18px; /* base readable size */}
+
+    table {
+      display:block;
+      overflow-x:auto;
+    }
+
+    .round-games {
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Stack everything vertically */
+    .bracket-wrapper {
+      flex-direction: column;
+    }
+
+    /* Remove width constraints that block mobile */
+    .bracket-column,
+    .round-column,
+    .bracket-game,
+    .bracket-score,
+    .bracket-player {
+      min-width: 0 !important;
+      /* width: 100% !important;*/
+    }
+
+    /* Game cards full width */
+    .bracket-game {
+      width: 100%;
+    }
+
+    .bracket-popup-wrapper {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      z-index: 1000;
+    }
+
+    .bracket-popup-header {
+      flex-direction: column;
+      text-align: center;
+      font-size: 1.05rem;
+    }
+
+    /* Section headers */
+    h1 {
+      font-size: 1.6rem;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+    }
+
+    h3 {
+      font-size: 1.15rem;
+    }
+
+    /* Bracket headers (Round labels, Game headers) */
+    .bracket-header {
+      font-size: 1.3rem;
+    }
+
+    /* Team names + scores */
+    .bracket-player {
+      font-size: 1.15rem;
+    }
+
+    .bracket-score {
+      font-size: 1.25rem;
+    }
+
+    .bracket-popup-body-match {
+      font-size: 1rem;
+    }
+
+    /* Tables */
+    table th,
+    table td {
+      font-size: 0.90rem;
+    }
+
+    /* Navigation buttons */
+    nav button {
+      font-size: 1rem;
+    }
+    .wiki-link-wrapper {
+      text-align: left;
+    }
+
+    .wiki-link {
+      font-size: 1em;
+      padding: 8px 12px;
+    }
+
+    .app-header {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .app-logo {
+      align-self: flex-start;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="app-header">
+  <div class="app-header-left">
+    <h1><?= appTitle ?></h1>  
+    <? if (wikiUrl) { ?>
+      <div class="wiki-link-wrapper">
+        <a
+          href="<?= wikiUrl ?>"
+          target="_blank"
+          rel="noopener"
+          class="wiki-link"
+        >
+          Wiki page
+        </a>
+      </div>
+    <? } ?>
+  </div>
+  <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
+</header>
+
+<nav>
+  <button data-target="standings">Standings</button>
+  <button data-target="teams">Teams</button>
+  <button data-target="players">Players Ranking</button>
+</nav>
+
+<section id="standings">
+  <h2>Standings</h2>
+  <div id="standings-output" class="loading">Loading…</div>
+  <div id="team-games-output" class="loading">Loading…</div>
+</section>
+
+<section id="teams">
+  <h2>Teams</h2>
+  <div id="teams-output" class="loading">Loading…</div>
+</section>
+
+<section id="players">
+  <h2>Players</h2>
+  <div id="players-output" class="loading">Loading…</div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  const baseUrl="<?= baseUrl ?>";
+  const defaultPage="<?= defaultPage ?>";
+
+  /* NAV */
+  document.querySelectorAll("nav button").forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+      document.getElementById(b.dataset.target).classList.add("active");
+    };
+  });
+  document.getElementById(defaultPage).classList.add("active");
+
+  /* TABLES */
+  const PERCENT_COLUMNS=["Win Rate","Avg Eff","Avg SG","Avg LG"];
+
+  function formatCell(h,v){
+    if(PERCENT_COLUMNS.includes(h)){
+      if(v==null||v==="") return "";
+      if(typeof v==="string" && v.includes("%")) return v;
+      const n=Number(v);
+      return isNaN(n) ? v : ((n<=1?n*100:n).toFixed(0)+"%");
+    }
+    return v;
+  }
+
+  function renderTable(id,data){
+    const c=document.getElementById(id);
+    c.innerHTML="";
+    if(!data?.length){ c.textContent="No data."; return; }
+    const t=document.createElement("table");
+    const h=Object.keys(data[0]);
+    t.innerHTML="<thead><tr>"+h.map(x=>`<th>${x}</th>`).join("")+"</tr></thead>";
+    const tb=document.createElement("tbody");
+    data.forEach(r=>{
+      const tr=document.createElement("tr");
+      h.forEach(k=>{
+        const td=document.createElement("td");
+        td.textContent=formatCell(k,r[k]);
+        if(!["Team","Player","Players"].includes(k)) td.style.textAlign="center";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    c.appendChild(t);
+  }
+
+  fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTable("teams-output",d));
+  fetch(baseUrl+"?endpoint=players").then(r=>r.json()).then(d=>renderTable("players-output",d));
+  fetch(baseUrl+"?endpoint=standings").then(r=>r.json()).then(d=>renderTable("standings-output",d));
+
+  /* BRACKET */
+  const out=document.getElementById("team-games-output");
+
+  fetch(baseUrl+"?endpoint=games").then(r=>r.json()).then(data=>{
+    out.innerHTML="";
+    if(!data?.length){ out.textContent="No matches."; return; }
+
+    const rounds={};
+    data.forEach(g=>(rounds[g.round||"1"]??=[]).push(g));
+
+    const wrapper=document.createElement("div");
+    wrapper.className="bracket-wrapper";
+
+    let openPopup=null;
+
+    Object.keys(rounds).forEach(round=>{
+      const rb=document.createElement("div");
+      rb.className="round-block";
+
+      rb.innerHTML=`<div class="round-header">Round ${round}</div>`;
+      const games=document.createElement("div");
+      games.className="round-games";
+
+      rounds[round].forEach(g=>{
+        const card=document.createElement("div");
+        card.className="bracket-game";
+
+        const match=document.createElement("div");
+        match.className="bracket-match";
+
+        const a=document.createElement("div");
+        a.className="bracket-player"+(g.mapsWonA>g.mapsWonB?" winner":"");
+        a.innerHTML=`<span>${g.teamA}</span><span class="bracket-score">${g.mapsWonA}</span>`;
+
+        const b=document.createElement("div");
+        b.className="bracket-player"+(g.mapsWonB>g.mapsWonA?" winner":"");
+        b.innerHTML=`<span>${g.teamB}</span><span class="bracket-score">${g.mapsWonB}</span>`;
+
+        const info=document.createElement("span");
+        if (g.played) {
+          info.className = "info-icon";
+          info.textContent = "ℹ️";
+        } else {
+          info.className = "info-icon disabled";
+          info.textContent = "ℹ️"; // keep height
+        }
+
+        const popup=document.createElement("div");
+        popup.className="bracket-popup-wrapper";
+        popup.innerHTML=`<div class="bracket-popup-header"><div>${g.teamA}</div><div>${g.teamB}</div></div>`;
+
+        g.maps?.forEach(m=>{
+          popup.innerHTML+=`
+            <div class="bracket-popup-body-match">
+              <span class="bracket-score" style="font-weight:${m.teamAFrags>m.teamBFrags?'bold':'normal'}">${m.teamAFrags}</span>
+              <a class="map-name" href="${m.gameUrl}" target="_blank">${m.mapName}</a>
+              <span class="bracket-score" style="font-weight:${m.teamBFrags>m.teamAFrags?'bold':'normal'}">${m.teamBFrags}</span>
+            </div>`;
+        });
+
+        if (g.played) {
+          info.onclick=e=>{
+            e.stopPropagation();
+            if(openPopup && openPopup!==popup) openPopup.style.display="none";
+            popup.style.display=popup.style.display==="block"?"none":"block";
+            openPopup=popup.style.display==="block"?popup:null;
+          };
+        }
+
+        match.append(a,info,b,popup);
+        card.appendChild(match);
+        games.appendChild(card);
+      });
+
+      rb.appendChild(games);
+      wrapper.appendChild(rb);
+    });
+
+    document.addEventListener("click",()=>{ if(openPopup) openPopup.style.display="none"; openPopup=null; });
+    out.appendChild(wrapper);
+  });
+});
+</script>
+
+</body>
+</html>
