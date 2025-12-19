@@ -183,6 +183,19 @@
     text-align: right;
   }
 
+  .bracket-match.unplayed {
+    background: #fff4f4;        /* soft red */
+    border-color: #e3b6b6;
+  }
+
+  .bracket-match.unplayed .bracket-player {
+    opacity: 0.75;
+  }
+
+  .bracket-match.unplayed .bracket-score {
+    font-weight: normal;
+  }
+
   .info-icon {
     display:block;
     text-align:center;
@@ -612,6 +625,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           info.className = "info-icon disabled";
           info.textContent = "ℹ️"; // keep height
+          match.classList.add("unplayed");          
         }
 
         const popup=document.createElement("div");
