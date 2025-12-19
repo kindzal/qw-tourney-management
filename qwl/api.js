@@ -34,10 +34,38 @@ function getPlayers() {
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
 
-  return values.map(r => {
-    const obj = Object.fromEntries(headers.map((h,i)=>[h,r[i]]));
-    delete obj["Game Nicks"];
-    return obj;
+  const PRIORITY_ORDER = ["Rank", "Player", "Avg Frags", "Win Rate", "Avg Eff", "Avg SG", "Avg LG", "Avg RL Killed"];
+  const EXCLUDE = ["Game Nicks", "Team"];
+
+  return values.map(row => {
+    const rowObj = Object.fromEntries(
+      headers.map((h, i) => [h, row[i]])
+    );
+
+    // Remove excluded columns
+    EXCLUDE.forEach(col => delete rowObj[col]);
+
+    const ordered = {};
+
+    // Add priority columns first (if they exist)
+    PRIORITY_ORDER.forEach(col => {
+      if (col in rowObj) {
+        ordered[col] = rowObj[col];
+      }
+    });
+
+    // Add remaining columns in original sheet order
+    headers.forEach(h => {
+      if (
+        !(h in ordered) &&
+        h in rowObj &&
+        !EXCLUDE.includes(h)
+      ) {
+        ordered[h] = rowObj[h];
+      }
+    });
+
+    return ordered;
   });
 }
 

@@ -13,10 +13,39 @@
     margin: 20px;
   }
 
-  nav button {
-    margin-right: 10px;
-    padding: 8px 12px;
-    cursor: pointer;
+  /* Rank column emphasis */  
+  #players-output table th:first-child,
+  #players-output table td:first-child {
+    /* background-color: #eef3ff; */
+    font-weight: 1000;
+    text-align: center;
+    border-right: 2px solid #c3d4f5;
+  }
+
+  #players-output table tbody tr:nth-child(1) td:first-child {
+    color: #b8860b; /* gold */
+  }
+
+  #players-output table tbody tr:nth-child(2) td:first-child {
+    color: #6b7280; /* silver */
+  }
+
+  #players-output table tbody tr:nth-child(3) td:first-child {
+    color: #a16207; /* bronze */
+  }
+
+  /* Zebra striping for all tables */
+  table tbody tr:nth-child(even) {
+    background-color: #f1f4f9;
+  }
+
+  table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+  }
+
+  /* Optional: subtle hover */
+  table tbody tr:hover {
+    background-color: #eef3ff;
   }
 
   section { display: none; margin-top: 20px; }
@@ -26,9 +55,21 @@
     border-collapse: collapse;
     table-layout: auto;
     margin-top: 10px;
+    width: max-content;
+    max-width: 100%;
+  }  
+  
+  table th {
+    white-space: normal;     /* allow wrapping */
+    line-height: 1.2;
   }
 
-  th, td {
+  th {
+    border: 1px solid #ccc;
+    padding: 6px 10px;  
+  }
+  
+  td {
     border: 1px solid #ccc;
     padding: 6px 10px;
     white-space: nowrap;
@@ -36,6 +77,33 @@
 
   th { background: #eee; }
   .loading { color:#666; }
+
+  .app-nav {
+    margin-bottom: 16px;
+  }
+
+  .app-nav button {
+    background: #f4f6f8;
+    color: #333;
+    border: 1px solid #c9ced6;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-family: 'Roboto', 'Open Sans', Arial, sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .app-nav button:hover {
+    background: #e9edf2;
+    border-color: #b3bac4;
+  }
+
+  .app-nav button.active {
+    background: #e8f4e8;
+    border-color: #7db57d;
+    color: #1f5f1f;
+  }
 
   .app-header {
     display:flex;
@@ -322,6 +390,42 @@
     .app-logo {
       align-self: flex-start;
     }
+    table tbody tr:nth-child(even) {
+      background-color: #f1f4f9;
+    }
+
+    /* Hide columns after the 10th by default */
+    #players-output table:not(.show-all-cols) th:nth-child(n+9),
+    #players-output table:not(.show-all-cols) td:nth-child(n+9) {
+      display: none;
+    }
+
+    /* When expanded */
+    #players-output table.show-all-cols th,
+    #players-output table.show-all-cols td {
+      display: table-cell;
+    }
+
+    .players-toggle {
+      display: block;
+      margin: 8px 0 4px;
+      font-size: 0.95em;
+      font-weight: 600;
+      color: #0055aa;
+      background: none;
+      border: none;
+      padding: 6px 0;
+      cursor: pointer;
+    }
+
+    .app-nav {
+      gap: 6px;
+    }
+
+    .app-nav button {
+      font-size: 1em;
+      padding: 8px 14px;
+    }
   }
 </style>
 </head>
@@ -339,7 +443,7 @@
           rel="noopener"
           class="wiki-link"
         >
-          Wiki page
+          📖 Wiki
         </a>
       </div>
     <? } ?>
@@ -347,10 +451,10 @@
   <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
 </header>
 
-<nav>
-  <button data-target="standings">Standings</button>
-  <button data-target="teams">Teams</button>
-  <button data-target="players">Players Ranking</button>
+<nav class="app-nav">
+  <button data-target="standings">🏆 Standings</button>
+  <button data-target="teams">👥 Teams</button>
+  <button data-target="players">🎯 Ranking</button>
 </nav>
 
 <section id="standings">
@@ -365,7 +469,7 @@
 </section>
 
 <section id="players">
-  <h2>Players</h2>
+  <h2>Players Ranking</h2>
   <div id="players-output" class="loading">Loading…</div>
 </section>
 
@@ -376,13 +480,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const defaultPage="<?= defaultPage ?>";
 
   /* NAV */
-  document.querySelectorAll("nav button").forEach(b=>{
-    b.onclick=()=>{
-      document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
-      document.getElementById(b.dataset.target).classList.add("active");
+  document.querySelectorAll(".app-nav button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(btn.dataset.target).classList.add("active");
+
+      document.querySelectorAll(".app-nav button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
     };
   });
-  document.getElementById(defaultPage).classList.add("active");
+
+  document.querySelector(`.app-nav button[data-target="${defaultPage}"]`)
+    ?.classList.add("active");
+
+  const defaultButton = document.querySelector(
+    `.app-nav button[data-target="${defaultPage}"]`
+  );
+
+  if (defaultButton) {
+    defaultButton.click();
+  }
 
   /* TABLES */
   const PERCENT_COLUMNS=["Win Rate","Avg Eff","Avg SG","Avg LG"];
@@ -420,7 +537,34 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTable("teams-output",d));
-  fetch(baseUrl+"?endpoint=players").then(r=>r.json()).then(d=>renderTable("players-output",d));
+  fetch(baseUrl+"?endpoint=players")
+  .then(r => r.json())
+  .then(data => {
+    renderTable("players-output", data);
+
+    // Mobile-only toggle
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      const container = document.getElementById("players-output");
+      const table = container.querySelector("table");
+      if (!table) return;
+
+      const btn = document.createElement("button");
+      btn.className = "players-toggle";
+      btn.textContent = "Show more stats";
+
+      btn.onclick = () => {
+        const expanded = table.classList.toggle("show-all-cols");
+        btn.textContent = expanded ? "Show fewer stats" : "Show more stats";
+      };
+
+      container.insertBefore(btn, table);
+    }
+  })
+  .catch(e => {
+    document.getElementById("players-output").textContent =
+      "Error loading players: " + e;
+  });
+
   fetch(baseUrl+"?endpoint=standings").then(r=>r.json()).then(d=>renderTable("standings-output",d));
 
   /* BRACKET */
