@@ -103,18 +103,48 @@
     background: #e8f4e8;
     border-color: #7db57d;
     color: #1f5f1f;
-  }
-
-  .app-header {
-    display:flex;
-    justify-content:space-between;
-    margin-bottom:20px;
-  }
+  } 
 
   .app-logo {
     max-height:112px;
     max-width:201px;
-    object-fit:contain;
+    object-fit:contain; 
+  }
+
+  .app-header {
+    display: flex;    
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;  
+    margin-bottom: 20px;
+  }
+
+  .app-header-sub {
+    display: flex;
+    align-items: center;
+    gap: 10px;                
+  }
+
+  .app-header h1 {
+    margin: 0;
+  } 
+
+  .wiki-link {
+    display: inline-block;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #0055aa;
+    text-decoration: none;
+    border: 1px solid #cdddee;
+    border-radius: 4px;
+    background: #f7faff;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .wiki-link:hover {
+    background: #eaf2ff;
+    border-color: #99bbea;
   }
 
   h1, h2, h3, .round-header {
@@ -254,42 +284,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  .app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-  }
-
-  .app-header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .app-header h1 {
-    margin: 0;
-  } 
-
-  .wiki-link {
-    display: inline-block;
-    padding: 6px 12px;
-    font-size: 0.9em;
-    font-weight: 600;
-    color: #0055aa;
-    text-decoration: none;
-    border: 1px solid #cdddee;
-    border-radius: 4px;
-    background: #f7faff;
-    transition: background 0.15s ease, border-color 0.15s ease;
-  }
-
-  .wiki-link:hover {
-    background: #eaf2ff;
-    border-color: #99bbea;
-  }
-
+  
   /* ======================
      MOBILE
      ====================== */
@@ -394,15 +389,16 @@
       font-size: 1em;
       padding: 8px 12px;
     }
-
-    .app-header {
-      flex-direction: column;
-      gap: 12px;
+    
+    .app-nav {
+      gap: 6px;
     }
 
-    .app-logo {
-      align-self: flex-start;
+    .app-nav button {
+      font-size: 1em;
+      padding: 8px 14px;
     }
+   
     table tbody tr:nth-child(even) {
       background-color: #f1f4f9;
     }
@@ -429,27 +425,19 @@
       border: none;
       padding: 6px 0;
       cursor: pointer;
-    }
-
-    .app-nav {
-      gap: 6px;
-    }
-
-    .app-nav button {
-      font-size: 1em;
-      padding: 8px 14px;
-    }
+    }    
   }
 </style>
 </head>
 
 <body>
 
-<header class="app-header">
-  <div class="app-header-left">
-    <h1><?= appTitle ?></h1>  
+<header class="app-header">  
+  <h1 class="app-title"><?= appTitle ?></h1>  
+  <div class="app-header-sub">
+    <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
     <? if (wikiUrl) { ?>
-      <div class="wiki-link-wrapper">
+      
         <a
           href="<?= wikiUrl ?>"
           target="_blank"
@@ -458,10 +446,9 @@
         >
           📖 Wiki
         </a>
-      </div>
-    <? } ?>
+      
+    <? } ?>      
   </div>
-  <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
 </header>
 
 <nav class="app-nav">

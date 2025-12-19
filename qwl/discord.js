@@ -1,11 +1,44 @@
 function postToDiscord(mode = 'post') {
-  const ui = SpreadsheetApp.getUi();
+  const ui = SpreadsheetApp.getUi(); 
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
 
   // --- Get Round Number from Discord Sheet ---
   const discordSheet = sheet.getSheetByName('Discord');
   const roundNumber = discordSheet.getRange('B1').getValue();   
     
+  // --- Get Players Sheet Data ---
+  const playersSheet = sheet.getSheetByName('Players');
+  const dataRange = playersSheet.getDataRange().getValues();
+
+  // --- Map of Team Codes to Team Names & Emojis ---
+  const teamMap = {
+    'TEAM1': { name: 'Team1', emoji: 'T1️⃣', color: 4 },
+    'TEAM2': { name: 'Team2', emoji: 'T2️⃣', color: 13 },
+    'VIOLET': { name: 'Violet', emoji: '🟣', color: 9 },
+    'MINT': { name: 'Mint', emoji: '🌿', color: 11 },
+    'YELLOW': { name: 'Yellow', emoji: '🟡', color: 12 },
+    'GREEN': { name: 'Green', emoji: '🟢', color: 3 },
+    'BROWN': { name: 'Brown', emoji: '🟤', color: 1 },
+    'PINK': { name: 'Pink', emoji: '🌸', color: 6 },
+    'SKYBLUE': { name: 'Skyblue', emoji: '🔵', color: 2 },
+    'ORANGE': { name: 'Orange', emoji: '🟠', color: 5 } // Add Team Orange if missing
+  };
+
+  // --- Prepare Teams and Players Mapping ---
+  const teamsPlayers = {};
+
+  for (let i = 1; i < dataRange.length; i++) { // Skip header
+    const teamCode = dataRange[i][0].toUpperCase();
+    const playerName = dataRange[i][2];
+
+    if (teamMap[teamCode]) {
+      if (!teamsPlayers[teamCode]) {
+        teamsPlayers[teamCode] = [];
+      }
+      teamsPlayers[teamCode].push(playerName);
+    }
+  }
+  
   // --- Fetch Schedule Sheet Data ---
   const scheduleSheet = sheet.getSheetByName('Schedule');
   const scheduleConfigSheet = sheet.getSheetByName('ScheduleConfig');
@@ -25,9 +58,19 @@ function postToDiscord(mode = 'post') {
 
   const mapList = roundConfigRow[1]; // Column B (index 1)
   const deadline = roundConfigRow[2]; // Column C (index 2)
-  
+  //const formattedDeadline = Utilities.formatDate(deadline, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
   // --- Fetch Opponents from Schedule (A:C) ---
-  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);  
+  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);
+
+  const opponents = {};
+  roundSchedule.forEach(row => {
+    const team1 = row[1].toUpperCase();
+    const team2 = row[2].toUpperCase();
+    opponents[team1] = team2;
+    opponents[team2] = team1;
+  });  
+  
   const numberEmojis = {
     0: 'round 0️⃣',
     1: 'round 1️⃣',
@@ -52,68 +95,55 @@ function postToDiscord(mode = 'post') {
     'Bronze B' : 'the Bronze B Match! 🥉',
   };
   
-  var playoffs = false;
-  if (['Quarterfinals', 'Semifinals', 'Semifinals A', 'Semifinals B', 'Final', 'Final A', 'Final B', 'Bronze', 'Bronze A', 'Bronze B'].includes(roundNumber)) playoffs = true;
-
+  // --- Prepare Message ---
   const roundEmoji = numberEmojis[roundNumber] || roundNumber;
   
-  const opponents = {};
-  roundSchedule.forEach(row => {
-      const team1 = row[1];
-      const team2 = row[2];
-      opponents[team1] = team2;
-      opponents[team2] = team1;
-    });
-
-   // --- BUILD MATCH MESSAGE ---
-   let matchLines = [];
-   const alreadyListed = new Set();
-
-   for (const team in opponents) {
-      if (alreadyListed.has(team)) continue;
-
-      const opp = opponents[team];
-      matchLines.push(`• **${team}** vs **${opp}**`);
-      alreadyListed.add(team);
-      alreadyListed.add(opp);
-   }
+  //let message = `@everyone\n\n**This is ${roundEmoji}**\n\n`;
+  let message = `**This is ${roundEmoji}**\n\n`;
+  var playoffs = false;
   
-  let message = `@everyone\n\n**This is ${roundEmoji}**\n\n`;
+  if (['Quarterfinals', 'Semifinals', 'Semifinals A', 'Semifinals B', 'Final', 'Final A', 'Final B', 'Bronze', 'Bronze A', 'Bronze B'].includes(roundNumber)) {
+    playoffs = true;
+    message += `**📢 Upcoming Playoff Matches This Week!**\n\n`;
 
-  if (playoffs) {           
+    var playoffInstructions = 
+      `**🏆 Playoff Match Procedure:**  
+      Playoff is BO5 (Best of 5), first to win 3 maps wins. A map can only be played once.  
 
-    message += `**📢 Upcoming Playoff Matches**\n\n${matchLines.join("\n")}\n\n`;  
-    
-    var gameProcedureInstructions = 
-      `**🏆 Playoff Match Procedure**  
-      BO5 (Best of 5) - first to win 3 maps wins.
-
-      1️⃣ Do /rnd who to toss first.  
-      2️⃣ Then: Team1 toss first, Team2 pick first. Team who lost the map picks next`;
-  
-  } else {    
-    
-    message += `**📢 Upcoming Group Stage Matches**\n\n${matchLines.join("\n")}\n\n`;  
-    
-    var gameProcedureInstructions = 
-      `**🎾 Group Stage Match Procedure:**  
-      GO3 (Game of 3) - 3 maps to be played.  
-
-      1️⃣ Do /rnd who to toss first.  
-      2️⃣ Then: Team1 toss first, Team2 pick first. Map 3: Do RND who toss first`;    
-
+      1️⃣ Do \`cmd rnd (team1 team2)\` to decide who picks the first map.  
+      2️⃣ Each team gets 2 picks each.  
+      3️⃣ If a team is down 0-2 in maps, they pick the 3rd map.  
+      4️⃣ If it's 1-2 after the 3rd map, the other team picks the 4th map.  
+      5️⃣ If it becomes 2-2, do \`cmd rnd (map1 map2)\` to decide the 5th map — unless both teams agree on the decider map.`;
+      
+  } else {
+    //message += `**📢 Upcoming Teams This Week!**\n\n`;
+    message += `**📢 Upcoming Game!**\n\n`;
   }
   
-  message += `**Maps:** ${mapList}\n\n`;
-  if (deadline) message += `**Deadline:** ${deadline}\n\n`;
-  
-  message += `\`\`\`diff\n- Please make sure when reporting results you include hub game links (URLs) in your report!\n\`\`\`\n\n`;
-  message += `\`\`\`diff\n- Also please use consistent /team tags in your games so the matching works correctly!\n\`\`\`\n\n`;
-   
-  
-  message += `${gameProcedureInstructions}\n\n`;    
+  const sortedTeamCodes = Object.keys(teamsPlayers).sort();
 
+  sortedTeamCodes.forEach(code => {
+    const { name, emoji, color } = teamMap[code];
+    const playersList = teamsPlayers[code].join(', ');
+
+    const opponentCode = opponents[name.toUpperCase()];
+
+    if (opponentCode) {
+      const opponentName = opponentCode.charAt(0).toUpperCase() + opponentCode.slice(1).toLowerCase();
+      message += `${emoji} **${name}** /color ${color}\nPlayers: ${playersList}\nOpponent: ${opponentName}\n\n`;
+    } else {
+      //message += `${emoji} **${name}** /color ${color}\nPlayers: ${playersList}\nOpponent: Not found\n\n`;
+    }
+  });
+
+  message += `**Maps:** ${mapList}\n\n**Date:** ${deadline}\n\n`;
+  //message += `\`\`\`diff\n- Use your team's channel to get your team mates availability and start arranging games with your opponent!\n\`\`\`\n\n`;  
+  message += `\`\`\`diff\n- When reporting games please include hub game links (URLs) in your report!\n\`\`\`\n\n`;
+  
   if (playoffs) {    
+    message += `${playoffInstructions}\n\n`;
+    message += `❗ Remember: ** Teams stay fixed during playoffs.**\n\n`;
     message += `[Playoff tree](${playOffTreeURL})\n\n`;
   }
   
