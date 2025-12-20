@@ -501,7 +501,8 @@ function updateTeams() {
   // -------------------------------------------------------
   // Read OtherConfig (key -> value)
   // -------------------------------------------------------
-  const configData = otherConfigSheet.getDataRange().getValues();
+  const lastRow = otherConfigSheet.getLastRow();
+  const configData = otherConfigSheet.getRange(2, 1, lastRow - 1, 2).getValues();
   const config = {};
   configData.forEach(([key, value]) => {
     if (key) config[String(key).trim()] = value;

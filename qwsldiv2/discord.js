@@ -1,20 +1,42 @@
 function postToDiscord(mode = 'post') {
   const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
-
-  // --- Get Round Number from Discord Sheet ---
+  
   const discordSheet = sheet.getSheetByName('Discord');
-  const roundNumber = discordSheet.getRange('B1').getValue();   
-    
+      
   // --- Fetch Schedule Sheet Data ---
   const scheduleSheet = sheet.getSheetByName('Schedule');
   const scheduleConfigSheet = sheet.getSheetByName('ScheduleConfig');
   const scheduleData = scheduleSheet.getDataRange().getValues();
   const scheduleConfigData = scheduleConfigSheet.getDataRange().getValues();
-  const playOffTreeURL = discordSheet.getRange('C2').getValue();
-  const rankingURL = discordSheet.getRange('C4').getValue();
-  const webhookUrl = discordSheet.getRange('C6').getValue();
+  
+  // -------------------------------------------------------
+  // Read Discord Config (key -> value)
+  // -------------------------------------------------------
+  const lastRow = discordSheet.getLastRow();
+  const configData = discordSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  const config = {};
+  configData.forEach(([key, value]) => {
+    if (key) config[String(key).trim()] = value;
+  });
 
+  const roundNumber = config["Round"];
+  if (!roundNumber) {
+    throw new Error("Missing 'Round' in Discor config");
+  }
+
+  const playOffTreeURL = config["Playoff tree"];
+  
+  const rankingURL = config["Web App deployment URL"];
+  if (!rankingURL) {
+    throw new Error("Missing 'Web App deployment URL' in Discor config");
+  }
+
+  const webhookUrl = config["Discord web hook"];
+  if (!webhookUrl) {
+    throw new Error("Missing 'Discord web hook' in Discor config");
+  }
+  
   // --- Fetch Maps and Deadline from Schedule Config ---
   const roundConfigRow = scheduleConfigData.slice(1).find(row => row[0] == roundNumber);
 
@@ -65,59 +87,76 @@ function postToDiscord(mode = 'post') {
       opponents[team2] = team1;
     });
 
-   // --- BUILD MATCH MESSAGE ---
-   let matchLines = [];
-   const alreadyListed = new Set();
-
-   for (const team in opponents) {
-      if (alreadyListed.has(team)) continue;
-
-      const opp = opponents[team];
-      matchLines.push(`• **${team}** vs **${opp}**`);
-      alreadyListed.add(team);
-      alreadyListed.add(opp);
-   }
+  // --- BUILD MATCH MESSAGE ---
+  let matchLines = [];
+  const alreadyListed = new Set();
   
-  let message = `@everyone\n\n**This is ${roundEmoji}**\n\n`;
+  const teamsSheet = sheet.getSheetByName('Teams');
+  const lastTeamsRow = teamsSheet.getLastRow();
+  const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 2).getValues();
+  const teams = {};
+  teamsData.forEach(([key, value]) => {
+    if (key) teams[String(key).trim()] = value;
+  });
+   
+  for (const team in opponents) {
+    if (alreadyListed.has(team)) continue;
+
+    const opp = opponents[team];
+    if (config["Include players list"] == 'Yes') {
+      matchLines.push(`**${team}** (${teams[team]})\n    vs\n**${opp}** (${teams[opp]})\n`);
+    } else {
+      matchLines.push(`• **${team}** vs **${opp}**`);
+    }
+    
+    alreadyListed.add(team);
+    alreadyListed.add(opp);
+  }
+  
+  let message = '';
+
+  if (config["Everyone spam"] == 'Yes')
+    message += '@everyone\n\n';
+  
+  message += `**This is ${roundEmoji}**\n\n`;
 
   if (playoffs) {           
 
-    message += `**📢 Upcoming Playoff Matches**\n\n${matchLines.join("\n")}\n\n`;  
+    message += (config["Playoff msg"]);
+    message += `\n\n${matchLines.join("\n")}\n\n`;      
     
-    var gameProcedureInstructions = 
-      `**🏆 Playoff Match Procedure**  
-      BO5 (Best of 5) - first to win 3 maps wins.
-
-      1️⃣ Do /rnd who to toss first.  
-      2️⃣ Then: Team1 toss first, Team2 pick first. Team who lost the map picks next`;
-  
+    if (config["Playoff match procedure"]) {
+      message += `**🏆 Playoff Match Procedure**\n`;  
+      message += config["Playoff match procedure"];
+    }      
   } else {    
     
-    message += `**📢 Upcoming Group Stage Matches**\n\n${matchLines.join("\n")}\n\n`;  
+    message += (config["Group stage msg"]);
+    message += `\n\n${matchLines.join("\n")}\n\n`;      
     
-    var gameProcedureInstructions = 
-      `**🎾 Group Stage Match Procedure:**  
-      GO3 (Game of 3) - 3 maps to be played.  
-
-      1️⃣ Do /rnd who to toss first.  
-      2️⃣ Then: Team1 toss first, Team2 pick first. Map 3: Do RND who toss first`;    
-
+    if (config["Group match procedure"]) {
+      message += `**🎾 Group Stage Match Procedure**\n`;  
+      message += config["Group match procedure"];
+    }    
   }
-  
+  message += `\n\n`;  
   message += `**Maps:** ${mapList}\n\n`;
-  if (deadline) message += `**Deadline:** ${deadline}\n\n`;
+  if (deadline) message += `${config["Deadline msg"]} ${deadline}\n\n`;
   
-  message += `\`\`\`diff\n- Please make sure when reporting results you include hub game links (URLs) in your report!\n\`\`\`\n\n`;
-  message += `\`\`\`diff\n- Also please use consistent /team tags in your games so the matching works correctly!\n\`\`\`\n\n`;
-   
-  
-  message += `${gameProcedureInstructions}\n\n`;    
+  if (config["Reporting prompt"])
+    message += `\`\`\`diff\n- ${config["Reporting prompt"]}\n\`\`\`\n`;
 
-  if (playoffs) {    
+  if (config["Scheduling prompt"])
+    message += `\`\`\`diff\n- ${config["Scheduling prompt"]}\n\`\`\`\n`;
+
+  if (config["Team tags prompt"])
+    message += `\`\`\`diff\n- ${config["Team tags prompt"]}\n\`\`\`\n`;
+
+  if (playoffs && playOffTreeURL) {    
     message += `[Playoff tree](${playOffTreeURL})\n\n`;
   }
   
-  message += `[Current Standings & Player Ranking](${rankingURL})\n\n`;
+  message += `[${config["Ranking title"]}](${rankingURL})\n\n`;
   message += `GL HF! 🎮`;
 
   // --- Preview Mode ---

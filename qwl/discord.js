@@ -1,53 +1,42 @@
 function postToDiscord(mode = 'post') {
-  const ui = SpreadsheetApp.getUi(); 
+  const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
-
-  // --- Get Round Number from Discord Sheet ---
-  const discordSheet = sheet.getSheetByName('Discord');
-  const roundNumber = discordSheet.getRange('B1').getValue();   
-    
-  // --- Get Players Sheet Data ---
-  const playersSheet = sheet.getSheetByName('Players');
-  const dataRange = playersSheet.getDataRange().getValues();
-
-  // --- Map of Team Codes to Team Names & Emojis ---
-  const teamMap = {
-    'TEAM1': { name: 'Team1', emoji: 'T1️⃣', color: 4 },
-    'TEAM2': { name: 'Team2', emoji: 'T2️⃣', color: 13 },
-    'VIOLET': { name: 'Violet', emoji: '🟣', color: 9 },
-    'MINT': { name: 'Mint', emoji: '🌿', color: 11 },
-    'YELLOW': { name: 'Yellow', emoji: '🟡', color: 12 },
-    'GREEN': { name: 'Green', emoji: '🟢', color: 3 },
-    'BROWN': { name: 'Brown', emoji: '🟤', color: 1 },
-    'PINK': { name: 'Pink', emoji: '🌸', color: 6 },
-    'SKYBLUE': { name: 'Skyblue', emoji: '🔵', color: 2 },
-    'ORANGE': { name: 'Orange', emoji: '🟠', color: 5 } // Add Team Orange if missing
-  };
-
-  // --- Prepare Teams and Players Mapping ---
-  const teamsPlayers = {};
-
-  for (let i = 1; i < dataRange.length; i++) { // Skip header
-    const teamCode = dataRange[i][0].toUpperCase();
-    const playerName = dataRange[i][2];
-
-    if (teamMap[teamCode]) {
-      if (!teamsPlayers[teamCode]) {
-        teamsPlayers[teamCode] = [];
-      }
-      teamsPlayers[teamCode].push(playerName);
-    }
-  }
   
+  const discordSheet = sheet.getSheetByName('Discord');
+      
   // --- Fetch Schedule Sheet Data ---
   const scheduleSheet = sheet.getSheetByName('Schedule');
   const scheduleConfigSheet = sheet.getSheetByName('ScheduleConfig');
   const scheduleData = scheduleSheet.getDataRange().getValues();
   const scheduleConfigData = scheduleConfigSheet.getDataRange().getValues();
-  const playOffTreeURL = discordSheet.getRange('C2').getValue();
-  const rankingURL = discordSheet.getRange('C4').getValue();
-  const webhookUrl = discordSheet.getRange('C6').getValue();
+  
+  // -------------------------------------------------------
+  // Read Discord Config (key -> value)
+  // -------------------------------------------------------
+  const lastRow = discordSheet.getLastRow();
+  const configData = discordSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  const config = {};
+  configData.forEach(([key, value]) => {
+    if (key) config[String(key).trim()] = value;
+  });
 
+  const roundNumber = config["Round"];
+  if (!roundNumber) {
+    throw new Error("Missing 'Round' in Discor config");
+  }
+
+  const playOffTreeURL = config["Playoff tree"];
+  
+  const rankingURL = config["Web App deployment URL"];
+  if (!rankingURL) {
+    throw new Error("Missing 'Web App deployment URL' in Discor config");
+  }
+
+  const webhookUrl = config["Discord web hook"];
+  if (!webhookUrl) {
+    throw new Error("Missing 'Discord web hook' in Discor config");
+  }
+  
   // --- Fetch Maps and Deadline from Schedule Config ---
   const roundConfigRow = scheduleConfigData.slice(1).find(row => row[0] == roundNumber);
 
@@ -58,19 +47,9 @@ function postToDiscord(mode = 'post') {
 
   const mapList = roundConfigRow[1]; // Column B (index 1)
   const deadline = roundConfigRow[2]; // Column C (index 2)
-  //const formattedDeadline = Utilities.formatDate(deadline, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-
-  // --- Fetch Opponents from Schedule (A:C) ---
-  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);
-
-  const opponents = {};
-  roundSchedule.forEach(row => {
-    const team1 = row[1].toUpperCase();
-    const team2 = row[2].toUpperCase();
-    opponents[team1] = team2;
-    opponents[team2] = team1;
-  });  
   
+  // --- Fetch Opponents from Schedule (A:C) ---
+  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);  
   const numberEmojis = {
     0: 'round 0️⃣',
     1: 'round 1️⃣',
@@ -95,59 +74,89 @@ function postToDiscord(mode = 'post') {
     'Bronze B' : 'the Bronze B Match! 🥉',
   };
   
-  // --- Prepare Message ---
+  var playoffs = false;
+  if (['Quarterfinals', 'Semifinals', 'Semifinals A', 'Semifinals B', 'Final', 'Final A', 'Final B', 'Bronze', 'Bronze A', 'Bronze B'].includes(roundNumber)) playoffs = true;
+
   const roundEmoji = numberEmojis[roundNumber] || roundNumber;
   
-  //let message = `@everyone\n\n**This is ${roundEmoji}**\n\n`;
-  let message = `**This is ${roundEmoji}**\n\n`;
-  var playoffs = false;
+  const opponents = {};
+  roundSchedule.forEach(row => {
+      const team1 = row[1];
+      const team2 = row[2];
+      opponents[team1] = team2;
+      opponents[team2] = team1;
+    });
+
+  // --- BUILD MATCH MESSAGE ---
+  let matchLines = [];
+  const alreadyListed = new Set();
   
-  if (['Quarterfinals', 'Semifinals', 'Semifinals A', 'Semifinals B', 'Final', 'Final A', 'Final B', 'Bronze', 'Bronze A', 'Bronze B'].includes(roundNumber)) {
-    playoffs = true;
-    message += `**📢 Upcoming Playoff Matches This Week!**\n\n`;
+  const teamsSheet = sheet.getSheetByName('Teams');
+  const lastTeamsRow = teamsSheet.getLastRow();
+  const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 2).getValues();
+  const teams = {};
+  teamsData.forEach(([key, value]) => {
+    if (key) teams[String(key).trim()] = value;
+  });
+   
+  for (const team in opponents) {
+    if (alreadyListed.has(team)) continue;
 
-    var playoffInstructions = 
-      `**🏆 Playoff Match Procedure:**  
-      Playoff is BO5 (Best of 5), first to win 3 maps wins. A map can only be played once.  
-
-      1️⃣ Do \`cmd rnd (team1 team2)\` to decide who picks the first map.  
-      2️⃣ Each team gets 2 picks each.  
-      3️⃣ If a team is down 0-2 in maps, they pick the 3rd map.  
-      4️⃣ If it's 1-2 after the 3rd map, the other team picks the 4th map.  
-      5️⃣ If it becomes 2-2, do \`cmd rnd (map1 map2)\` to decide the 5th map — unless both teams agree on the decider map.`;
-      
-  } else {
-    //message += `**📢 Upcoming Teams This Week!**\n\n`;
-    message += `**📢 Upcoming Game!**\n\n`;
+    const opp = opponents[team];
+    if (config["Include players list"] == 'Yes') {
+      matchLines.push(`**${team}** (${teams[team]})\n    vs\n**${opp}** (${teams[opp]})\n`);
+    } else {
+      matchLines.push(`• **${team}** vs **${opp}**`);
+    }
+    
+    alreadyListed.add(team);
+    alreadyListed.add(opp);
   }
   
-  const sortedTeamCodes = Object.keys(teamsPlayers).sort();
+  let message = '';
 
-  sortedTeamCodes.forEach(code => {
-    const { name, emoji, color } = teamMap[code];
-    const playersList = teamsPlayers[code].join(', ');
-
-    const opponentCode = opponents[name.toUpperCase()];
-
-    if (opponentCode) {
-      const opponentName = opponentCode.charAt(0).toUpperCase() + opponentCode.slice(1).toLowerCase();
-      message += `${emoji} **${name}** /color ${color}\nPlayers: ${playersList}\nOpponent: ${opponentName}\n\n`;
-    } else {
-      //message += `${emoji} **${name}** /color ${color}\nPlayers: ${playersList}\nOpponent: Not found\n\n`;
-    }
-  });
-
-  message += `**Maps:** ${mapList}\n\n**Date:** ${deadline}\n\n`;
-  //message += `\`\`\`diff\n- Use your team's channel to get your team mates availability and start arranging games with your opponent!\n\`\`\`\n\n`;  
-  message += `\`\`\`diff\n- When reporting games please include hub game links (URLs) in your report!\n\`\`\`\n\n`;
+  if (config["Everyone spam"] == 'Yes')
+    message += '@everyone\n\n';
   
-  if (playoffs) {    
-    message += `${playoffInstructions}\n\n`;
-    message += `❗ Remember: ** Teams stay fixed during playoffs.**\n\n`;
+  message += `**This is ${roundEmoji}**\n\n`;
+
+  if (playoffs) {           
+
+    message += (config["Playoff msg"]);
+    message += `\n\n${matchLines.join("\n")}\n\n`;      
+    
+    if (config["Playoff match procedure"]) {
+      message += `**🏆 Playoff Match Procedure**\n`;  
+      message += config["Playoff match procedure"];
+    }      
+  } else {    
+    
+    message += (config["Group stage msg"]);
+    message += `\n\n${matchLines.join("\n")}\n\n`;      
+    
+    if (config["Group match procedure"]) {
+      message += `**🎾 Group Stage Match Procedure**\n`;  
+      message += config["Group match procedure"];
+    }    
+  }
+  message += `\n\n`;  
+  message += `**Maps:** ${mapList}\n\n`;
+  if (deadline) message += `${config["Deadline msg"]} ${deadline}\n\n`;
+  
+  if (config["Reporting prompt"])
+    message += `\`\`\`diff\n- ${config["Reporting prompt"]}\n\`\`\`\n`;
+
+  if (config["Scheduling prompt"])
+    message += `\`\`\`diff\n- ${config["Scheduling prompt"]}\n\`\`\`\n`;
+
+  if (config["Team tags prompt"])
+    message += `\`\`\`diff\n- ${config["Team tags prompt"]}\n\`\`\`\n`;
+
+  if (playoffs && playOffTreeURL) {    
     message += `[Playoff tree](${playOffTreeURL})\n\n`;
   }
   
-  message += `[Current Standings & Player Ranking](${rankingURL})\n\n`;
+  message += `[${config["Ranking title"]}](${rankingURL})\n\n`;
   message += `GL HF! 🎮`;
 
   // --- Preview Mode ---
