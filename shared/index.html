@@ -570,7 +570,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* BRACKET */
   const out=document.getElementById("team-games-output");
 
-  fetch(baseUrl+"?endpoint=games").then(r=>r.json()).then(data=>{
+  fetch(baseUrl+"?endpoint=groupGames").then(r=>r.json()).then(data=>{
     out.innerHTML="";
     if(!data?.length){ out.textContent="No matches."; return; }
 

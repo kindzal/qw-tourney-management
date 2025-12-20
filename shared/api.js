@@ -6,8 +6,10 @@ function handleApiRequest(e) {
       return jsonResponse(getStandings());
     case "players":
       return jsonResponse(getPlayers());
-    case "games":
-      return jsonResponse(getTeamGames());
+    case "groupGames":
+      return jsonResponse(getTeamGames('group'));
+    case "playoffGames":
+      return jsonResponse(getTeamGames('playoff'));
     case "teams":
       return jsonResponse(getTeams());  
     default:
@@ -69,115 +71,147 @@ function getPlayers() {
   });
 }
 
-function getTeamGames() {
+function getTeamGames(mode = 'group') {
   const ss = SpreadsheetApp.getActive();
 
-  const gamesSheet = ss.getSheetByName("TeamGames");
-  if (!gamesSheet) throw new Error("Sheet 'TeamGames' not found");
+  const gamesSheet =
+    mode === 'group'
+      ? ss.getSheetByName("TeamGames")
+      : ss.getSheetByName("TeamGamesPlayoffs");
+
+  if (!gamesSheet) {
+    throw new Error(`Games sheet not found for mode: ${mode}`);
+  }
 
   const scheduleSheet = ss.getSheetByName("Schedule");
-  if (!scheduleSheet) throw new Error("Sheet 'Schedule' not found");
+  if (!scheduleSheet) {
+    throw new Error("Sheet 'Schedule' not found");
+  }
 
-  /* ---------- TEAM GAMES (PLAYED) ---------- */
+  /* ---------- HELPERS ---------- */
+
+  function isNumericRound(r) {
+    return !isNaN(Number(r));
+  }
+
+  function pairKey(a, b) {
+    return [String(a).trim(), String(b).trim()]
+      .sort()
+      .join("||")
+      .toLowerCase();
+  }
+
+  /* ---------- READ PLAYED GAMES ---------- */
 
   const gameValues = gamesSheet.getDataRange().getValues();
   const gameHeaders = gameValues.shift();
 
   const gIdx = {};
-  gameHeaders.forEach((h, i) => gIdx[h.trim()] = i);
+  gameHeaders.forEach((h, i) => (gIdx[h.trim()] = i));
 
   const REQUIRED = ["Round", "TeamA", "TeamB", "MapsWonA", "MapsWonB", "AllMapsJSON"];
   REQUIRED.forEach(col => {
-    if (!(col in gIdx)) throw new Error(`Missing column in TeamGames: ${col}`);
+    if (!(col in gIdx)) {
+      throw new Error(`Missing column in games sheet: ${col}`);
+    }
   });
 
-  const gamesByRound = {};
+  // Played games indexed by team-pair
+  const playedByPair = {};
 
   gameValues.forEach(row => {
     const round = row[gIdx.Round];
     if (round === "" || round == null) return;
 
-    const roundKey = String(round);
+    // Respect mode: numeric = group, non-numeric = playoff
+    if (mode === 'group' && !isNumericRound(round)) return;
+    if (mode === 'playoff' && isNumericRound(round)) return;
 
     let maps = [];
-    const allMapsRaw = row[gIdx.AllMapsJSON];
-    if (allMapsRaw) {
+    const raw = row[gIdx.AllMapsJSON];
+    if (raw) {
       try {
-        maps = JSON.parse(allMapsRaw).map(m => ({
+        maps = JSON.parse(raw).map(m => ({
           mapName: m.mapName || "",
           teamAFrags: Number(m.teamAFrags) || 0,
           teamBFrags: Number(m.teamBFrags) || 0,
           gameUrl: m.gameUrl || ""
         }));
       } catch (e) {
-        Logger.log(`Failed to parse AllMapsJSON (round ${roundKey}): ${e}`);
+        Logger.log(`Failed to parse AllMapsJSON: ${e}`);
       }
     }
 
-    if (!gamesByRound[roundKey]) gamesByRound[roundKey] = [];
-
-    gamesByRound[roundKey].push({
-      round: roundKey,
+    const game = {
+      round: String(round),
       teamA: row[gIdx.TeamA],
       teamB: row[gIdx.TeamB],
       mapsWonA: Number(row[gIdx.MapsWonA]) || 0,
       mapsWonB: Number(row[gIdx.MapsWonB]) || 0,
       played: 1,
       maps
-    });
+    };
+
+    const key = pairKey(game.teamA, game.teamB);
+    if (!playedByPair[key]) playedByPair[key] = [];
+    playedByPair[key].push(game);
   });
 
-  /* ---------- SCHEDULE (UNPLAYED) ---------- */
+  /* ---------- READ SCHEDULE ---------- */
 
   const schedValues = scheduleSheet.getDataRange().getValues();
   const schedHeaders = schedValues.shift();
 
   const sIdx = {};
-  schedHeaders.forEach((h, i) => sIdx[h.trim()] = i);
+  schedHeaders.forEach((h, i) => (sIdx[h.trim()] = i));
 
   ["Round", "Team1", "Team2"].forEach(col => {
-    if (!(col in sIdx)) throw new Error(`Missing column in schedule: ${col}`);
+    if (!(col in sIdx)) {
+      throw new Error(`Missing column in Schedule: ${col}`);
+    }
   });
+
+  // Track how many games we’ve already consumed per team-pair
+  const pairCursor = {};
+  const result = [];
 
   schedValues.forEach(row => {
     const round = row[sIdx.Round];
     if (round === "" || round == null) return;
 
-    // Only numeric rounds
-    if (isNaN(Number(round))) return;
+    // Respect mode
+    if (mode === 'group' && !isNumericRound(round)) return;
+    if (mode === 'playoff' && isNumericRound(round)) return;
 
-    const roundKey = String(round);
+    const team1 = row[sIdx.Team1];
+    const team2 = row[sIdx.Team2];
 
-    if (!gamesByRound[roundKey]) gamesByRound[roundKey] = [];
+    const key = pairKey(team1, team2);
+    const playedList = playedByPair[key] || [];
+    const idx = pairCursor[key] || 0;
 
-    // Avoid duplicating already played games
-    const alreadyExists = gamesByRound[roundKey].some(g =>
-      (g.teamA === row[sIdx.Team1] && g.teamB === row[sIdx.Team2]) ||
-      (g.teamA === row[sIdx.Team2] && g.teamB === row[sIdx.Team1])
-    );
+    if (idx < playedList.length) {
+      // Consume next played game
+      const game = playedList[idx];
+      pairCursor[key] = idx + 1;
 
-    if (alreadyExists) return;
-
-    gamesByRound[roundKey].push({
-      round: roundKey,
-      teamA: row[sIdx.Team1],
-      teamB: row[sIdx.Team2],
-      mapsWonA: "",
-      mapsWonB: "",
-      played: 0,
-      maps: []   // no maps yet → UI shows no popup content
-    });
+      result.push({
+        ...game,
+        round: String(round)
+      });
+    } else {
+      // No played game yet → placeholder
+      result.push({
+        round: String(round),
+        teamA: team1,
+        teamB: team2,
+        mapsWonA: "",
+        mapsWonB: "",
+        played: 0,
+        maps: []
+      });
+    }
   });
-
-  /* ---------- FLATTEN & SORT ---------- */
-
-  const result = [];
-
-  Object.keys(gamesByRound)
-    .sort((a, b) => Number(a) - Number(b))
-    .forEach(roundKey => {
-      gamesByRound[roundKey].forEach(game => result.push(game));
-    });
 
   return result;
 }
