@@ -184,8 +184,18 @@ function getTeamGames() {
 
 function getTeams() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Teams");
-  const values = sheet.getDataRange().getValues();
+  if (!sheet) throw new Error('Teams sheet not found');
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  // Get only columns A–C
+  const values = sheet.getRange(1, 1, lastRow, 3).getValues();
   const headers = values.shift();
 
-  return values.map(r => Object.fromEntries(headers.map((h,i) => [h, r[i]])));
+  return values.map(row =>
+    Object.fromEntries(
+      headers.map((h, i) => [h, row[i]])
+    )
+  );
 }

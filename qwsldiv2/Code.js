@@ -486,6 +486,77 @@ function updatePlayerStats(p, g, u, x) {
   updateTeams();
 }
 
+function populateTeamPlayers() {
+  
+   // --- Confirm Before Updating ---
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert('Are you sure you want to update Players for each team from the Players tab?', ui.ButtonSet.YES_NO);
+  if (response !== ui.Button.YES) {
+    ui.alert('Update cancelled.');
+    return;
+  }
+
+  const ss = SpreadsheetApp.getActive();
+
+  const playersSheet = ss.getSheetByName('Players');
+  const teamsSheet = ss.getSheetByName('Teams');
+
+  if (!playersSheet || !teamsSheet) {
+    throw new Error('Players or Teams sheet not found');
+  }
+
+  // -------------------------------
+  // Read Players data (skip header)
+  // -------------------------------
+  const playersLastRow = playersSheet.getLastRow();
+  if (playersLastRow < 2) return;
+
+  const playersData = playersSheet
+    .getRange(2, 1, playersLastRow - 1, 3)
+    .getValues();
+
+  // Build map: Team -> [Players]
+  const playersByTeam = {};
+  playersData.forEach(([team, , player]) => {
+    if (!team || !player) return;
+
+    const teamKey = String(team).trim();
+    if (!playersByTeam[teamKey]) {
+      playersByTeam[teamKey] = [];
+    }
+
+    playersByTeam[teamKey].push(String(player).trim());
+  });
+
+  // -------------------------------
+  // Read Teams data (skip header)
+  // -------------------------------
+  const teamsLastRow = teamsSheet.getLastRow();
+  if (teamsLastRow < 2) return;
+
+  const teamsData = teamsSheet
+    .getRange(2, 1, teamsLastRow - 1, 3)
+    .getValues();
+
+  // Build output for Players column
+  const output = teamsData.map(([teamTag]) => {
+    if (!teamTag) return [''];
+
+    const teamKey = String(teamTag).trim();
+    const players = playersByTeam[teamKey] || [];
+
+    return [players.join(', ')];
+  });
+
+  // -------------------------------
+  // Write Players column (Column C)
+  // -------------------------------
+  teamsSheet
+    .getRange(2, 3, output.length, 1)
+    .clearContent()
+    .setValues(output);
+}
+
 function updateTeams() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const gamesSheet = ss.getSheetByName("Games");
