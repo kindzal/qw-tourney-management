@@ -91,8 +91,12 @@
   .wiki-link:hover { background: #eaf2ff; border-color: #99bbea; }
 
   h1, h2, h3, .round-header {
-    font-family: 'Roboto', 'Open Sans', Arial, sans-serif;
-    font-weight: 500;
+    font-family: 'Roboto';
+    font-weight: 500;    
+  }
+
+  .round-header {
+    font-size: 1.1em;
   }
 
   /* ======================
@@ -104,8 +108,7 @@
     gap: 32px;
     margin-top: 20px;
   }
-  .round-block { display:flex; flex-direction:column; gap:12px; }
-  .round-header { font-size: 1.2em; font-weight: bold; }
+  .round-block { display:flex; flex-direction:column; gap:12px; }  
   .round-games {
     display: flex;
     gap: 40px;
@@ -227,7 +230,7 @@
   }
 
   .playoffs-title {
-    font-size: 1.1em;
+    font-size: 1.3em;
     font-weight: 700;
     margin: 0 0 8px 0;
   }
@@ -239,7 +242,7 @@
     align-items: flex-start;
     padding: 8px 4px 18px;
     min-width: 980px;
-  }
+  }  
 
   .stage-col {
     display: flex;
@@ -254,27 +257,96 @@
     font-weight: 500;
     margin-bottom: 4px;
     white-space: nowrap;
+    font-size: 1.1em;
   }
 
   .stage-col .bracket-game { width: 280px; }
 
-  .connector-layer {
-    position:absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
+  /* === BRACKET VERTICAL ALIGNMENT === */
+
+  /* Semifinals: center between pairs of quarterfinals */
+  .stage-semifinals, .stage-final-b {
+    margin-top: 65px; /* ~½ game height + gap */
   }
-  .stage-row > * { position: relative; z-index: 1; }
+
+  /* Push the SECOND semifinal down so it aligns with QF 3 & 4 */
+  .stage-semifinals .bracket-game:nth-child(3) {
+    margin-top: 115px; /* ≈ height of one QF card */
+  }
+
+  /* Final: centered between the two semifinals */
+  .stage-final {
+    margin-top: 182px;
+  }
+
+  /* Bronze: sits below Final naturally */
+  .stage-bronze {
+    margin-top: 294px;
+  }
+
+  .stage-bronze-header {
+    /*margin-top: 24px;*/
+    text-align: center;
+    font-family: 'Roboto';
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Subtle separator between Final and Bronze */
+  .stage-final-separator, .stage-final-b-separator {
+    width: 280px;               /* match game width */
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      #d0d4da,
+      transparent
+    );
+    margin: 16px 0;
+  }
+  
+  /* Center Final & Final B headers over the GAME, not the winner badge */
+  .stage-final > .stage-header,
+  .stage-final-b > .stage-header {
+    width: 280px;          /* same as .bracket-game */
+    margin-left: 0;
+    margin-right: 0;
+    text-align: center;
+  }
 
   .bracket-winner {
     font-family: 'Roboto', 'Open Sans', Arial, sans-serif;
     font-weight: 700;
     font-size: 1.1em;
     padding: 10px 12px;
-    border: 1px solid #e6d28a;
-    background: #fff7d6;
     border-radius: 8px;
     width: fit-content;
+    white-space: nowrap;    
+  }
+
+  /* Row that holds Final game + winner badge */
+  .bracket-final-row {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Space between game card and winner badge */
+  .bracket-winner-wrap {
+    margin-left: 20px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Winners bracket winner */
+  .bracket-winner.main {
+    background: #fff7d6;
+    border: 1px solid #e6d28a;
+  }
+
+  /* Losers bracket winner */
+  .bracket-winner.losers {
+    background: #e9f1ff;
+    border: 1px solid #9bb7e6;
   }
 
   /* ======================
@@ -286,7 +358,7 @@
     table { display:block; overflow-x:auto; }
 
     .round-games { flex-direction: column; gap: 16px; }
-    .bracket-game { width: 100%; }
+    .bracket-game { width: 100% !important; }
 
     .bracket-popup-wrapper {
       position: fixed;
@@ -299,22 +371,29 @@
       z-index: 1000;
     }
 
+    .stage-col {
+      width: 100%;
+      min-width: 0;
+    }
+
     .stage-row {
       min-width: 0;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
     }
-    .stage-col .bracket-game { width: 100%; }
-    .connector-layer { display:none; }
+
+    .stage-col .bracket-game { width: 100% !important; }
 
     #players-output table:not(.show-all-cols) th:nth-child(n+9),
     #players-output table:not(.show-all-cols) td:nth-child(n+9) {
       display: none;
     }
+
     #players-output table.show-all-cols th,
     #players-output table.show-all-cols td {
       display: table-cell;
     }
+
     .players-toggle {
       display: block;
       margin: 8px 0 4px;
@@ -325,6 +404,54 @@
       border: none;
       padding: 6px 0;
       cursor: pointer;
+    }
+
+    /* Center decisive stage titles on mobile */
+    .stage-quarterfinals > .stage-header,
+    .stage-semifinals > .stage-header,
+    .stage-semifinals-b > .stage-header,
+    .stage-final > .stage-header,
+    .stage-bronze > .stage-header,
+    .stage-final-b > .stage-header {
+      width: auto !important;
+      text-align: center;
+    }
+
+    .stage-final-separator, .stage-final-b-separator {
+      width: auto !important ;
+    }
+
+    .round-header {
+      text-align: center;      
+    }
+
+    /* ===== REMOVE DESKTOP ALIGNMENT GAPS ===== */
+    .stage-semifinals,
+    .stage-final,
+    .stage-bronze,
+    .stage-final-b {
+      margin-top: 0 !important;
+    }
+
+    .stage-semifinals .bracket-game:nth-child(3) {
+      margin-top: 0 !important;
+    }
+
+    /* ===== CENTER HEADERS NICELY ===== */
+    .stage-header {
+      text-align: left;
+      padding-left: 4px;
+    }
+
+    /* ===== FINAL + WINNER BADGE STACK ===== */
+    .bracket-final-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .bracket-winner-wrap {
+      margin-left: 0;
     }
   }
 </style>
@@ -515,7 +642,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return card;
   }
 
-  /* ========= GROUP BRACKET (FIXED: numeric-only + sorted) ========= */
+  /* ========= GROUP BRACKET (numeric-only + sorted) ========= */
   const groupOut = document.getElementById("team-games-output");
 
   fetch(baseUrl+"?endpoint=groupGames").then(r=>r.json()).then(data=>{
@@ -559,63 +686,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* ==========================
-     PLAYOFFS
+     PLAYOFFS (SVG/CONNECTORS REMOVED ONLY)
      ========================== */
 
   const playoffsOut = document.getElementById("playoffs-output");
 
-  function isMobile() {
-    return window.matchMedia("(max-width: 768px)").matches;
-  }
-
-  // FIX 2 & 3: no inferred pairing; only draw 1:1 connectors when counts permit
-  function drawConnectors(stageRowEl, colEls, svgEl) {
-    if (isMobile()) return;
-
-    const rowRect = stageRowEl.getBoundingClientRect();
-    svgEl.setAttribute("width", rowRect.width);
-    svgEl.setAttribute("height", rowRect.height);
-
-    while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
-
-    function centerRight(el) {
-      const r = el.getBoundingClientRect();
-      return { x: (r.right - rowRect.left), y: (r.top + r.height/2 - rowRect.top) };
-    }
-    function centerLeft(el) {
-      const r = el.getBoundingClientRect();
-      return { x: (r.left - rowRect.left), y: (r.top + r.height/2 - rowRect.top) };
-    }
-
-    for (let i=0; i<colEls.length-1; i++) {
-      const fromGames = Array.from(colEls[i].querySelectorAll(".bracket-game"));
-      const toGames   = Array.from(colEls[i+1].querySelectorAll(".bracket-game"));
-      if (!fromGames.length || !toGames.length) continue;
-
-      const n = Math.min(fromGames.length, toGames.length);
-
-      for (let j=0; j<n; j++) {
-        const fromEl = fromGames[j];
-        const toEl   = toGames[j];
-        if (!fromEl || !toEl) continue;
-
-        const a = centerRight(fromEl);
-        const b = centerLeft(toEl);
-
-        const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-        const midX = (a.x + b.x) / 2;
-        const d = `M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`;
-        path.setAttribute("d", d);
-        path.setAttribute("fill", "none");
-        path.setAttribute("stroke", "#b8c0cc");
-        path.setAttribute("stroke-width", "2");
-        path.setAttribute("opacity", "0.9");
-        svgEl.appendChild(path);
-      }
-    }
-  }
-
-  // FIX 1: stronger normalization (trim + collapse whitespace + drop trailing " A")
   function normalizeStageName(name) {
     return String(name || "")
       .replace(/\s+/g, " ")
@@ -623,11 +698,14 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\s+A$/i, "");
   }
 
+  function displayStageTitle(stageName) {
+    return stageName.replace(/\s+B$/, "");
+  }
+
   function renderPlayoffsBracket(allGames) {
     playoffsOut.innerHTML = "";
     if (!allGames?.length) { playoffsOut.textContent = "No playoff games."; return; }
 
-    // Group by normalized round label
     const byRound = {};
     allGames.forEach(g => {
       const r = normalizeStageName(g.round);
@@ -639,11 +717,10 @@ document.addEventListener("DOMContentLoaded", () => {
       !!byRound["Final B"]?.length ||
       !!byRound["Bronze B"]?.length;
 
-    // FIX 4: trust API presence; only include stages that exist (single elim friendly)
-    const winnersStages = ["Quarterfinals", "Semifinals", "Final", "Bronze"]
+    const winnersStages = ["Quarterfinals", "Semifinals", "Final"]
       .filter(stage => (byRound[stage]?.length ?? 0) > 0);
 
-    const losersStages  = ["Semifinals B", "Final B", "Bronze B"]
+    const losersStages  = ["Semifinals B", "Final B"]
       .filter(stage => (byRound[stage]?.length ?? 0) > 0);
 
     const expected = {
@@ -694,33 +771,53 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = document.createElement("div");
       row.className = "stage-row";
 
-      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.classList.add("connector-layer");
-      row.appendChild(svg);
-
-      const cols = [];
-
       stages.forEach(stageName => {
         const col = document.createElement("div");
-        col.className = "stage-col";
+        col.className = "stage-col stage-" + stageName.toLowerCase().replace(/\s+/g, "-");
 
         const head = document.createElement("div");
         head.className = "stage-header";
-        head.textContent = stageName;
+        head.textContent = displayStageTitle(stageName);
         col.appendChild(head);
 
         const games = padStage(stageName);
         games.forEach(g => col.appendChild(buildGameCard(g, popupState)));
 
-        cols.push(col);
+        // ✅ WINNERS: Final → Bronze underneath
+        if (stageName === "Final" && byRound["Bronze"]?.length) {
+          const sep = document.createElement("div");
+          sep.className = "stage-final-separator";
+          col.appendChild(sep);
+
+          const bronzeHeader = document.createElement("div");
+          bronzeHeader.className = "stage-header stage-bronze-header";
+          bronzeHeader.textContent = "Bronze";
+          col.appendChild(bronzeHeader);
+
+          padStage("Bronze").forEach(g =>
+            col.appendChild(buildGameCard(g, popupState))
+          );
+        }
+        // ✅ LOSERS: Final B → Bronze B underneath
+        if (stageName === "Final B" && byRound["Bronze B"]?.length) {
+          const sep = document.createElement("div");
+          sep.className = "stage-final-b-separator";
+          col.appendChild(sep);
+
+          const bronzeHeader = document.createElement("div");
+          bronzeHeader.className = "stage-header stage-bronze-header";
+          bronzeHeader.textContent = "Bronze";
+          col.appendChild(bronzeHeader);
+
+          padStage("Bronze B").forEach(g =>
+            col.appendChild(buildGameCard(g, popupState))
+          );
+        }
         row.appendChild(col);
       });
 
       bracket.appendChild(row);
       container.appendChild(bracket);
-
-      requestAnimationFrame(() => drawConnectors(row, cols, svg));
-      window.addEventListener("resize", () => drawConnectors(row, cols, svg));
 
       return container;
     }
@@ -729,23 +826,72 @@ document.addEventListener("DOMContentLoaded", () => {
       wrap.appendChild(buildStageRow("Winners Bracket", winnersStages));
     }
 
-    // Winner label from Final
     const finalGame = (byRound["Final"] || [])[0];
     if (finalGame?.played) {
       const winnerName =
         Number(finalGame.mapsWonA) > Number(finalGame.mapsWonB) ? finalGame.teamA :
         Number(finalGame.mapsWonB) > Number(finalGame.mapsWonA) ? finalGame.teamB :
         "";
+
       if (winnerName) {
-        const win = document.createElement("div");
-        win.className = "bracket-winner";
-        win.textContent = "🏆 Winner: " + winnerName;
-        wrap.appendChild(win);
+        const finalCol = wrap.querySelector(".stage-final");
+        if (finalCol) {
+          const finalGameEl = finalCol.querySelector(".bracket-game");
+          if (finalGameEl) {
+            const row = document.createElement("div");
+            row.className = "bracket-final-row";
+
+            finalGameEl.replaceWith(row);
+            row.appendChild(finalGameEl);
+
+            const winnerWrap = document.createElement("div");
+            winnerWrap.className = "bracket-winner-wrap";
+
+            const badge = document.createElement("div");
+            badge.className = "bracket-winner main";
+            badge.textContent = "🏆 Winner: " + winnerName;
+
+            winnerWrap.appendChild(badge);
+            row.appendChild(winnerWrap);
+          }
+        }
       }
-    }
+    }   
 
     if (hasLosers && losersStages.length) {
       wrap.appendChild(buildStageRow("Losers Bracket", losersStages));
+
+      const finalBGame = (byRound["Final B"] || [])[0];
+      if (finalBGame?.played) {
+        const winnerName =
+          Number(finalBGame.mapsWonA) > Number(finalBGame.mapsWonB) ? finalBGame.teamA :
+          Number(finalBGame.mapsWonB) > Number(finalBGame.mapsWonA) ? finalBGame.teamB :
+          "";
+
+        if (winnerName) {
+          const finalBCol = wrap.querySelector(".stage-final-b");
+          if (finalBCol) {
+            const finalGameEl = finalBCol.querySelector(".bracket-game");
+            if (finalGameEl) {
+              const row = document.createElement("div");
+              row.className = "bracket-final-row";
+
+              finalGameEl.replaceWith(row);
+              row.appendChild(finalGameEl);
+
+              const winnerWrap = document.createElement("div");
+              winnerWrap.className = "bracket-winner-wrap";
+
+              const badge = document.createElement("div");
+              badge.className = "bracket-winner losers";
+              badge.textContent = "🏆 Winner: " + winnerName;
+
+              winnerWrap.appendChild(badge);
+              row.appendChild(winnerWrap);
+            }
+          }
+        }
+      }
     }
 
     playoffsOut.appendChild(wrap);
