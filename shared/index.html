@@ -760,10 +760,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function buildStageRow(title, stages) {
       const container = document.createElement("div");
 
-      const h = document.createElement("div");
-      h.className = "playoffs-title";
-      h.textContent = title;
-      container.appendChild(h);
+      if (title) {
+        const h = document.createElement("div");
+        h.className = "playoffs-title";
+        h.textContent = title;
+        container.appendChild(h);
+      }
 
       const bracket = document.createElement("div");
       bracket.className = "playoffs-bracket";
@@ -823,7 +825,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (winnersStages.length) {
-      wrap.appendChild(buildStageRow("Winners Bracket", winnersStages));
+      const title = hasLosers ? "Winners Bracket" : null;
+      wrap.appendChild(buildStageRow(title, winnersStages));  
     }
 
     const finalGame = (byRound["Final"] || [])[0];
