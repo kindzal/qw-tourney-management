@@ -86,7 +86,7 @@ Each feature has **its own configuration** in the relevant tab.
 ```mermaid
 flowchart LR
   Discord -->|Hub URLs| ReportsWatcher
-  ReportsWatcher -->|Webhook| AppsScript[AppsScript (doPost)]
+  ReportsWatcher -->|Webhook| AppsScript[AppsScript doPost]
   AppsScript -->|Import| GamesSheet
   GamesSheet --> UpdateStats
   GamesSheet --> UpdateTeams
