@@ -13,6 +13,17 @@ foreach ($var in $requiredVars) {
     }
 }
 
+Write-Host "Pushing local code to Apps Script..."
+
+$pushOutput = clasp push 2>&1
+$pushExitCode = $LASTEXITCODE
+
+$pushOutput | ForEach-Object { Write-Host $_ }
+
+if ($pushExitCode -ne 0) {
+    throw "ERROR: clasp push failed."
+}
+
 Write-Host "Deploying Google Apps Script..."
 
 # Build clasp arguments

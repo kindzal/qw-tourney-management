@@ -1,7 +1,4 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$AppName,
-
     [switch]$DryRun
 )
 
@@ -22,7 +19,7 @@ if (-not (Test-Path (Join-Path $appDir ".clasp.json"))) {
 }
 
 Write-Host "====================================="
-Write-Host " Deleting deployments for app: $AppName"
+Write-Host " Deleting deployments for current app"
 Write-Host "====================================="
 
 Push-Location $appDir
@@ -39,7 +36,7 @@ try {
         throw "ERROR: clasp deployments returned no output."
     }
 
-    # IMPORTANT: this is a TOP-LEVEL ARRAY
+    # IMPORTANT: top-level JSON array
     $deployments = $deploymentsJsonRaw | ConvertFrom-Json
 
     if (-not $deployments -or $deployments.Count -eq 0) {
@@ -77,7 +74,7 @@ try {
     $confirmation = Read-Host "Type DELETE to confirm deletion"
 
     if ($confirmation -ne "DELETE") {
-        Write-Host "❌ Aborted by user."
+        Write-Host " Aborted by user."
         return
     }
 
