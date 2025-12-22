@@ -15,7 +15,7 @@ foreach ($var in $requiredVars) {
 
 Write-Host "Pushing local code to Apps Script..."
 
-$pushOutput = clasp push 2>&1
+$pushOutput = clasp push --force 2>&1
 $pushExitCode = $LASTEXITCODE
 
 $pushOutput | ForEach-Object { Write-Host $_ }
