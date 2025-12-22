@@ -122,7 +122,7 @@ flowchart TD
   TeamsStatsCalc --> Standings
   TeamsStatsCalc --> TeamGames
   TeamsStatsCalc --> TeamGamesPlayoffs
-  PlayerStatsCalc --> Players
+  PlayerStatsCalc --> Rank[Players / Standins]
 ```
 
 ## Technical documentation
