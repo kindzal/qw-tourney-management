@@ -349,6 +349,43 @@
     border: 1px solid #9bb7e6;
   }
 
+  /* Rank tooltip */
+  .rank-header {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rank-tooltip-icon {
+    cursor: pointer;
+    font-size: 0.9em;
+    color: #0055aa;
+    user-select: none;
+  }
+
+  .rank-tooltip {
+    display: none;
+    position: absolute;
+    top: 130%;
+    left: 50%;
+    transform: translateX(5%) translateY(-130%);
+    background: #fffefc;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.9em;
+    line-height: 1.35;
+    min-width: 220px;
+    max-width: 320px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    z-index: 200;    
+  }
+
+  .rank-tooltip.open {
+    display: block;
+  }
+
   /* ======================
      MOBILE
      ====================== */
@@ -453,6 +490,14 @@
     .bracket-winner-wrap {
       margin-left: 0;
     }
+    .rank-tooltip {
+      position: fixed;
+      top: 35%;
+      left: 45%;
+      transform: translateX(-50%);
+      max-width: 90vw;
+      z-index: 2000;
+    }
   }
 </style>
 </head>
@@ -502,6 +547,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const baseUrl="<?= baseUrl ?>";
   const defaultPage="<?= defaultPage ?>";
+  const rankTooltipText = <?= JSON.stringify(rankTooltipText) ?>;
 
   /* NAV */
   document.querySelectorAll(".app-nav button").forEach(btn => {
@@ -535,7 +581,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!data?.length){ c.textContent="No data."; return; }
     const t=document.createElement("table");
     const h=Object.keys(data[0]);
-    t.innerHTML="<thead><tr>"+h.map(x=>`<th>${x}</th>`).join("")+"</tr></thead>";
+    //t.innerHTML="<thead><tr>"+h.map(x=>`<th>${x}</th>`).join("")+"</tr></thead>";
+    t.innerHTML =
+      "<thead><tr>" +
+      h.map(col => {
+        if (col === "Rank") {
+          return `
+            <th>
+              <span class="rank-header">
+                Rank
+                <span class="rank-tooltip-icon" aria-label="Rank info">ℹ️</span>
+                <span class="rank-tooltip">
+                  ${rankTooltipText}
+                </span>
+              </span>
+            </th>`;
+        }
+        return `<th>${col}</th>`;
+      }).join("") +
+      "</tr></thead>";
+
     const tb=document.createElement("tbody");
     data.forEach(r=>{
       const tr=document.createElement("tr");
@@ -905,6 +970,22 @@ document.addEventListener("DOMContentLoaded", () => {
     .then(renderPlayoffsBracket)
     .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
 
+    /* ========= Rank tooltip (click / tap) ========= */
+  document.addEventListener("click", e => {
+    const icon = e.target.closest(".rank-tooltip-icon");
+
+    // Close any open tooltip first
+    document.querySelectorAll(".rank-tooltip.open")
+      .forEach(t => t.classList.remove("open"));
+
+    if (icon) {
+      const tooltip = icon.parentElement.querySelector(".rank-tooltip");
+      if (tooltip) {
+        tooltip.classList.add("open");
+        e.stopPropagation();
+      }
+    }
+  });
 });
 </script>
 

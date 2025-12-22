@@ -15,6 +15,7 @@ function doGet(e) {
   template.defaultPage = CONFIG.defaultPage;
   template.logoUrl = CONFIG.logoUrl;
   template.wikiUrl = CONFIG.wikiUrl;
+  template.rankTooltipText = CONFIG.rankTooltipText;
     
   return template
     .evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1')
