@@ -86,15 +86,18 @@ Each feature has **its own configuration** in the relevant tab.
 ```mermaid
 flowchart LR
   Discord -->|Hub URLs| ReportsWatcher
-  ReportsWatcher -->|Webhook| AppsScript
+  ReportsWatcher -->|Webhook| AppsScript[AppsScript (doPost)]
   AppsScript -->|Import| GamesSheet
+  GamesSheet --> UpdateStats
   GamesSheet --> UpdateTeams
+  UpdateStats --> Ranking[Players Ranking]
   UpdateTeams --> Standings
-  UpdateTeams --> TeamGames
-  UpdateTeams --> TeamGamesPlayoffs
+  UpdateTeams --> TeamGames[Group Games]
+  UpdateTeams --> TeamGamesPlayoffs[Playoff bracket]
   Standings --> WebApp
   TeamGames --> WebApp
   TeamGamesPlayoffs --> WebApp
+  Ranking --> WebApp
 ```
 
 ### Backend data flow (Apps Script)
@@ -107,16 +110,19 @@ flowchart TD
   Schedule[Schedule]
   Config[OtherConfig]
 
-  Games --> MapGrouping
+  Games --> Match[Match Grouping]
+  Games --> Ranking[Player Matching]
   Players --> Matching
   Teams --> Matching
   Schedule --> RoundLookup
   Config --> PlayoffCutoff
 
-  MapGrouping --> StatsCalc
-  StatsCalc --> Standings
-  StatsCalc --> TeamGames
-  StatsCalc --> TeamGamesPlayoffs
+  Match --> TeamsStatsCalc
+  Ranking --> PlayerStatsCalc
+  TeamsStatsCalc --> Standings
+  TeamsStatsCalc --> TeamGames
+  TeamsStatsCalc --> TeamGamesPlayoffs
+  PlayerStatsCalc --> Players
 ```
 
 ## Technical documentation
@@ -159,30 +165,6 @@ If any of these values differ between games (e.g. server change, match tag chang
 
 ---
 
-### Data model overview
-
-```mermaid
-flowchart TD
-  Games[Games tab]
-  Players[Players / Standins]
-  Teams[Teams]
-  Schedule[Schedule]
-  Config[OtherConfig]
-
-  Games --> MapGroups
-  Players --> PlayerMatching
-  Teams --> TeamMatching
-  Schedule --> RoundLookup
-  Config --> PlayoffCutoff
-
-  MapGroups --> StatsCalculation
-  StatsCalculation --> Standings
-  StatsCalculation --> TeamGames
-  StatsCalculation --> TeamGamesPlayoffs
-```
-
----
-
 ### Game import pipeline
 
 1. Game URLs are received from:
@@ -195,7 +177,7 @@ flowchart TD
 3. Imported URLs are stored in:
    - **ImportedURLs** tab (deduplication)
 
-4. `updateTeams()` is executed to recompute all derived data
+4. `updateStats()` is executed to recompute all derived data
 
 ---
 
