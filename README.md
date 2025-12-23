@@ -127,7 +127,7 @@ flowchart TD
 
 ## Apps Script + Web App Deployment
 
-This repository uses a **per-app deployment folder** and a **shared deployment workflow** built on top of **Google clasp** and **Linkly**.
+This repository uses a **per-app deployment folder** and a **shared deployment workflow** built on top of **Google clasp** and **Short.io (for URL shortening)**.
 
 The goal is to make deployments:
 - repeatable
@@ -146,9 +146,12 @@ app-root/
 ├── deploy/
 │   ├── deploy.bat
 │   ├── Load-Env.ps1
-│   ├── Deploy-AndUpdateLinkly.ps1
-│   ├── delete-deployments.ps1
-│   └── (optional helper scripts)
+│   ├── Deploy-App.ps1
+│   ├── Deploy-AndUpdateLinkly.ps1   (legacy / fallback)
+│   ├── Update-UrlShortener.ps1
+│   ├── update-url-shortener.bat
+│   ├── Update-Linkly.ps1   (legacy / fallback)
+│   └── delete-deployments.ps1
 │
 ├── src/
 │   ├── api.js
@@ -203,11 +206,22 @@ Example:
 Example:
 
 ```env
-LINKLY_API_KEY=your_api_key
+# ----------------------------
+# URL Shortener (provider-agnostic)
+# ----------------------------
+URL_SHORTENER_API_KEY=your_short_io_api_key
+URL_SHORTENER_LINK_ID=your_short_link_id
+
+# ----------------------------
+# Linkly (kept for fallback)
+# ----------------------------
+LINKLY_API_KEY=your_linkly_api_key
 LINKLY_WORKSPACE_ID=your_workspace_id
 LINKLY_LINK_ID=your_link_id
 
-# Optional (recommended)
+# ----------------------------
+# Optional
+# ----------------------------
 DEPLOYMENT_ID=AKfycbxxxxxxxxxxxxxxxx
 ```
 
@@ -221,7 +235,7 @@ A correct deployment **always** follows this order:
 
 1. **Push** code 
 2. **Deploy** app
-3. **Update Linkly**
+3. **Update short URL**
 
 In clasp terms:
 
@@ -258,12 +272,12 @@ deploy.bat
 2. `Load-Env.ps1`
    - loads variables from `.env` into the process environment
 
-3. `Deploy-AndUpdateLinkly.ps1`
+3. `Deploy-App.ps1`
    - runs `clasp push --force` (shows output)
    - runs `clasp deploy`
-   - constructs the Web App URL from the deployment ID
-   - updates the Linkly link via their API
-
+   - constructs the Web App URL from the deployment ID   
+4. `Update-UrlShortener.ps1`
+   - updates the short URL via API
 ---
 
 ### Deleting Deployments (Cleanup)
@@ -310,7 +324,7 @@ to confirm.
 - Deployment logic lives in `deploy/`
 - `clasp push --force` uploads code
 - `clasp deploy` publishes it
-- Linkly is updated automatically
+- Short URL is updated automatically
 
 This setup is designed to be **boring, explicit, and reliable** — exactly what deployment tooling should be.
 
