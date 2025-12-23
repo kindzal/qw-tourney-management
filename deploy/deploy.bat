@@ -30,7 +30,7 @@ PUSHD "%APP_ROOT%" || (
 
 REM Run shared PowerShell scripts by absolute path
 %PS% -NoProfile -ExecutionPolicy Bypass -Command ^
-  ". '%DEPLOY_DIR%Load-Env.ps1'; . '%DEPLOY_DIR%Deploy-AndUpdateLinkly.ps1'"
+  ". '%DEPLOY_DIR%Load-Env.ps1'; . '%DEPLOY_DIR%Deploy-App.ps1'"
 
 SET EXIT_CODE=%ERRORLEVEL%
 

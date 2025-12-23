@@ -1,8 +1,19 @@
 param(
-    [string]$EnvFilePath = ".env"
+    [string]$EnvFilePath
 )
 
 $ErrorActionPreference = "Stop"
+
+# --------------------------------------------------
+# Resolve app root (parent of deploy/)
+# --------------------------------------------------
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$appRoot   = Resolve-Path (Join-Path $scriptDir "..")
+
+# Default .env path = app root
+if (-not $EnvFilePath) {
+    $EnvFilePath = Join-Path $appRoot ".env"
+}
 
 if (-not (Test-Path $EnvFilePath)) {
     throw "ERROR: .env file not found at path: $EnvFilePath"
@@ -14,12 +25,10 @@ Get-Content $EnvFilePath | ForEach-Object {
 
     $line = $_.Trim()
 
-    # Skip empty lines and comments
     if ($line -eq "" -or $line.StartsWith("#")) {
         return
     }
 
-    # Split only on the first '='
     $parts = $line -split "=", 2
 
     if ($parts.Count -ne 2) {
@@ -30,7 +39,6 @@ Get-Content $EnvFilePath | ForEach-Object {
     $key   = $parts[0].Trim()
     $value = $parts[1].Trim()
 
-    # Remove surrounding quotes if present
     if (
         ($value.StartsWith('"') -and $value.EndsWith('"')) -or
         ($value.StartsWith("'") -and $value.EndsWith("'"))
