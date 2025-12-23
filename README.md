@@ -6,7 +6,7 @@ This project provides a **Google Sheets–based backend** for managing QuakeWorl
 - Group-stage standings calculation
 - Playoff separation
 - Discord integration
-- Web frontend API support
+- API-backed Web frontend
 
 Google Sheets acts as the **single source of truth**, with Apps Script providing the backend logic.
 
@@ -16,7 +16,7 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 ### Initial setup
 
-Firstly create and populate the following tabs:
+Firstly download a template and populate the following tabs:
 
 - **Players / Standins**
 - **Teams**
@@ -26,10 +26,10 @@ Firstly create and populate the following tabs:
 
 Then configure automation and integrations:
 
-- Deploy the **Reports Watcher Discord bot**  
+- Deploy the **Apps Script code / Web frontend / API**    
+- (Optional) Deploy the **Reports Watcher Discord bot**  
   👉 https://github.com/kindzal/qw-reports-watcher
-- (Optional) Deploy the **Web frontend / API**  
-  👉 https://github.com/kindzal/qw-tourney-management
+
 
 > ⚠️ **IMPORTANT**  
 > The **names of ALL tabs and column headings are critical**.  
@@ -124,6 +124,194 @@ flowchart TD
   TeamsStatsCalc --> TeamGamesPlayoffs
   PlayerStatsCalc --> Rank[Players / Standins]
 ```
+
+# Apps Script + Web App Deployment
+
+This repository uses a **per-app deployment folder** and a **shared deployment workflow** built on top of **Google clasp** and **Linkly**.
+
+The goal is to make deployments:
+- repeatable
+- explicit
+- safe
+- easy to run locally or in CI
+
+---
+
+## Folder Structure
+
+Each Apps Script app follows this structure:
+
+```
+app-root/
+├── deploy/
+│   ├── deploy.bat
+│   ├── Load-Env.ps1
+│   ├── Deploy-AndUpdateLinkly.ps1
+│   ├── delete-deployments.ps1
+│   └── (optional helper scripts)
+│
+├── src/
+│   ├── api.js
+│   ├── Code.js
+│   ├── config.js
+│   ├── discord.js
+│   ├── web.js
+│   ├── index.html
+│   ├── styles.html
+│   └── appsscript.json
+│
+├── .clasp.json
+└── .env
+```
+
+---
+
+## Source Files (`src/`)
+
+| File | Purpose |
+|-----|--------|
+| `api.js` | Backend API / request handling logic |
+| `Code.js` | Main Apps Script entry point and orchestration |
+| `config.js` | Centralised configuration values |
+| `discord.js` | Discord integration logic |
+| `web.js` | Web app routing / handlers |
+| `index.html` | Main HTML UI for the web app |
+| `styles.html` | NOT IN USE |
+| `appsscript.json` | Apps Script manifest (scopes, runtime, services) |
+
+All Apps Script `.js` and `.html` files are deployed via **clasp**.
+
+---
+
+## `.clasp.json`
+
+Example:
+
+```json
+{
+  "scriptId": "YOUR_GOOGLE_APPS_SCRIPT_ID",
+  "rootDir": "src"
+}
+```
+
+`rootDir` **must be `src`** because all Apps Script code lives there.
+
+---
+
+## `.env`
+
+Example:
+
+```env
+LINKLY_API_KEY=your_api_key
+LINKLY_WORKSPACE_ID=your_workspace_id
+LINKLY_LINK_ID=your_link_id
+
+# Optional (recommended)
+DEPLOYMENT_ID=AKfycbxxxxxxxxxxxxxxxx
+```
+
+> ⚠️ Never commit `.env` — add it to `.gitignore`.
+
+---
+
+## Deployment Flow (Important)
+
+A correct deployment **always** follows this order:
+
+1. **Push** code 
+2. **Deploy** app
+3. **Update Linkly**
+
+In clasp terms:
+
+```
+clasp push --force
+clasp deploy
+```
+
+`clasp deploy` alone does **NOT** upload code.
+
+---
+
+## How to Deploy
+
+From the **app root**:
+
+```bat
+deploy\deploy.bat
+```
+
+Or:
+
+```bat
+cd deploy
+deploy.bat
+```
+
+### What happens internally
+
+1. `deploy.bat`
+   - switches to the app root
+   - launches PowerShell
+
+2. `Load-Env.ps1`
+   - loads variables from `.env` into the process environment
+
+3. `Deploy-AndUpdateLinkly.ps1`
+   - runs `clasp push --force` (shows output)
+   - runs `clasp deploy`
+   - constructs the Web App URL from the deployment ID
+   - updates the Linkly link via their API
+
+---
+
+## Deleting Deployments (Cleanup)
+
+### Dry run (recommended)
+
+```powershell
+cd deploy
+pwsh .\delete-deployments.ps1 -DryRun
+```
+
+### Actual deletion
+
+```powershell
+cd deploy
+pwsh .\delete-deployments.ps1
+```
+
+You must type:
+
+```
+DELETE
+```
+
+to confirm.
+
+---
+
+## Requirements
+
+- Node.js
+- `clasp` (`npm install -g @google/clasp`)
+- PowerShell 5.1+ or PowerShell 7+
+- Logged-in clasp account (`clasp login`)
+
+---
+
+## Summary
+
+- Code lives in `src/`
+- Config lives in app root
+- Deployment logic lives in `deploy/`
+- `clasp push --force` uploads code
+- `clasp deploy` publishes it
+- Linkly is updated automatically
+
+This setup is designed to be **boring, explicit, and reliable** — exactly what deployment tooling should be.
+
 
 ## Technical documentation
 
@@ -395,4 +583,3 @@ Always re-run `DataImport → Update Stats` after manual fixes.
 ## Related repositories
 
 - Reports Watcher (Discord bot): https://github.com/kindzal/qw-reports-watcher
-- Web frontend / API: https://github.com/kindzal/qw-tourney-management
