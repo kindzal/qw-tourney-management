@@ -125,7 +125,7 @@ flowchart TD
   PlayerStatsCalc --> Rank[Players / Standins]
 ```
 
-# Apps Script + Web App Deployment
+## Apps Script + Web App Deployment
 
 This repository uses a **per-app deployment folder** and a **shared deployment workflow** built on top of **Google clasp** and **Linkly**.
 
@@ -137,7 +137,7 @@ The goal is to make deployments:
 
 ---
 
-## Folder Structure
+### Folder Structure
 
 Each Apps Script app follows this structure:
 
@@ -166,7 +166,7 @@ app-root/
 
 ---
 
-## Source Files (`src/`)
+### Source Files (`src/`)
 
 | File | Purpose |
 |-----|--------|
@@ -183,7 +183,7 @@ All Apps Script `.js` and `.html` files are deployed via **clasp**.
 
 ---
 
-## `.clasp.json`
+### `.clasp.json`
 
 Example:
 
@@ -198,7 +198,7 @@ Example:
 
 ---
 
-## `.env`
+### `.env`
 
 Example:
 
@@ -215,7 +215,7 @@ DEPLOYMENT_ID=AKfycbxxxxxxxxxxxxxxxx
 
 ---
 
-## Deployment Flow (Important)
+### Deployment Flow (Important)
 
 A correct deployment **always** follows this order:
 
@@ -234,7 +234,7 @@ clasp deploy
 
 ---
 
-## How to Deploy
+### How to Deploy
 
 From the **app root**:
 
@@ -249,7 +249,7 @@ cd deploy
 deploy.bat
 ```
 
-### What happens internally
+#### What happens internally
 
 1. `deploy.bat`
    - switches to the app root
@@ -266,16 +266,18 @@ deploy.bat
 
 ---
 
-## Deleting Deployments (Cleanup)
+### Deleting Deployments (Cleanup)
 
-### Dry run (recommended)
+Google Apps Script / clasp allows only 20 active deployments hence the need to clean up old deployments.
+
+#### Dry run (recommended)
 
 ```powershell
 cd deploy
 pwsh .\delete-deployments.ps1 -DryRun
 ```
 
-### Actual deletion
+#### Actual deletion
 
 ```powershell
 cd deploy
@@ -292,7 +294,7 @@ to confirm.
 
 ---
 
-## Requirements
+### Requirements
 
 - Node.js
 - `clasp` (`npm install -g @google/clasp`)
@@ -301,7 +303,7 @@ to confirm.
 
 ---
 
-## Summary
+### Summary
 
 - Code lives in `src/`
 - Config lives in app root
