@@ -61,8 +61,8 @@ Each feature has **its own configuration** in the relevant tab.
 
 | Tab | Purpose | Additional info |
 |---|---|---|
-| **Players / Standins** | List of players | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match game records. `Player` is display-only. |
-| **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2`. |
+| **Players / Standins** | List of players and their stats | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match a game record to a player. `Player` column is used for display-only purposes |
+| **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2` |
 | **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
 | **DataImport** | Import queue / manual import functionality  | Only edit yellow rows if manually importing |
 | **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT** |
@@ -72,7 +72,7 @@ Each feature has **its own configuration** in the relevant tab.
 | **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
 | **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. |
 | **OtherConfig** | Global config | Backend + Web App |
-| **Games** | Games database | Core dataset – **DO NOT EDIT** |
+| **Games** | Games database | Core dataset – **DO NOT EDIT** unless fixing import issues|
 | **ImportedURLs** | Deduplication list | Prevents duplicate imports |
 | **PostHistory** | Discord message log | Auto-generated |
 | **TEMPLATE-\*** | Helper templates | Not used directly |
