@@ -68,7 +68,7 @@ Each feature has **its own configuration** in the relevant tab.
 | **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT** |
 | **TeamGames** | Group-stage match results | **DO NOT EDIT** |
 | **TeamGamesPlayoffs** | Playoff match results | Split using `Playoffs start date` |
-| **Discord** | Discord posting tab & msg template | Edit columns B & C only |
+| **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
 | **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
 | **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. |
 | **OtherConfig** | Global config | Backend + Web App |
@@ -367,18 +367,17 @@ A match is defined strictly by:
 ### Data repair guidance
 
 Safe to edit:
-- `DataImport` (yellow rows only)
+- `DataImport` (yellow rows only when triggering a manual import)
 - `Players / Standins`
 - `Teams`
 - `Schedule`
 - `ScheduleConfig`
 - `OtherConfig`
+- `Discord` (column B only) to configure Web App url and webhook and/or to customise the message )
 
 Avoid editing unless fixing broken imports:
 - `Games`
 - `ImportedURLs`
-- `TeamGames`
-- `TeamGamesPlayoffs`
 
 Always re-run `DataImport → Update Stats` after manual fixes.
 
