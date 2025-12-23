@@ -61,10 +61,10 @@ Each feature has **its own configuration** in the relevant tab.
 
 | Tab | Purpose | Additional info |
 |---|---|---|
-| **Players / Standins** | List of players | `Game Nicks` is a comma-separated list of in-game `/name`s used to match game records. `Player` is display-only. |
+| **Players / Standins** | List of players | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match game records. `Player` is display-only. |
 | **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2`. |
 | **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
-| **DataImport** | Import queue / manual import functionality  | Only edit yellow rows if mannually importing |
+| **DataImport** | Import queue / manual import functionality  | Only edit yellow rows if manually importing |
 | **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT** |
 | **TeamGames** | Group-stage match results | **DO NOT EDIT** |
 | **TeamGamesPlayoffs** | Playoff match results | Split using `Playoffs start date` |
