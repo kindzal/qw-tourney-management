@@ -16,7 +16,10 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 ### Initial setup
 
-Firstly download a template and populate the following tabs:
+Firstly copy a template Google Sheets doc here
+  👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
+
+  and populate the following tabs:
 
 - **Players / Standins**
 - **Teams**
