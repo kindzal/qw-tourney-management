@@ -16,47 +16,65 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 ### Initial setup
 
-Firstly copy a template Google Sheets doc here
+Firstly copy a template Google Sheets doc here  
   👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
 
-  and populate the following tabs:
+and populate the following tabs:
 
 - **Players / Standins**
 - **Teams**
 - **Schedule**
 - **ScheduleConfig**
 - **OtherConfig**
-
-Then configure automation and integrations:
-
-- Deploy the **Apps Script code / Web frontend / API**    
-- (Optional) Deploy the **Reports Watcher Discord bot**  
-  👉 https://github.com/kindzal/qw-reports-watcher
-
+- **Discord**
 
 > ⚠️ **IMPORTANT**  
 > The **names of ALL tabs and column headings are critical**.  
 > **DO NOT CHANGE THEM OR SHIT WILL BREAK!**
 
----
+The sheet itself provides a fully feldged tournament management system with the manual data import option in case automation and integrations are not required (see below).
 
-### Discord auto-importing
+#### Manual data import
 
-- Match reports are posted on Discord by the players
-- The Reports Watcher Discord bot extracts Hub URLs from the posts
-- URLs are sent to a Google Apps Script endpoint
-- Games are imported automatically into the `Games` tab
+In case Discord game auto-importing feature is not required the sheet itself allows manual data imports from the QuakeWorld hub. 
+In order to import the game data simply follow the instructions posted on the `DataImport` tab itself.
 
+### Posting to Discord
+
+Posting weekly schedules to Discord is possible via the `Discord` tab. 
+The tab contains a fully customisable message template and a few configuration options:
+
+- Round - which round of the tournament it is - scheduling data is pulled from the `Schedule` tab based on the `Round` selected
+- Playoff tree - link to a playoff bracket if not using the Web App otherwise lkeft blank
+- Discord web hook - **REQUIRED** - see 👉 https://www.google.com/search?q=how+to+setup+discord+hooks&ie=UTF-8 for instructions
+- Web App deployment URL - your Web App deployment URL when using the Web App or simply this sheet's Google Sheet share link URL
+- Everyone spam - whether to tag the Discord msg with @everyone or not
+- Playoff msg - Playoff msg heading text
+- Group stage msg - Group stage msg heading text
+- Playoff match procedure - Playoff match procedure text
+- Group match procedure - Group match procedure text
+- Include players list - whether to include all players for each team in the Discord msg body
+- Deadline msg - Deadline msg text
+- Reporting prompt - Reporting prompt text (leave blank if not required)
+- Team tags prompt - Team tags prompt text (leave blank if not required)
+- Scheduling prompt - Scheduling prompt text (leave blank if not required)
+- Ranking title - title for the `Web App deployment URL` link
+
+### Automation (optional)
+
+Configure automation and integrations for a complete self-managing system:
+
+- Deploy the **Apps Script code / Web frontend / API**    
+
+Web App exposes standings & schedule details, playoff bracket, played matches and player stats using `Web App deployment URL` configured & posted via `Discord` tab. 
+Read below for deploymnent instructions.
+
+- Deploy the **Reports Watcher Discord bot**  
+ 
+Match reports are posted on Discord by the players. The Reports Watcher Discord bot extracts Hub URLs from the posts and URLs are sent to a Google Apps Script endpoint. Games are hen imported automatically into the `Games` tab.
 Successful processing is indicated by **bot reactions** on Discord messages.
 
----
-
-### Optional features
-
-- Posting weekly schedules to Discord via the **Discord** tab
-- Exposing standings, matches, and stats via the Web App
-
-Each feature has **its own configuration** in the relevant tab.
+See 👉 https://github.com/kindzal/qw-reports-watcher for deploymnent instructions.
 
 ---
 
