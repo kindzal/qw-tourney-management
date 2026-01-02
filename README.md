@@ -36,8 +36,7 @@ The sheet itself provides a fully feldged tournament management system with the 
 
 #### Manual data import
 
-In case Discord game auto-importing feature is not required the sheet itself allows manual data imports from the QuakeWorld hub. 
-In order to import the game data simply follow the instructions posted on the `DataImport` tab itself.
+The sheet itself allows manual data imports from the QuakeWorld hub. In order to do so simply follow the instructions posted on the `DataImport` tab itself.
 
 ### Posting to Discord
 
@@ -45,7 +44,7 @@ Posting weekly schedules to Discord is possible via the `Discord` tab.
 The tab contains a fully customisable message template and a few configuration options:
 
 - Round - which round of the tournament it is - scheduling data is pulled from the `Schedule` tab based on the `Round` selected
-- Playoff tree - link to a playoff bracket if not using the Web App otherwise lkeft blank
+- Playoff tree - link to a playoff bracket if not using the Web App otherwise left blank
 - Discord web hook - **REQUIRED** - see 👉 https://www.google.com/search?q=how+to+setup+discord+hooks&ie=UTF-8 for instructions
 - Web App deployment URL - your Web App deployment URL when using the Web App or simply this sheet's Google Sheet share link URL
 - Everyone spam - whether to tag the Discord msg with @everyone or not
@@ -71,7 +70,7 @@ Read below for deploymnent instructions.
 
 - Deploy the **Reports Watcher Discord bot**  
  
-Match reports are posted on Discord by the players. The Reports Watcher Discord bot extracts Hub URLs from the posts and URLs are sent to a Google Apps Script endpoint. Games are hen imported automatically into the `Games` tab.
+Match reports are posted on Discord by the players. The Reports Watcher Discord bot extracts Hub URLs from the posts and URLs are sent to a Google Apps Script endpoint. Games are then imported automatically into the `Games` tab.
 Successful processing is indicated by **bot reactions** on Discord messages.
 
 See 👉 https://github.com/kindzal/qw-reports-watcher for deploymnent instructions.
