@@ -66,14 +66,14 @@ Configure automation and integrations for a complete self-managing system:
 - Deploy the **Apps Script code / Web frontend / API**    
 
 Web App exposes standings & schedule details, playoff bracket, played matches and player stats using `Web App deployment URL` configured & posted via `Discord` tab. 
-Read below for deploymnent instructions.
+Read below for deployment instructions.
 
 - Deploy the **Reports Watcher Discord bot**  
  
 Match reports are posted on Discord by the players. The Reports Watcher Discord bot extracts Hub URLs from the posts and URLs are sent to a Google Apps Script endpoint. Games are then imported automatically into the `Games` tab.
 Successful processing is indicated by **bot reactions** on Discord messages.
 
-See 👉 https://github.com/kindzal/qw-reports-watcher for deploymnent instructions.
+See 👉 https://github.com/kindzal/qw-reports-watcher for deployment instructions.
 
 ---
 
