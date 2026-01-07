@@ -11,7 +11,9 @@ function handleApiRequest(e) {
     case "playoffGames":
       return jsonResponse(getTeamGames('playoff'));
     case "teams":
-      return jsonResponse(getTeams());  
+      return jsonResponse(getTeams());        
+    case "allGames":
+      return jsonResponse(getAllGames());  
     default:
       return jsonResponse({ error: "Unknown endpoint" });
   }
@@ -223,6 +225,93 @@ function getTeamGames(mode = 'group') {
         date: ""
       });
     }
+  });
+
+  return result;
+}
+function getAllGames() {
+  const ss = SpreadsheetApp.getActive();
+
+  const SOURCES = [
+    { sheetName: "TeamGames", mode: "group" },
+    { sheetName: "TeamGamesPlayoffs", mode: "playoff" }
+  ];
+
+  const REQUIRED = [
+    "Round",
+    "TeamA",
+    "TeamB",
+    "MapsWonA",
+    "MapsWonB",
+    "AllMapsJSON",
+    "Date"
+  ];
+
+  const result = [];
+
+  SOURCES.forEach(({ sheetName, mode }) => {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      throw new Error(`Sheet not found: ${sheetName}`);
+    }
+
+    const values = sheet.getDataRange().getValues();
+    const headers = values.shift();
+
+    const idx = {};
+    headers.forEach((h, i) => (idx[h.trim()] = i));
+
+    REQUIRED.forEach(col => {
+      if (!(col in idx)) {
+        throw new Error(`Missing column in ${sheetName}: ${col}`);
+      }
+    });
+
+    values.forEach(row => {
+      const round = row[idx.Round];
+      
+      /* ---- Parse maps ---- */
+      let maps = [];
+      const rawMaps = row[idx.AllMapsJSON];
+      if (rawMaps) {
+        try {
+          maps = JSON.parse(rawMaps).map(m => ({
+            mapName: m.mapName || "",
+            teamAFrags: Number(m.teamAFrags) || 0,
+            teamBFrags: Number(m.teamBFrags) || 0,
+            gameUrl: m.gameUrl || ""
+          }));
+        } catch (e) {
+          Logger.log(`Failed to parse AllMapsJSON (${sheetName}): ${e}`);
+        }
+      }
+
+      /* ---- Parse date ---- */
+      const rawDate = row[idx.Date];
+      let gameDate = "";
+
+      if (rawDate instanceof Date) {
+        gameDate = rawDate;
+      } else if (rawDate) {
+        const iso = String(rawDate)
+          .replace(" ", "T")
+          .replace(/ ([+-]\d{2})(\d{2})$/, "$1:$2");
+        const d = new Date(iso);
+        if (!isNaN(d)) gameDate = d;
+      }
+
+      result.push({
+        round: String(round),
+        teamA: row[idx.TeamA],
+        teamB: row[idx.TeamB],
+        mapsWonA: Number(row[idx.MapsWonA]) || 0,
+        mapsWonB: Number(row[idx.MapsWonB]) || 0,
+        played: 1,
+        maps,
+        date: gameDate,
+        mode // "group" or "playoff"
+      });
+    });
   });
 
   return result;

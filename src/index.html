@@ -946,8 +946,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Where do we fetch from?
   // Easiest + robust: combine groupGames + playoffGames (if playoffGames exists)
   Promise.allSettled([
-    fetch(baseUrl + "?endpoint=groupGames").then(r => r.json()),
-    fetch(baseUrl + "?endpoint=playoffGames").then(r => r.json())
+    fetch(baseUrl + "?endpoint=allGames").then(r => r.json())    
   ]).then(results => {
     const all = [];
     results.forEach(res => {
