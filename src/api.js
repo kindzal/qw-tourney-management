@@ -109,7 +109,7 @@ function getTeamGames(mode = 'group') {
   const gIdx = {};
   gameHeaders.forEach((h, i) => (gIdx[h.trim()] = i));
 
-  const REQUIRED = ["Round", "TeamA", "TeamB", "MapsWonA", "MapsWonB", "AllMapsJSON"];
+  const REQUIRED = ["Round", "TeamA", "TeamB", "MapsWonA", "MapsWonB", "AllMapsJSON", "Date"];
   REQUIRED.forEach(col => {
     if (!(col in gIdx)) {
       throw new Error(`Missing column in games sheet: ${col}`);
@@ -141,7 +141,17 @@ function getTeamGames(mode = 'group') {
         Logger.log(`Failed to parse AllMapsJSON: ${e}`);
       }
     }
+    const rawDate = row[gIdx.Date];
+    let gameDate;
 
+    if (rawDate instanceof Date) {
+      gameDate = rawDate;
+    } else {
+      const iso = String(rawDate)
+        .replace(" ", "T")
+        .replace(/ ([+-]\d{2})(\d{2})$/, "$1:$2");
+      gameDate = new Date(iso);
+    }
     const game = {
       round: String(round),
       teamA: row[gIdx.TeamA],
@@ -149,7 +159,8 @@ function getTeamGames(mode = 'group') {
       mapsWonA: Number(row[gIdx.MapsWonA]) || 0,
       mapsWonB: Number(row[gIdx.MapsWonB]) || 0,
       played: 1,
-      maps
+      maps,
+      date: gameDate 
     };
 
     const key = pairKey(game.teamA, game.teamB);
@@ -208,7 +219,8 @@ function getTeamGames(mode = 'group') {
         mapsWonA: "",
         mapsWonB: "",
         played: 0,
-        maps: []
+        maps: [],
+        date: ""
       });
     }
   });

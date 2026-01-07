@@ -21,6 +21,7 @@ const CONFIG = {
   rankTooltipText: config["WebApp rank tooltip text"],
   logoUrl: config["WebApp logo url"],
   wikiUrl: config["WebApp wiki url"],
+  recentGamesLimit: config["Recent Games limit"],
   apiEndpoints: {
     standings: "standings",
     teams: "teams",

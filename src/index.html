@@ -100,6 +100,70 @@
   }
 
   /* ======================
+   RECENT GAMES
+   ====================== */  
+  .recent-games {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;    
+    max-width: clamp(400px, 85vw, 600px);    
+    padding: 0 16px;
+    border-top: 1px solid rgba(255,255,255,0.05)
+  }
+
+  .recent-game-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 26px 22px 26px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 8px;
+    border: 1px solid #d7dbe2;
+    border-radius: 8px;
+    background: #fff;
+    position: relative; /* for popup anchoring */
+  }
+
+  .recent-game-date {
+    color: #6b7280;
+    font-size: 0.95em;
+    white-space: nowrap;
+  }
+
+  .recent-team {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .recent-score {
+    font-family: 'Droid Sans Mono', monospace;
+    text-align: center;
+    min-width: 26px;
+  }
+
+  .recent-show-more {
+    display: inline-block;
+    margin-top: 10px;
+    font-weight: 600;
+    color: #0055aa;
+    cursor: pointer;
+    user-select: none;
+    width: fit-content;
+  }  
+
+  .recent-game-row .winner {
+    font-weight: 700;
+  }
+
+  /* Mobile: stack nicely */
+  @media (max-width: 768px) {
+    .recent-game-row {
+      grid-template-columns: 90px 1fr 22px 22px 22px 1fr;
+      gap: 8px;
+    }
+  }
+
+  /* ======================
      GROUP BRACKET (unchanged)
      ====================== */
   .bracket-wrapper {
@@ -180,8 +244,7 @@
     display:none;
     position:absolute;
     top: 100%;
-    left: 50%;
-    transform: translateX(-50%) translateY(-170%);
+    left: 50%;    
     margin-top:6px;
     background:#fffefc;
     border:1px solid #bbb;
@@ -192,12 +255,28 @@
     max-width:420px;
     box-shadow:0 2px 6px rgba(0,0,0,0.2);
   }
+
+  .bracket-game .bracket-popup-wrapper {
+    transform: translateX(-50%) translateY(-170%);
+  }
+
+  .recent-game-row .bracket-popup-wrapper {
+    transform: translateX(-30%) translateY(-128%);
+  }
+
   .bracket-popup-header {
     display:flex;
     justify-content:space-between;
     font-weight:bold;
     margin-bottom:6px;
     gap: 8px;
+  }
+  .bracket-popup-wrapper .bracket-popup-header > div:nth-child(2) {
+    text-align: right;
+  }
+  .bracket-popup-header > div:nth-child(2) {
+    margin-left: auto;
+    text-align: right;
   }
   .bracket-popup-body-match {
     display:flex;
@@ -397,7 +476,7 @@
     .round-games { flex-direction: column; gap: 16px; }
     .bracket-game { width: 100% !important; }
 
-    .bracket-popup-wrapper {
+    .bracket-game .bracket-popup-wrapper, .recent-game-row .bracket-popup-wrapper {
       position: fixed;
       top: 50%;
       left: 50%;
@@ -519,6 +598,7 @@
   <button data-target="teams">👥 Teams</button>
   <button data-target="players">🎯 Ranking</button>
   <button data-target="playoffs">🏁 Playoffs</button>
+  <button data-target="recent">🕒 Recent Games</button>
 </nav>
 
 <section id="standings">
@@ -542,12 +622,18 @@
   <div id="playoffs-output" class="loading">Loading…</div>
 </section>
 
+<section id="recent">
+  <h2>Recent Games</h2>
+  <div id="recent-games-output" class="loading">Loading…</div>
+</section>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
   const baseUrl="<?= baseUrl ?>";
   const defaultPage="<?= defaultPage ?>";
-  const rankTooltipText = <?= JSON.stringify(rankTooltipText) ?>;
+  const rankTooltipText = <?= JSON.stringify(rankTooltipText) ?>;  
+  const recentGamesLimit = Number("<?= recentGamesLimit ?>") || 5;
 
   /* NAV */
   document.querySelectorAll(".app-nav button").forEach(btn => {
@@ -706,6 +792,173 @@ document.addEventListener("DOMContentLoaded", () => {
     card.appendChild(match);
     return card;
   }
+
+  /* ==========================
+     RECENT GAMES
+     ========================== */
+  
+  const recentOut = document.getElementById("recent-games-output");
+
+  function getGameDateValue(g) {
+    // Try common fields; fallback 0 if none
+    const raw = g.Date || g.date || "";      
+    const t = Date.parse(raw);
+    return isNaN(t) ? 0 : t;
+  }
+
+  function formatShortDate(g) {
+    const raw = g.Date || g.date || "";      
+    const t = Date.parse(raw);
+    if (isNaN(t)) return ""; // if API doesn't provide date, show blank
+    const d = new Date(t);
+    // dd/mm/yyyy (matches your example)
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  function buildRecentRow(g, popupState) {
+    const row = document.createElement("div");
+    row.className = "recent-game-row";
+
+    const dateEl = document.createElement("div");
+    dateEl.className = "recent-game-date";
+    dateEl.textContent = formatShortDate(g);
+
+    const scoreAVal = Number(g.mapsWonA) || 0;
+    const scoreBVal = Number(g.mapsWonB) || 0;
+
+    const teamBWon = scoreBVal > scoreAVal;
+    const teamAWon = scoreAVal > scoreBVal;
+
+    const scoreA = document.createElement("div");
+    scoreA.className = "recent-score" + (teamAWon ? " winner" : "");
+    scoreA.textContent = (g.mapsWonA ?? "");
+
+    const teamA = document.createElement("div");
+    teamA.className = "recent-team" + (teamAWon ? " winner" : "");
+    teamA.style.textAlign = "right";
+    teamA.textContent = g.teamA || "";
+
+    const info = document.createElement("span");    
+    info.className = "info-icon";
+    info.textContent = "ℹ️";
+    info.style.margin = "0"; // keep compact
+    
+    const scoreB = document.createElement("div");
+    scoreB.className = "recent-score" + (teamBWon ? " winner" : "");
+    scoreB.textContent = (g.mapsWonB ?? "");
+
+    const teamB = document.createElement("div");
+    teamB.className = "recent-team" + (teamBWon ? " winner" : "");
+    teamB.style.textAlign = "left";
+    teamB.textContent = g.teamB || "";
+
+    // Same popup content as game cards
+    const popup = document.createElement("div");
+    popup.className = "bracket-popup-wrapper";
+    popup.innerHTML = `<div class="bracket-popup-header"><div>${g.teamA || ""}</div><div>${g.teamB || ""}</div></div>`;
+
+    (g.maps || []).forEach(m => {
+      popup.innerHTML += `
+        <div class="bracket-popup-body-match">
+          <span class="bracket-score" style="font-weight:${m.teamAFrags>m.teamBFrags?'bold':'normal'}">${m.teamAFrags}</span>
+          <a class="map-name" href="${m.gameUrl}" target="_blank" rel="noopener">${m.mapName}</a>
+          <span class="bracket-score" style="font-weight:${m.teamBFrags>m.teamAFrags?'bold':'normal'}">${m.teamBFrags}</span>
+        </div>`;
+    });
+
+    if (g.played) {
+      info.onclick = (e) => {
+        e.stopPropagation();
+        if (popupState.openPopup && popupState.openPopup !== popup) {
+          popupState.openPopup.style.display = "none";
+        }
+        popup.style.display = (popup.style.display === "block") ? "none" : "block";
+        popupState.openPopup = (popup.style.display === "block") ? popup : null;
+      };
+    }
+
+    row.append(dateEl, teamA, scoreA, info, scoreB, teamB, popup);
+    return row;
+  }
+
+  function renderRecentGames(allGames) {
+    recentOut.innerHTML = "";
+
+    if (!allGames?.length) {
+      recentOut.textContent = "No recent games.";
+      return;
+    }
+
+    // Only played games make sense for "recent"
+    const played = allGames.filter(g => !!g.played);
+
+    // Sort newest → oldest using whatever date fields exist
+    played.sort((a, b) => getGameDateValue(b) - getGameDateValue(a));
+
+    const popupState = { openPopup: null };
+    document.addEventListener("click", () => {
+      if (popupState.openPopup) popupState.openPopup.style.display = "none";
+      popupState.openPopup = null;
+    });
+
+    const wrap = document.createElement("div");
+    wrap.className = "recent-games";
+
+    const initial = played.slice(0, recentGamesLimit);
+    const rest = played.slice(recentGamesLimit);
+
+    initial.forEach(g => wrap.appendChild(buildRecentRow(g, popupState)));
+
+    let hiddenContainer = null;
+    let toggle = null;
+
+    if (rest.length) {
+      hiddenContainer = document.createElement("div");
+      hiddenContainer.className = "recent-hidden";
+      hiddenContainer.style.display = "none";
+      hiddenContainer.style.marginTop = "8px";
+      hiddenContainer.style.flexDirection = "column";
+      hiddenContainer.style.gap = "8px";
+
+      // Build hidden rows
+      rest.forEach(g => hiddenContainer.appendChild(buildRecentRow(g, popupState)));
+
+      toggle = document.createElement("div");
+      toggle.className = "recent-show-more";
+      toggle.textContent = "Show more games";
+
+      toggle.onclick = () => {
+        const isOpen = hiddenContainer.style.display === "flex";
+        hiddenContainer.style.display = isOpen ? "none" : "flex";
+        toggle.textContent = isOpen ? "Show more games" : "Show fewer games";
+      };
+
+      wrap.appendChild(toggle);
+      wrap.appendChild(hiddenContainer);
+    }
+
+    recentOut.appendChild(wrap);
+  }
+
+  // Where do we fetch from?
+  // Easiest + robust: combine groupGames + playoffGames (if playoffGames exists)
+  Promise.allSettled([
+    fetch(baseUrl + "?endpoint=groupGames").then(r => r.json()),
+    fetch(baseUrl + "?endpoint=playoffGames").then(r => r.json())
+  ]).then(results => {
+    const all = [];
+    results.forEach(res => {
+      if (res.status === "fulfilled" && Array.isArray(res.value)) {
+        all.push(...res.value);
+      }
+    });
+    renderRecentGames(all);
+  }).catch(e => {
+    recentOut.textContent = "Error loading recent games: " + e;
+  });  
 
   /* ========= GROUP BRACKET (numeric-only + sorted) ========= */
   const groupOut = document.getElementById("team-games-output");

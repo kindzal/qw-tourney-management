@@ -16,6 +16,7 @@ function doGet(e) {
   template.logoUrl = CONFIG.logoUrl;
   template.wikiUrl = CONFIG.wikiUrl;
   template.rankTooltipText = CONFIG.rankTooltipText;
+  template.recentGamesLimit = CONFIG.recentGamesLimit;
     
   return template
     .evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1')
