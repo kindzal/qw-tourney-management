@@ -805,7 +805,7 @@ function updateTeams() {
   teamGamesSheet.clearContents();
   teamGamesPlayoffSheet.clearContents();
 
-  const header = ["#", "Round", "TeamA", "MapsWonA", "Score", "TeamB", "MapsWonB", "AllMapsJSON"];
+  const header = ["#", "Round", "TeamA", "MapsWonA", "Score", "TeamB", "MapsWonB", "AllMapsJSON", "Date"];
   const tgOut = [header];
   const tgPOOut = [header];
 
@@ -848,7 +848,8 @@ function updateTeams() {
       `${scores[tA]}-${scores[tB]}`,
       fullB,
       scores[tB],
-      allMapsJSON
+      allMapsJSON,
+      g.maps[0]?.mapDate || g.mapDate || ""
     ];
 
     g.isPlayoff ? tgPOOut.push(row) : tgOut.push(row);
