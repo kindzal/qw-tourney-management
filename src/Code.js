@@ -623,15 +623,34 @@ function updateTeams() {
 
   // -------------------------------------------------------
   // Schedule lookup (team names -> round)
+  // Split into group (numeric rounds) vs playoffs (non-numeric rounds)
   // -------------------------------------------------------
   const scheduleData = scheduleSheet.getDataRange().getValues().slice(1);
-  const roundLookup = {};
+
+  const roundLookupGroup = {};    // numeric rounds only
+  const roundLookupPlayoff = {};  // non-numeric rounds only
+
+  const isNumericRound = (r) => {
+    const s = String(r).trim();
+    if (s === "") return false;
+    return !isNaN(Number(s)); // "1", "2", "03" => true; "Quarterfinal" => false
+  };
+
   scheduleData.forEach(([round, a, b]) => {
     if (!round || !a || !b) return;
+
     const A = String(a).trim().toLowerCase();
     const B = String(b).trim().toLowerCase();
-    roundLookup[`${A}|${B}`] = round;
-    roundLookup[`${B}|${A}`] = round;
+    const key1 = `${A}|${B}`;
+    const key2 = `${B}|${A}`;
+
+    if (isNumericRound(round)) {
+      roundLookupGroup[key1] = round;
+      roundLookupGroup[key2] = round;
+    } else {
+      roundLookupPlayoff[key1] = round;
+      roundLookupPlayoff[key2] = round;
+    }
   });
 
   const teamStats = {};
@@ -842,7 +861,9 @@ function updateTeams() {
 
     const row = [
       g.isPlayoff ? i2++ : i1++,
-      roundLookup[`${fullA.toLowerCase()}|${fullB.toLowerCase()}`] || "",
+      (g.isPlayoff ? roundLookupPlayoff : roundLookupGroup)[
+        `${fullA.toLowerCase()}|${fullB.toLowerCase()}`
+      ] || "",
       fullA,
       scores[tA],
       `${scores[tA]}-${scores[tB]}`,
