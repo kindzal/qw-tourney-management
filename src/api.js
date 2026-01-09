@@ -38,8 +38,8 @@ function getPlayers() {
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
 
-  const PRIORITY_ORDER = ["Rank", "Player", "Avg Frags", "Win Rate", "Avg Eff", "Avg SG", "Avg LG", "Avg RL Killed"];
-  const EXCLUDE = ["Game Nicks", "Team"];
+  const PRIORITY_ORDER = ["Rank", "Player", "Maps Played", "Avg Frags", "Win Rate", "Avg Eff", "Avg SG", "Avg LG", "Avg RL Killed"];
+  const EXCLUDE = ["Game Nicks", "Team", "Total Frags", "Maps Won", ];
 
   return values.map(row => {
     const rowObj = Object.fromEntries(
