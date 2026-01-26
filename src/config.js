@@ -22,6 +22,7 @@ const CONFIG = {
   logoUrl: config["WebApp logo url"],
   wikiUrl: config["WebApp wiki url"],
   recentGamesLimit: config["Recent Games limit"],
+  hidePlayoffs: config["Hide playoffs"],
   apiEndpoints: {
     standings: "standings",
     teams: "teams",

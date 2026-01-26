@@ -17,6 +17,7 @@ function doGet(e) {
   template.wikiUrl = CONFIG.wikiUrl;
   template.rankTooltipText = CONFIG.rankTooltipText;
   template.recentGamesLimit = CONFIG.recentGamesLimit;
+  template.hidePlayoffs = CONFIG.hidePlayoffs;
     
   return template
     .evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1')

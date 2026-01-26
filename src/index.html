@@ -597,7 +597,9 @@
   <button data-target="standings">🏆 Standings</button>
   <button data-target="teams">👥 Teams</button>
   <button data-target="players">🎯 Ranking</button>
-  <button data-target="playoffs">🏁 Playoffs</button>
+  <? if (hidePlayoffs !== 'Yes') { ?>
+    <button data-target="playoffs">🏁 Playoffs</button>
+  <? } ?>
   <button data-target="recent">🕒 Recent Games</button>
 </nav>
 
@@ -617,10 +619,12 @@
   <div id="players-output" class="loading">Loading…</div>
 </section>
 
-<section id="playoffs">
-  <h2>Playoffs</h2>
-  <div id="playoffs-output" class="loading">Loading…</div>
-</section>
+<? if (hidePlayoffs !== 'Yes') { ?>
+  <section id="playoffs">
+    <h2>Playoffs</h2>
+    <div id="playoffs-output" class="loading">Loading…</div>
+  </section>
+<? } ?>
 
 <section id="recent">
   <h2>Recent Games</h2>
@@ -1217,10 +1221,12 @@ document.addEventListener("DOMContentLoaded", () => {
     playoffsOut.appendChild(wrap);
   }
 
-  fetch(baseUrl + "?endpoint=playoffGames")
-    .then(r => r.json())
-    .then(renderPlayoffsBracket)
-    .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
+  if (hidePlayoffs !== 'Yes') {
+    fetch(baseUrl + "?endpoint=playoffGames")
+      .then(r => r.json())
+      .then(renderPlayoffsBracket)
+      .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
+  }
 
     /* ========= Rank tooltip (click / tap) ========= */
   document.addEventListener("click", e => {
