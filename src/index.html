@@ -99,6 +99,13 @@
     font-size: 1.1em;
   }
 
+  .round-deadline {
+    font-weight: 400;
+    font-size: 0.85em;
+    color: #6b7280;
+    margin-left: 15px;
+  }
+
   /* ======================
    RECENT GAMES
    ====================== */  
@@ -639,6 +646,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const rankTooltipText = <?= JSON.stringify(rankTooltipText) ?>;  
   const recentGamesLimit = Number("<?= recentGamesLimit ?>") || 5;
 
+  let scheduleConfigByRound = {};
+
+  fetch(baseUrl + "?endpoint=scheduleConfig")
+  .then(r => r.json())
+  .then(data => {
+    data.forEach(r => {
+      scheduleConfigByRound[String(r.round)] = r;
+    });
+  })
+  .catch(e => console.error("ScheduleConfig load failed", e));
+
   /* NAV */
   document.querySelectorAll(".app-nav button").forEach(btn => {
     btn.onclick = () => {
@@ -991,7 +1009,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const rb=document.createElement("div");
       rb.className="round-block";
 
-      rb.innerHTML=`<div class="round-header">Round ${round}</div>`;
+      const deadlineText = scheduleConfigByRound[String(round)].deadline;      
+
+      rb.innerHTML = `
+        <div class="round-header">
+          Round ${round}
+          ${deadlineText ? `<span class="round-deadline">Deadline: ${deadlineText}</span>` : ""}
+        </div>
+      `;
+
       const games=document.createElement("div");
       games.className="round-games";
 

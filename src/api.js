@@ -14,6 +14,8 @@ function handleApiRequest(e) {
       return jsonResponse(getTeams());        
     case "allGames":
       return jsonResponse(getAllGames());  
+    case "scheduleConfig":
+      return jsonResponse(getScheduleConfig());  
     default:
       return jsonResponse({ error: "Unknown endpoint" });
   }
@@ -23,6 +25,41 @@ function jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getScheduleConfig() {  
+  const scheduleConfigSheet = SpreadsheetApp.getActive().getSheetByName('ScheduleConfig');
+
+  if (!scheduleConfigSheet) {
+    throw new Error("ScheduleConfig sheet not found");
+  }
+
+  const values = scheduleConfigSheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(h => String(h).trim());
+
+  const roundIdx = headers.indexOf("Round");
+  const mapsIdx = headers.indexOf("Maps");
+  const deadlineIdx = headers.indexOf("Deadline");
+
+  if (roundIdx === -1 || deadlineIdx === -1) {
+    throw new Error("ScheduleConfig must contain Round and Deadline columns");
+  }
+
+  return values.slice(1)
+    .filter(r => r[roundIdx] !== "" && r[roundIdx] != null)
+    .map(r => ({
+      round: String(r[roundIdx]).trim(),
+      maps: mapsIdx !== -1 ? r[mapsIdx] : "",
+      deadline: r[deadlineIdx] instanceof Date
+      ? Utilities.formatDate(
+          r[deadlineIdx],
+          Session.getScriptTimeZone(),
+          "dd/MM/yyyy"
+        )
+      : r[deadlineIdx]
+     }));
 }
 
 function getStandings() {
