@@ -4,24 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= appTitle ?></title>
-
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700|Droid+Sans+Mono|Roboto:500">
 <?!= HtmlService.createHtmlOutputFromFile('styles').getContent(); ?>
 </head>
 <body>
-
 <header class="app-header">
-  <h1 class="app-title"><?= appTitle ?></h1>
-  <div class="app-header-sub">
+  <div class="app-header-main">
     <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
-    <? if (wikiUrl) { ?>
-      <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="wiki-link">📖 Wiki</a>
-    <? } ?>
+    <div>
+      <h1 class="app-title"><?= appTitle ?></h1>
+      <? if (wikiUrl) { ?>
+        <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="wiki-link">📖 Wiki</a>
+      <? } ?>
+    </div>
   </div>
 </header>
-
 <nav class="app-nav">
   <button data-target="standings">🏆 Standings</button>
+  <button data-target="schedule">📆 Schedule</button>
   <button data-target="teams">👥 Teams</button>
   <button data-target="players">🎯 Ranking</button>
   <? if (hidePlayoffs !== 'Yes') { ?>
@@ -29,46 +29,55 @@
   <? } ?>
   <button data-target="recent">🕒 Recent Games</button>
 </nav>
-
+<div class="popup-overlay" id="popup-overlay"></div>
 <section id="standings">
-  <h2>Standings</h2>
-  <div id="standings-output" class="loading">Loading…</div>
-  <div id="team-games-output" class="loading">Loading…</div>
+  <div class="content-wrapper">
+    <h2>Standings</h2>
+    <div id="standings-output" class="loading">Loading…</div>
+  </div>
 </section>
-
+<section id="schedule">
+  <div class="content-wrapper">
+    <h2>Schedule</h2>
+    <div id="round-nav-container"></div>
+    <div id="schedule-rounds-container"></div>
+  </div>
+</section>
 <section id="teams">
-  <h2>Teams</h2>
-  <div id="teams-output" class="loading">Loading…</div>
+  <div class="content-wrapper">
+    <h2>Teams</h2>
+    <div id="teams-output" class="loading">Loading…</div>
+  </div>
 </section>
-
 <section id="players">
-  <h2>Players Ranking</h2>
-  <div id="players-output" class="loading">Loading…</div>
+  <div class="content-wrapper">
+    <h2>Players Ranking</h2>
+    <div id="players-output" class="loading">Loading…</div>
+  </div>
 </section>
-
 <? if (hidePlayoffs !== 'Yes') { ?>
   <section id="playoffs">
-    <h2>Playoffs</h2>
-    <div id="playoffs-output" class="loading">Loading…</div>
+    <div class="content-wrapper">
+      <h2>Playoffs</h2>
+      <div id="playoffs-output" class="loading">Loading…</div>
+    </div>
   </section>
 <? } ?>
-
 <section id="recent">
-  <h2>Recent Games</h2>
-  <div id="recent-games-output" class="loading">Loading…</div>
+  <div class="content-wrapper">
+    <h2>Recent Games</h2>
+    <div id="recent-games-output" class="loading">Loading…</div>
+  </div>
 </section>
-
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-
   const baseUrl="<?= baseUrl ?>";
   const defaultPage="<?= defaultPage ?>";
   const rankTooltipText = <?= JSON.stringify(rankTooltipText) ?>;  
   const recentGamesLimit = Number("<?= recentGamesLimit ?>") || 5;
   const hidePlayoffs = "<?= hidePlayoffs ?>";
-
   let scheduleConfigByRound = {};
-
+  
   fetch(baseUrl + "?endpoint=scheduleConfig")
   .then(r => r.json())
   .then(data => {
@@ -77,8 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   })
   .catch(e => console.error("ScheduleConfig load failed", e));
-
-  /* NAV */
+  
   document.querySelectorAll(".app-nav button").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
@@ -87,13 +95,16 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.classList.add("active");
     };
   });
-
   const defaultBtn = document.querySelector(`.app-nav button[data-target="${defaultPage}"]`);
   if (defaultBtn) defaultBtn.click();
-
-  /* TABLES */
+  
+  const overlay = document.getElementById('popup-overlay');
+  overlay.addEventListener('click', () => {
+    document.querySelectorAll('.bracket-popup-wrapper').forEach(p => p.style.display = 'none');
+    overlay.classList.remove('active');
+  });
+  
   const PERCENT_COLUMNS=["Win Rate","Avg Eff","Avg SG","Avg LG"];
-
   function formatCell(h,v){
     if(PERCENT_COLUMNS.includes(h)){
       if(v==null||v==="") return "";
@@ -103,14 +114,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return v;
   }
-
+  
   function renderTable(id,data){
     const c=document.getElementById(id);
     c.innerHTML="";
     if(!data?.length){ c.textContent="No data."; return; }
     const t=document.createElement("table");
     const h=Object.keys(data[0]);
-    //t.innerHTML="<thead><tr>"+h.map(x=>`<th>${x}</th>`).join("")+"</tr></thead>";
+    
     t.innerHTML =
       "<thead><tr>" +
       h.map(col => {
@@ -129,14 +140,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<th>${col}</th>`;
       }).join("") +
       "</tr></thead>";
-
+    
     const tb=document.createElement("tbody");
     data.forEach(r=>{
       const tr=document.createElement("tr");
       h.forEach(k=>{
         const td=document.createElement("td");
         td.textContent=formatCell(k,r[k]);
-        if(!["Team","Player","Players"].includes(k)) td.style.textAlign="center";
         tr.appendChild(td);
       });
       tb.appendChild(tr);
@@ -144,60 +154,81 @@ document.addEventListener("DOMContentLoaded", () => {
     t.appendChild(tb);
     c.appendChild(t);
   }
-
-  fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTable("teams-output",d));
+  
+  function renderTeamsQWickyStyle(data) {
+    const c = document.getElementById("teams-output");
+    c.innerHTML = "";
+    if (!data?.length) { c.textContent = "No teams."; return; }
+    
+    const grid = document.createElement("div");
+    grid.className = "teams-grid";
+    
+    data.forEach(team => {
+      const card = document.createElement("div");
+      card.className = "team-card";
+      
+      const teamName = team['Team Name'] || team['Team'] || '';
+      const teamTag = team['Team Tag'] || team['Tag'] || '';
+      const players = team['Players'] || '';
+      
+      card.innerHTML = `
+        <div class="team-name">${teamName}</div>
+        <div class="team-tag">Tag: <span>${teamTag}</span></div>
+        <div class="team-players">Players: <span>${players}</span></div>
+      `;
+      
+      grid.appendChild(card);
+    });
+    
+    c.appendChild(grid);
+  }
+  
+  fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTeamsQWickyStyle(d));
   fetch(baseUrl+"?endpoint=standings").then(r=>r.json()).then(d=>renderTable("standings-output",d));
-
   fetch(baseUrl+"?endpoint=players")
     .then(r => r.json())
     .then(data => {
       renderTable("players-output", data);
-
       if (window.matchMedia("(max-width: 768px)").matches) {
         const container = document.getElementById("players-output");
         const table = container.querySelector("table");
         if (!table) return;
-
         const btn = document.createElement("button");
         btn.className = "players-toggle";
         btn.textContent = "Show more stats";
-
         btn.onclick = () => {
           const expanded = table.classList.toggle("show-all-cols");
           btn.textContent = expanded ? "Show fewer stats" : "Show more stats";
         };
-
         container.insertBefore(btn, table);
       }
     })
     .catch(e => {
       document.getElementById("players-output").textContent = "Error loading players: " + e;
     });
-
-  /* ========= Shared: build a game card (group + playoffs) ========= */
-  function buildGameCard(g, popupState) {
+  
+  function buildGameCard(g) {
     const card = document.createElement("div");
     card.className = "bracket-game";
-
     const match = document.createElement("div");
     match.className = "bracket-match";
     if (!g.played) match.classList.add("unplayed");
-
+    
     const a = document.createElement("div");
     const aWinner = Number(g.mapsWonA) > Number(g.mapsWonB);
     a.className = "bracket-player" + (aWinner ? " winner" : "");
     a.innerHTML = `<span>${g.teamA || ""}</span><span class="bracket-score">${g.mapsWonA ?? ""}</span>`;
-
+    
     const b = document.createElement("div");
     const bWinner = Number(g.mapsWonB) > Number(g.mapsWonA);
     b.className = "bracket-player" + (bWinner ? " winner" : "");
     b.innerHTML = `<span>${g.teamB || ""}</span><span class="bracket-score">${g.mapsWonB ?? ""}</span>`;
-
+    
     if (g.played) {
       if (aWinner) a.classList.add("advanced");
       if (bWinner) b.classList.add("advanced");
     }
-
+    
     const info = document.createElement("span");
     if (g.played) {
       info.className = "info-icon";
@@ -206,11 +237,10 @@ document.addEventListener("DOMContentLoaded", () => {
       info.className = "info-icon disabled";
       info.textContent = "ℹ️";
     }
-
+    
     const popup = document.createElement("div");
     popup.className = "bracket-popup-wrapper";
     popup.innerHTML = `<div class="bracket-popup-header"><div>${g.teamA || ""}</div><div>${g.teamB || ""}</div></div>`;
-
     (g.maps || []).forEach(m => {
       popup.innerHTML += `
         <div class="bracket-popup-body-match">
@@ -219,175 +249,86 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="bracket-score" style="font-weight:${m.teamBFrags>m.teamAFrags?'bold':'normal'}">${m.teamBFrags}</span>
         </div>`;
     });
-
+    
     if (g.played) {
       info.onclick = (e) => {
         e.stopPropagation();
-        if (popupState.openPopup && popupState.openPopup !== popup) {
-          popupState.openPopup.style.display = "none";
-        }
-        popup.style.display = (popup.style.display === "block") ? "none" : "block";
-        popupState.openPopup = (popup.style.display === "block") ? popup : null;
+        document.querySelectorAll('.bracket-popup-wrapper').forEach(p => {
+          if (p !== popup) p.style.display = 'none';
+        });
+        const isOpen = popup.style.display === "block";
+        popup.style.display = isOpen ? "none" : "block";
+        overlay.classList.toggle('active', !isOpen);
       };
     }
-
+    
     match.append(a, info, b, popup);
     card.appendChild(match);
     return card;
   }
-
-  /* ==========================
-     RECENT GAMES
-     ========================== */
   
   const recentOut = document.getElementById("recent-games-output");
-
+  
   function getGameDateValue(g) {
-    // Try common fields; fallback 0 if none
     const raw = g.Date || g.date || "";      
     const t = Date.parse(raw);
     return isNaN(t) ? 0 : t;
   }
-
+  
   function formatShortDate(g) {
     const raw = g.Date || g.date || "";      
     const t = Date.parse(raw);
-    if (isNaN(t)) return ""; // if API doesn't provide date, show blank
+    if (isNaN(t)) return "";
     const d = new Date(t);
-    // dd/mm/yyyy (matches your example)
     const dd = String(d.getDate()).padStart(2, "0");
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const yyyy = d.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   }
-
-  function buildRecentRow(g, popupState) {
-    const row = document.createElement("div");
-    row.className = "recent-game-row";
-
-    const dateEl = document.createElement("div");
-    dateEl.className = "recent-game-date";
-    dateEl.textContent = formatShortDate(g);
-
-    const scoreAVal = Number(g.mapsWonA) || 0;
-    const scoreBVal = Number(g.mapsWonB) || 0;
-
-    const teamBWon = scoreBVal > scoreAVal;
-    const teamAWon = scoreAVal > scoreBVal;
-
-    const scoreA = document.createElement("div");
-    scoreA.className = "recent-score" + (teamAWon ? " winner" : "");
-    scoreA.textContent = (g.mapsWonA ?? "");
-
-    const teamA = document.createElement("div");
-    teamA.className = "recent-team" + (teamAWon ? " winner" : "");
-    teamA.style.textAlign = "right";
-    teamA.textContent = g.teamA || "";
-
-    const info = document.createElement("span");    
-    info.className = "info-icon";
-    info.textContent = "ℹ️";
-    info.style.margin = "0"; // keep compact
-    
-    const scoreB = document.createElement("div");
-    scoreB.className = "recent-score" + (teamBWon ? " winner" : "");
-    scoreB.textContent = (g.mapsWonB ?? "");
-
-    const teamB = document.createElement("div");
-    teamB.className = "recent-team" + (teamBWon ? " winner" : "");
-    teamB.style.textAlign = "left";
-    teamB.textContent = g.teamB || "";
-
-    // Same popup content as game cards
-    const popup = document.createElement("div");
-    popup.className = "bracket-popup-wrapper";
-    popup.innerHTML = `<div class="bracket-popup-header"><div>${g.teamA || ""}</div><div>${g.teamB || ""}</div></div>`;
-
-    (g.maps || []).forEach(m => {
-      popup.innerHTML += `
-        <div class="bracket-popup-body-match">
-          <span class="bracket-score" style="font-weight:${m.teamAFrags>m.teamBFrags?'bold':'normal'}">${m.teamAFrags}</span>
-          <a class="map-name" href="${m.gameUrl}" target="_blank" rel="noopener">${m.mapName}</a>
-          <span class="bracket-score" style="font-weight:${m.teamBFrags>m.teamAFrags?'bold':'normal'}">${m.teamBFrags}</span>
-        </div>`;
-    });
-
-    if (g.played) {
-      info.onclick = (e) => {
-        e.stopPropagation();
-        if (popupState.openPopup && popupState.openPopup !== popup) {
-          popupState.openPopup.style.display = "none";
-        }
-        popup.style.display = (popup.style.display === "block") ? "none" : "block";
-        popupState.openPopup = (popup.style.display === "block") ? popup : null;
-      };
-    }
-
-    row.append(dateEl, teamA, scoreA, info, scoreB, teamB, popup);
-    return row;
-  }
-
+      
   function renderRecentGames(allGames) {
     recentOut.innerHTML = "";
-
     if (!allGames?.length) {
       recentOut.textContent = "No recent games.";
       return;
     }
-
-    // Only played games make sense for "recent"
+    
     const played = allGames.filter(g => !!g.played);
-
-    // Sort newest → oldest using whatever date fields exist
     played.sort((a, b) => getGameDateValue(b) - getGameDateValue(a));
-
-    const popupState = { openPopup: null };
-    document.addEventListener("click", () => {
-      if (popupState.openPopup) popupState.openPopup.style.display = "none";
-      popupState.openPopup = null;
-    });
-
+    
     const wrap = document.createElement("div");
     wrap.className = "recent-games";
-
+    
     const initial = played.slice(0, recentGamesLimit);
     const rest = played.slice(recentGamesLimit);
-
-    initial.forEach(g => wrap.appendChild(buildRecentRow(g, popupState)));
-
-    let hiddenContainer = null;
-    let toggle = null;
-
+    
+    initial.forEach(g => wrap.appendChild(buildGameCard(g)));
+    
     if (rest.length) {
-      hiddenContainer = document.createElement("div");
+      const hiddenContainer = document.createElement("div");
       hiddenContainer.className = "recent-hidden";
       hiddenContainer.style.display = "none";
-      hiddenContainer.style.marginTop = "8px";
       hiddenContainer.style.flexDirection = "column";
-      hiddenContainer.style.gap = "8px";
-
-      // Build hidden rows
-      rest.forEach(g => hiddenContainer.appendChild(buildRecentRow(g, popupState)));
-
-      toggle = document.createElement("div");
+      hiddenContainer.style.gap = "10px";
+      
+      rest.forEach(g => hiddenContainer.appendChild(buildGameCard(g)));
+      
+      const toggle = document.createElement("div");
       toggle.className = "recent-show-more";
       toggle.textContent = "Show more games";
-
       toggle.onclick = () => {
         const isOpen = hiddenContainer.style.display === "flex";
         hiddenContainer.style.display = isOpen ? "none" : "flex";
         toggle.textContent = isOpen ? "Show more games" : "Show fewer games";
       };
-
+      
       wrap.appendChild(toggle);
       wrap.appendChild(hiddenContainer);
     }
-
+    
     recentOut.appendChild(wrap);
   }
-
-  // Where do we fetch from?
-  // Easiest + robust: combine groupGames + playoffGames (if playoffGames exists)
+  
   Promise.allSettled([
     fetch(baseUrl + "?endpoint=allGames").then(r => r.json())    
   ]).then(results => {
@@ -401,96 +342,139 @@ document.addEventListener("DOMContentLoaded", () => {
   }).catch(e => {
     recentOut.textContent = "Error loading recent games: " + e;
   });  
-
-  /* ========= GROUP BRACKET (numeric-only + sorted) ========= */
-  const groupOut = document.getElementById("team-games-output");
-
+  
+  const scheduleRoundsContainer = document.getElementById("schedule-rounds-container");
+  const roundNavContainer = document.getElementById("round-nav-container");
+  
+  // Find current round based on deadline closest to today (>= today)
+  function findCurrentRound(roundKeys) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    
+    let currentRoundIndex = 0;
+    let closestDiff = Infinity;
+    
+    roundKeys.forEach((round, index) => {
+      const config = scheduleConfigByRound[String(round)];
+      if (!config?.deadline) return;
+      
+      // Parse deadline (format: DD/MM/YYYY or similar)
+      const deadlineDate = new Date(config.deadline);
+      if (isNaN(deadlineDate.getTime())) return;
+      
+      // Calculate difference in days
+      const diff = deadlineDate - today;
+      
+      // Only consider deadlines that are today or in the future
+      if (diff >= 0 && diff < closestDiff) {
+        closestDiff = diff;
+        currentRoundIndex = index;
+      }
+    });
+    
+    return currentRoundIndex;
+  }
+  
   fetch(baseUrl+"?endpoint=groupGames").then(r=>r.json()).then(data=>{
-    groupOut.innerHTML="";
-    if(!data?.length){ groupOut.textContent="No matches."; return; }
-
+    scheduleRoundsContainer.innerHTML="";
+    roundNavContainer.innerHTML="";
+    
+    if(!data?.length){ 
+      scheduleRoundsContainer.textContent="No matches."; 
+      return; 
+    }
+    
     const rounds = {};
-
     data.forEach(g => {
       const rk = String(g.round ?? "").trim();
       if (!rk) return;
       if (isNaN(Number(rk))) return;
       (rounds[rk] ??= []).push(g);
     });
-
+    
     const roundKeys = Object.keys(rounds).sort((a,b)=>Number(a)-Number(b));
-
-    const wrapper = document.createElement("div");
-    wrapper.className="bracket-wrapper";
-
-    const popupState = { openPopup: null };
-    document.addEventListener("click",()=>{ if(popupState.openPopup) popupState.openPopup.style.display="none"; popupState.openPopup=null; });
-
-    roundKeys.forEach(round=>{
-      const rb=document.createElement("div");
-      rb.className="round-block";
-
-      const deadlineText = scheduleConfigByRound[String(round)].deadline;      
-
+    
+    // Determine which round to show by default
+    const defaultRoundIndex = findCurrentRound(roundKeys);
+    
+    const nav = document.createElement("div");
+    nav.className = "round-nav";
+    
+    roundKeys.forEach((round, index) => {
+      const btn = document.createElement("button");
+      btn.textContent = `Round ${round}`;
+      btn.dataset.round = round;
+      if (index === defaultRoundIndex) btn.classList.add("active");
+      
+      btn.onclick = () => {
+        document.querySelectorAll(".round-nav button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".round-block").forEach(c => c.classList.remove("active"));
+        document.getElementById(`round-${round}`).classList.add("active");
+      };
+      
+      nav.appendChild(btn);
+    });
+    
+    roundNavContainer.appendChild(nav);
+    
+    roundKeys.forEach((round, index) => {
+      const rb = document.createElement("div");
+      rb.className = "round-block";
+      rb.id = `round-${round}`;
+      if (index === defaultRoundIndex) rb.classList.add("active");
+      
+      const deadlineText = scheduleConfigByRound[String(round)]?.deadline || "";
       rb.innerHTML = `
         <div class="round-header">
           Round ${round}
           ${deadlineText ? `<span class="round-deadline">Deadline: ${deadlineText}</span>` : ""}
         </div>
       `;
-
-      const games=document.createElement("div");
-      games.className="round-games";
-
-      rounds[round].forEach(g=>{
-        games.appendChild(buildGameCard(g, popupState));
+      
+      const games = document.createElement("div");
+      games.className = "round-games";
+      rounds[round].forEach(g => {
+        games.appendChild(buildGameCard(g));
       });
-
       rb.appendChild(games);
-      wrapper.appendChild(rb);
+      scheduleRoundsContainer.appendChild(rb);
     });
-
-    groupOut.appendChild(wrapper);
   });
-
-  /* ==========================
-     PLAYOFFS (SVG/CONNECTORS REMOVED ONLY)
-     ========================== */
-
+  
   const playoffsOut = document.getElementById("playoffs-output");
-
+  
   function normalizeStageName(name) {
     return String(name || "")
       .replace(/\s+/g, " ")
       .trim()
       .replace(/\s+A$/i, "");
   }
-
+  
   function displayStageTitle(stageName) {
     return stageName.replace(/\s+B$/, "");
   }
-
+  
   function renderPlayoffsBracket(allGames) {
     playoffsOut.innerHTML = "";
     if (!allGames?.length) { playoffsOut.textContent = "No playoff games."; return; }
-
+    
     const byRound = {};
     allGames.forEach(g => {
       const r = normalizeStageName(g.round);
       (byRound[r] ??= []).push({ ...g, round: r });
     });
-
+    
     const hasLosers =
       !!byRound["Semifinals B"]?.length ||
       !!byRound["Final B"]?.length ||
       !!byRound["Bronze B"]?.length;
-
+    
     const winnersStages = ["Quarterfinals", "Semifinals", "Final"]
       .filter(stage => (byRound[stage]?.length ?? 0) > 0);
-
     const losersStages  = ["Semifinals B", "Final B"]
       .filter(stage => (byRound[stage]?.length ?? 0) > 0);
-
+    
     const expected = {
       "Quarterfinals": 4,
       "Semifinals": 2,
@@ -500,11 +484,10 @@ document.addEventListener("DOMContentLoaded", () => {
       "Final B": 1,
       "Bronze B": 1
     };
-
+    
     function padStage(stageName) {
       const list = (byRound[stageName] || []).slice();
       const want = expected[stageName] ?? list.length;
-
       while (list.length < want) {
         list.push({
           round: stageName,
@@ -518,92 +501,81 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return list;
     }
-
-    const popupState = { openPopup: null };
-    document.addEventListener("click",()=>{ if(popupState.openPopup) popupState.openPopup.style.display="none"; popupState.openPopup=null; });
-
+    
     const wrap = document.createElement("div");
     wrap.className = "playoffs-wrap";
-
+    
     function buildStageRow(title, stages) {
       const container = document.createElement("div");
-
       if (title) {
         const h = document.createElement("div");
         h.className = "playoffs-title";
         h.textContent = title;
         container.appendChild(h);
       }
-
+      
       const bracket = document.createElement("div");
       bracket.className = "playoffs-bracket";
-
       const row = document.createElement("div");
       row.className = "stage-row";
-
+      
       stages.forEach(stageName => {
         const col = document.createElement("div");
         col.className = "stage-col stage-" + stageName.toLowerCase().replace(/\s+/g, "-");
-
+        
         const head = document.createElement("div");
         head.className = "stage-header";
         head.textContent = displayStageTitle(stageName);
         col.appendChild(head);
-
+        
         const games = padStage(stageName);
-        games.forEach(g => col.appendChild(buildGameCard(g, popupState)));
-
-        // ✅ WINNERS: Final → Bronze underneath
+        games.forEach(g => col.appendChild(buildGameCard(g)));
+        
         if (stageName === "Final" && byRound["Bronze"]?.length) {
           const sep = document.createElement("div");
           sep.className = "stage-final-separator";
           col.appendChild(sep);
-
           const bronzeHeader = document.createElement("div");
           bronzeHeader.className = "stage-header stage-bronze-header";
           bronzeHeader.textContent = "Bronze";
           col.appendChild(bronzeHeader);
-
           padStage("Bronze").forEach(g =>
-            col.appendChild(buildGameCard(g, popupState))
+            col.appendChild(buildGameCard(g))
           );
         }
-        // ✅ LOSERS: Final B → Bronze B underneath
+        
         if (stageName === "Final B" && byRound["Bronze B"]?.length) {
           const sep = document.createElement("div");
           sep.className = "stage-final-b-separator";
           col.appendChild(sep);
-
           const bronzeHeader = document.createElement("div");
           bronzeHeader.className = "stage-header stage-bronze-header";
           bronzeHeader.textContent = "Bronze";
           col.appendChild(bronzeHeader);
-
           padStage("Bronze B").forEach(g =>
-            col.appendChild(buildGameCard(g, popupState))
+            col.appendChild(buildGameCard(g))
           );
         }
+        
         row.appendChild(col);
       });
-
+      
       bracket.appendChild(row);
       container.appendChild(bracket);
-
       return container;
     }
-
+    
     if (winnersStages.length) {
       const title = hasLosers ? "Winners Bracket" : null;
       wrap.appendChild(buildStageRow(title, winnersStages));  
     }
-
+    
     const finalGame = (byRound["Final"] || [])[0];
     if (finalGame?.played) {
       const winnerName =
         Number(finalGame.mapsWonA) > Number(finalGame.mapsWonB) ? finalGame.teamA :
         Number(finalGame.mapsWonB) > Number(finalGame.mapsWonA) ? finalGame.teamB :
         "";
-
       if (winnerName) {
         const finalCol = wrap.querySelector(".stage-final");
         if (finalCol) {
@@ -611,34 +583,28 @@ document.addEventListener("DOMContentLoaded", () => {
           if (finalGameEl) {
             const row = document.createElement("div");
             row.className = "bracket-final-row";
-
             finalGameEl.replaceWith(row);
             row.appendChild(finalGameEl);
-
             const winnerWrap = document.createElement("div");
             winnerWrap.className = "bracket-winner-wrap";
-
             const badge = document.createElement("div");
             badge.className = "bracket-winner main";
             badge.textContent = "🏆 Winner: " + winnerName;
-
             winnerWrap.appendChild(badge);
             row.appendChild(winnerWrap);
           }
         }
       }
     }   
-
+    
     if (hasLosers && losersStages.length) {
       wrap.appendChild(buildStageRow("Losers Bracket", losersStages));
-
       const finalBGame = (byRound["Final B"] || [])[0];
       if (finalBGame?.played) {
         const winnerName =
           Number(finalBGame.mapsWonA) > Number(finalBGame.mapsWonB) ? finalBGame.teamA :
           Number(finalBGame.mapsWonB) > Number(finalBGame.mapsWonA) ? finalBGame.teamB :
           "";
-
         if (winnerName) {
           const finalBCol = wrap.querySelector(".stage-final-b");
           if (finalBCol) {
@@ -646,17 +612,13 @@ document.addEventListener("DOMContentLoaded", () => {
             if (finalGameEl) {
               const row = document.createElement("div");
               row.className = "bracket-final-row";
-
               finalGameEl.replaceWith(row);
               row.appendChild(finalGameEl);
-
               const winnerWrap = document.createElement("div");
               winnerWrap.className = "bracket-winner-wrap";
-
               const badge = document.createElement("div");
               badge.className = "bracket-winner losers";
               badge.textContent = "🏆 Winner: " + winnerName;
-
               winnerWrap.appendChild(badge);
               row.appendChild(winnerWrap);
             }
@@ -664,25 +626,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-
+    
     playoffsOut.appendChild(wrap);
   }
-
+  
   if (hidePlayoffs !== 'Yes') {
     fetch(baseUrl + "?endpoint=playoffGames")
       .then(r => r.json())
       .then(renderPlayoffsBracket)
       .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
   }
-
-    /* ========= Rank tooltip (click / tap) ========= */
+  
   document.addEventListener("click", e => {
     const icon = e.target.closest(".rank-tooltip-icon");
-
-    // Close any open tooltip first
     document.querySelectorAll(".rank-tooltip.open")
       .forEach(t => t.classList.remove("open"));
-
     if (icon) {
       const tooltip = icon.parentElement.querySelector(".rank-tooltip");
       if (tooltip) {
@@ -693,6 +651,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
-
 </body>
 </html>
