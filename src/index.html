@@ -402,7 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     roundKeys.forEach((round, index) => {
       const btn = document.createElement("button");
-      btn.textContent = `Round ${round}`;
+      btn.textContent = `R${round}`;
       btn.dataset.round = round;
       if (index === defaultRoundIndex) btn.classList.add("active");
       
