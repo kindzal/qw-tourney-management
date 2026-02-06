@@ -10,6 +10,7 @@
 <body>
 <header class="app-header">
   <div class="app-header-main">
+    <button class="nav-toggle" aria-label="Toggle navigation">☰</button>
     <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
     <div>
       <h1 class="app-title"><?= appTitle ?></h1>
@@ -27,8 +28,8 @@
   <? if (hidePlayoffs !== 'Yes') { ?>
     <button data-target="playoffs">🏁 Playoffs</button>
   <? } ?>
-  <button data-target="recent">🕒 Recent Games</button>
-</nav>
+  <button data-target="recent">🕒 Recent</button>
+</nav> 
 <div class="popup-overlay" id="popup-overlay"></div>
 <section id="standings">
   <div class="content-wrapper">
@@ -87,6 +88,31 @@ document.addEventListener("DOMContentLoaded", () => {
   })
   .catch(e => console.error("ScheduleConfig load failed", e));
   
+  // ==================== MOBILE HAMBURGER MENU ====================
+  const navToggle = document.querySelector(".nav-toggle");
+  const appNav = document.querySelector(".app-nav");
+  const navOverlay = document.querySelector(".nav-overlay");
+
+  function closeMobileNav() {
+    appNav.classList.remove("open");
+    navOverlay.classList.remove("open");
+    navToggle.textContent = "☰";
+  }
+
+  navToggle.addEventListener("click", () => {
+    const isOpen = appNav.classList.toggle("open");
+    navOverlay.classList.toggle("open", isOpen);
+    navToggle.textContent = isOpen ? "✕" : "☰";
+  });
+
+  /* Close when clicking overlay */
+  navOverlay.addEventListener("click", closeMobileNav);
+
+  /* Close when clicking a nav item */
+  appNav.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", closeMobileNav);
+  });
+
   document.querySelectorAll(".app-nav button").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
@@ -649,7 +675,73 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
+
+  // ==================== MOBILE SWIPE NAVIGATION ====================
+  (function enableSwipeNavigation() {
+    if (!window.matchMedia("(max-width: 768px)").matches) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
+    const SWIPE_THRESHOLD = 60;     // px
+    const VERTICAL_LIMIT = 80;      // px
+
+    const navButtons = Array.from(document.querySelectorAll(".app-nav button"));
+
+    function getActiveIndex() {
+      return navButtons.findIndex(btn => btn.classList.contains("active"));
+    }
+
+    function goToIndex(idx) {
+      if (idx < 0 || idx >= navButtons.length) return;
+      closeMobileNav();
+      navButtons[idx].click();
+    }
+
+    document.addEventListener("touchstart", e => {      
+      if (e.target.closest('.bracket-popup-wrapper')) return;
+      if (e.touches.length !== 1) return;
+
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+    }, { passive: true });
+
+    document.addEventListener("touchend", e => {      
+      if (e.target.closest('.bracket-popup-wrapper')) return;
+      const t = e.changedTouches[0];
+      touchEndX = t.clientX;
+      touchEndY = t.clientY;
+
+      const dx = touchEndX - touchStartX;
+      const dy = touchEndY - touchStartY;
+
+      // Ignore mostly vertical gestures (scroll)
+      if (Math.abs(dy) > Math.abs(dx)) return;
+      if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+      if (Math.abs(dy) > VERTICAL_LIMIT) return;
+
+      const activeIndex = getActiveIndex();
+      if (activeIndex === -1) return;
+
+      closeMobileNav();
+      if (dx < 0) {
+        // Swipe left → next section
+        appNav?.classList.remove("open");
+        navToggle && (navToggle.textContent = "☰");
+        goToIndex(activeIndex + 1);
+      } else {
+        // Swipe right → previous section
+        appNav?.classList.remove("open");
+        navToggle && (navToggle.textContent = "☰");
+        goToIndex(activeIndex - 1);
+      }
+    }, { passive: true });
+  })();
 });
 </script>
+<div class="nav-overlay"></div>
 </body>
 </html>
