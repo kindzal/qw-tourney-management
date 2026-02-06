@@ -13,10 +13,7 @@
     <button class="nav-toggle" aria-label="Toggle navigation">☰</button>
     <? if (logoUrl) { ?><img src="<?= logoUrl ?>" class="app-logo"><? } ?>
     <div>
-      <h1 class="app-title"><?= appTitle ?></h1>
-      <? if (wikiUrl) { ?>
-        <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="wiki-link">📖 Wiki</a>
-      <? } ?>
+      <h1 class="app-title"><?= appTitle ?></h1>     
     </div>
   </div>
 </header>
@@ -29,6 +26,9 @@
     <button data-target="playoffs">🏁 Playoffs</button>
   <? } ?>
   <button data-target="recent">🕒 Recent</button>
+  <? if (wikiUrl) { ?>
+    <button onclick="window.open('<?= wikiUrl ?>', '_blank', 'noopener,noreferrer')">📖 Wiki</button>
+  <? } ?>
 </nav> 
 <div class="popup-overlay" id="popup-overlay"></div>
 <section id="standings">
