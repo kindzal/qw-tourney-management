@@ -27,7 +27,7 @@
   <? } ?>
   <button data-target="recent">🕒 Recent</button>
   <? if (wikiUrl) { ?>
-    <button onclick="window.open('<?= wikiUrl ?>', '_blank', 'noopener,noreferrer')">📖 Wiki</button>
+    <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="nav-wiki-link">📖 Wiki</a>
   <? } ?>
 </nav> 
 <div class="popup-overlay" id="popup-overlay"></div>

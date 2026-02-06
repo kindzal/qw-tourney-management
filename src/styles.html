@@ -620,7 +620,27 @@ h1, h2, h3, .round-header {
 .nav-toggle {
   display: none;
 }
+/* Wiki link styled as navigation button */
+.nav-wiki-link {
+  background: #374151;
+  color: #d1d5db;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
 
+.nav-wiki-link:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+  color: #f3f4f6;
+}
 /* ==================== MOBILE ==================== */
 @media (max-width: 768px) {
   body {
@@ -747,8 +767,7 @@ h1, h2, h3, .round-header {
   .round-nav button {
     min-width: 80px;
     padding: 8px 14px;    
-  }  
-  
+  }   
   /* ==================== MOBILE APP-STYLE DRAWER ==================== */      
   .app-header-main {
     justify-content: flex-start;
@@ -771,7 +790,7 @@ h1, h2, h3, .round-header {
   /* Overlay behind menu */
   .nav-overlay {
     position: fixed;
-    top: 99px;        /* Start below header (same as drawer) */
+    top: 92px;        /* Start below header (same as drawer) */
     left: 0;
     right: 0;
     bottom: 0;
@@ -790,9 +809,9 @@ h1, h2, h3, .round-header {
   /* Drawer menu */
   .app-nav {
     position: fixed;
-    top: 99px;
+    top: 92px;
     left: 0;
-    height: calc(100dvh - 99px);
+    height: calc(100dvh - 92px);
     /* width: 78%; */
     max-width: 320px;
     background: #1f2937;
@@ -816,6 +835,14 @@ h1, h2, h3, .round-header {
     font-size: 1.05em;
     border-radius: 10px;
     text-align: left;
+  }
+  .nav-wiki-link {
+    padding: 14px 16px;
+    font-size: 1.05em;
+    border-radius: 10px;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 </style>
