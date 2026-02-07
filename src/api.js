@@ -362,7 +362,7 @@ function getTeams() {
   if (lastRow < 2) return [];
 
   // Get only columns A–C
-  const values = sheet.getRange(1, 1, lastRow, 3).getValues();
+  const values = sheet.getRange(1, 1, lastRow, 4).getValues();
   const headers = values.shift();
 
   return values.map(row =>
