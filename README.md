@@ -27,7 +27,7 @@ Log in to your Google account, then create your own instance of the QuakeWorld T
 
 and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament.
 
-Populate the following tabs as the miniumum viable setup.
+Populate the following tabs as the miniumum viable setup:
 
 - **Players / Standins**
 - **Teams**
