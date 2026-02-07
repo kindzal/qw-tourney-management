@@ -1,3 +1,4 @@
+/** @OnlyCurrentDoc */
 function doPost(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DataImport");
   if (!sheet) {
