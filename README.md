@@ -91,7 +91,7 @@ The sheet itself allows manual data imports from the QuakeWorld hub. In order to
 
 Each copy of the QuakeWorld Tournament Management Google Sheet comes with a simple display layer for the players.
 
-
+![web-app-example](https://github.com/user-attachments/assets/a667da7e-061c-473b-97ab-d1782f2b64f3)
 
 To use it follow the steps below:
 
