@@ -18,7 +18,7 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 The only requirements are:
 - a Google account
-- a bit of patience 😀
+- a bit of focus and patience 😀
   
 ### Initial setup
 
