@@ -90,6 +90,9 @@ The sheet itself allows manual data imports from the QuakeWorld hub. In order to
 ### Web App (simplified deployment method)
 
 Each copy of the QuakeWorld Tournament Management Google Sheet comes with a simple display layer for the players.
+
+
+
 To use it follow the steps below:
 
 - open your instance of the QuakeWorld Tournament Management Google Sheet and navigate to `Extensions`->`Apps Script`
