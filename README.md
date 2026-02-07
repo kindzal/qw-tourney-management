@@ -12,7 +12,7 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 ---
 
-## How to use this
+## How to use this - beginngers
 
 ### Initial setup
 
@@ -28,15 +28,31 @@ and populate the following tabs:
 - **OtherConfig**
 - **Discord**
 
+#### Tabs and their purpose
+
+| Tab | Purpose | Additional info |
+|---|---|---|
+| **Players / Standins** | List of players and their stats | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match a game record to a player. `Player` column is used for display-only purposes |
+| **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2` |
+| **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
+| **DataImport** | Import queue / manual import functionality  | Only edit yellow rows if manually importing |
+| **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT** |
+| **TeamGames** | Group-stage match results | **DO NOT EDIT** |
+| **TeamGamesPlayoffs** | Playoff match results | Split using `Playoffs start date` |
+| **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
+| **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
+| **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. |
+| **OtherConfig** | Global config | Backend + Web App |
+| **Games** | Games database | Core dataset – **DO NOT EDIT** unless fixing import issues|
+| **ImportedURLs** | Deduplication list | Prevents duplicate imports |
+| **PostHistory** | Discord message log | Auto-generated |
+| **TEMPLATE-\*** | Helper templates | Not used directly |
+
 > ⚠️ **IMPORTANT**  
 > The **names of ALL tabs and column headings are critical**.  
 > **DO NOT CHANGE THEM OR SHIT WILL BREAK!**
 
 The sheet itself provides a fully feldged tournament management system with the manual data import option in case automation and integrations are not required (see below).
-
-#### Manual data import
-
-The sheet itself allows manual data imports from the QuakeWorld hub. In order to do so simply follow the instructions posted on the `DataImport` tab itself.
 
 ### Posting to Discord
 
@@ -59,7 +75,22 @@ The tab contains a fully customisable message template and a few configuration o
 - Scheduling prompt - Scheduling prompt text (leave blank if not required)
 - Ranking title - title for the `Web App deployment URL` link
 
-### Automation (optional)
+### Manual data import
+
+The sheet itself allows manual data imports from the QuakeWorld hub. In order to do so simply follow the instructions posted on the `DataImport` tab itself.
+
+### Web App (simplified deployment method)
+
+Each copy of the QuakeWorld Tournament Management Google Sheet comes with the code ready to be provied a simple display layer for the players.
+To "deploy" it follow the steps below:
+
+- open your instead of QuakeWorld Tournament Management Google Sheet and navigate to `Extensions`->`Apps Script`
+- on the Apps Script page click the blue `Deploy` button in the top right part of the screen and select `New deployment`
+- in `Select type` choose `Web app`, `Description` could be left blank. Leave `Execute as` as default. `Who has access` - select `Anyone`. Then click `Deploy`
+- On the `New deployment` screen look for `Web app` section and click `Copy` which should copy your own web app URL which schould look like something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
+- Navigate to the `Discord` tab and paste the URL in `Web App deployment URL` configuration option (see above). Link to the instance of the web app will be posted as part of the Discord msg
+
+## How to use this - advanced (using Automation)
 
 Configure automation and integrations for a complete self-managing system:
 
@@ -77,25 +108,6 @@ See 👉 https://github.com/kindzal/qw-reports-watcher for deployment instructio
 
 ---
 
-## Tabs and their purpose
-
-| Tab | Purpose | Additional info |
-|---|---|---|
-| **Players / Standins** | List of players and their stats | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match a game record to a player. `Player` column is used for display-only purposes |
-| **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2` |
-| **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
-| **DataImport** | Import queue / manual import functionality  | Only edit yellow rows if manually importing |
-| **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT** |
-| **TeamGames** | Group-stage match results | **DO NOT EDIT** |
-| **TeamGamesPlayoffs** | Playoff match results | Split using `Playoffs start date` |
-| **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
-| **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
-| **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. |
-| **OtherConfig** | Global config | Backend + Web App |
-| **Games** | Games database | Core dataset – **DO NOT EDIT** unless fixing import issues|
-| **ImportedURLs** | Deduplication list | Prevents duplicate imports |
-| **PostHistory** | Discord message log | Auto-generated |
-| **TEMPLATE-\*** | Helper templates | Not used directly |
 
 ---
 
