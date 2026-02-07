@@ -22,7 +22,7 @@ The only requirements are:
   
 ### Initial setup
 
-Log in to your Google account, then create your own instance of the QuakeWorld Tournament Management Google Sheet for the tournament you want to manage by navigating here
+Log in to your Google account, then create your own instance of the QuakeWorld Tournament Management Google Sheet for the tournament you want to manage by navigating here:
   👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
 
 and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament.
@@ -35,6 +35,9 @@ Populate the following tabs as the miniumum viable setup:
 - **ScheduleConfig**
 - **OtherConfig**
 - **Discord**
+
+For a quick reference guide you can take a look at the QML6 Sheet used to run that tournament here:
+  👉https://docs.google.com/spreadsheets/d/1UCnB9iNdJ_zKNIt_igMlRaN1Nxw4AyvM4juJ1hKXlDA/edit?usp=sharing
 
 #### Tabs and their purpose
 
