@@ -40,7 +40,7 @@
 <section id="schedule">
   <div class="content-wrapper">
     <div class="section-title">Schedule</div>
-    <div id="round-nav-container"></div>
+    <div id="round-nav-container" class="loading">Loading…</div>
     <div id="schedule-rounds-container"></div>
   </div>
 </section>
@@ -78,16 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const recentGamesLimit = Number("<?= recentGamesLimit ?>") || 5;
   const hidePlayoffs = "<?= hidePlayoffs ?>";
   let scheduleConfigByRound = {};
-  
-  fetch(baseUrl + "?endpoint=scheduleConfig")
-  .then(r => r.json())
-  .then(data => {
-    data.forEach(r => {
-      scheduleConfigByRound[String(r.round)] = r;
-    });
-  })
-  .catch(e => console.error("ScheduleConfig load failed", e));
-  
+    
   // ==================== MOBILE HAMBURGER MENU ====================
   const navToggle = document.querySelector(".nav-toggle");
   const appNav = document.querySelector(".app-nav");
@@ -209,6 +200,26 @@ document.addEventListener("DOMContentLoaded", () => {
     c.appendChild(grid);
   }
   
+  // ==================== DATA FETCH ====================
+  const scheduleConfigPromise = fetch(baseUrl + "?endpoint=scheduleConfig")
+    .then(r => r.json())
+    .then(data => {
+      data.forEach(r => {
+        scheduleConfigByRound[String(r.round)] = r;
+      });
+      return true;
+    })
+    .catch(e => {
+      console.error("ScheduleConfig load failed", e);
+      return false;
+    });
+
+  const groupGamesPromise = fetch(baseUrl + "?endpoint=groupGames")
+    .then(r => r.json())
+    .catch(e => {
+      console.error("GroupGames load failed", e);
+      return [];
+    });
   fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTeamsQWickyStyle(d));
   fetch(baseUrl+"?endpoint=standings").then(r=>r.json()).then(d=>renderTable("standings-output",d));
   fetch(baseUrl+"?endpoint=players")
@@ -453,72 +464,74 @@ document.addEventListener("DOMContentLoaded", () => {
     return currentRoundIndex;
   }
   
-  fetch(baseUrl+"?endpoint=groupGames").then(r=>r.json()).then(data=>{
-    scheduleRoundsContainer.innerHTML="";
-    roundNavContainer.innerHTML="";
-    
-    if(!data?.length){ 
-      scheduleRoundsContainer.textContent="No matches."; 
-      return; 
-    }
-    
-    const rounds = {};
-    data.forEach(g => {
-      const rk = String(g.round ?? "").trim();
-      if (!rk) return;
-      if (isNaN(Number(rk))) return;
-      (rounds[rk] ??= []).push(g);
-    });
-    
-    const roundKeys = Object.keys(rounds).sort((a,b)=>Number(a)-Number(b));
-    
-    // Determine which round to show by default
-    const defaultRoundIndex = findCurrentRound(roundKeys);
-    
-    const nav = document.createElement("div");
-    nav.className = "round-nav";
-    
-    roundKeys.forEach((round, index) => {
-      const btn = document.createElement("button");
-      btn.textContent = `R${round}`;
-      btn.dataset.round = round;
-      if (index === defaultRoundIndex) btn.classList.add("active");
+  
+  Promise.all([scheduleConfigPromise, groupGamesPromise])
+    .then(([configOk, data]) => {
+      scheduleRoundsContainer.innerHTML="";
+      roundNavContainer.innerHTML="";
       
-      btn.onclick = () => {
-        document.querySelectorAll(".round-nav button").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        document.querySelectorAll(".round-block").forEach(c => c.classList.remove("active"));
-        document.getElementById(`round-${round}`).classList.add("active");
-      };
+      if(!data?.length){ 
+        scheduleRoundsContainer.textContent="No matches."; 
+        return; 
+      }
       
-      nav.appendChild(btn);
-    });
-    
-    roundNavContainer.appendChild(nav);
-    
-    roundKeys.forEach((round, index) => {
-      const rb = document.createElement("div");
-      rb.className = "round-block";
-      rb.id = `round-${round}`;
-      if (index === defaultRoundIndex) rb.classList.add("active");
-      
-      const deadlineText = scheduleConfigByRound[String(round)]?.deadline || "";
-      rb.innerHTML = `
-        <div class="round-header">
-          Round ${round}
-          ${deadlineText ? `<span class="round-deadline">Deadline: ${deadlineText}</span>` : ""}
-        </div>
-      `;
-      
-      const games = document.createElement("div");
-      games.className = "round-games";
-      rounds[round].forEach(g => {
-        games.appendChild(buildGameCard(g));
+      const rounds = {};
+      data.forEach(g => {
+        const rk = String(g.round ?? "").trim();
+        if (!rk) return;
+        if (isNaN(Number(rk))) return;
+        (rounds[rk] ??= []).push(g);
       });
-      rb.appendChild(games);
-      scheduleRoundsContainer.appendChild(rb);
+      
+      const roundKeys = Object.keys(rounds).sort((a,b)=>Number(a)-Number(b));
+      
+      // Determine which round to show by default
+      const defaultRoundIndex = findCurrentRound(roundKeys);
+      
+      const nav = document.createElement("div");
+      nav.className = "round-nav";
+      
+      roundKeys.forEach((round, index) => {
+        const btn = document.createElement("button");
+        btn.textContent = `R${round}`;
+        btn.dataset.round = round;
+        if (index === defaultRoundIndex) btn.classList.add("active");
+        
+        btn.onclick = () => {
+          document.querySelectorAll(".round-nav button").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.querySelectorAll(".round-block").forEach(c => c.classList.remove("active"));
+          document.getElementById(`round-${round}`).classList.add("active");
+        };
+        
+        nav.appendChild(btn);
+      });
+      
+      roundNavContainer.appendChild(nav);
+      
+      roundKeys.forEach((round, index) => {
+        const rb = document.createElement("div");
+        rb.className = "round-block";
+        rb.id = `round-${round}`;
+        if (index === defaultRoundIndex) rb.classList.add("active");
+        
+        const deadlineText = scheduleConfigByRound[String(round)]?.deadline || "";
+        rb.innerHTML = `
+          <div class="round-header">
+            Round ${round}
+            ${deadlineText ? `<span class="round-deadline">Deadline: ${deadlineText}</span>` : ""}
+          </div>
+        `;
+        
+        const games = document.createElement("div");
+        games.className = "round-games";
+        rounds[round].forEach(g => {
+          games.appendChild(buildGameCard(g));
+        });
+        rb.appendChild(games);
+        scheduleRoundsContainer.appendChild(rb);
+      });
     });
-  });
   
   const playoffsOut = document.getElementById("playoffs-output");
   
