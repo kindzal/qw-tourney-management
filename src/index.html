@@ -273,12 +273,32 @@ document.addEventListener("DOMContentLoaded", () => {
       const teamTag = team['Team Tag'] || team['Tag'] || '';
       const players = team['Players'] || '';
       
-      card.innerHTML = `
-        <div class="team-name">${teamName}</div>
-        <div class="team-tag">Tag: <span>${teamTag}</span></div>
-        <div class="team-players">Players: <span>${players}</span></div>
-      `;
-      
+      // Team name
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "team-name";
+      nameDiv.textContent = teamName;
+
+      // Team tag
+      const tagDiv = document.createElement("div");
+      tagDiv.className = "team-tag";
+      tagDiv.textContent = "Tag: ";
+
+      const tagSpan = document.createElement("span");
+      tagSpan.textContent = teamTag;
+      tagDiv.appendChild(tagSpan);
+
+      // Team players
+      const playersDiv = document.createElement("div");
+      playersDiv.className = "team-players";
+      playersDiv.textContent = "Players: ";
+
+      const playersSpan = document.createElement("span");
+      playersSpan.textContent = players;
+      playersDiv.appendChild(playersSpan);
+
+      // Assemble card
+      card.append(nameDiv, tagDiv, playersDiv);
+            
       grid.appendChild(card);
     });
     
