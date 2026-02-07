@@ -78,7 +78,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const recentGamesLimit = Number("<?= recentGamesLimit ?>") || 5;
   const hidePlayoffs = "<?= hidePlayoffs ?>";
   let scheduleConfigByRound = {};
-    
+
+  // ==================== TOOLTIPS (rank only atm) ====================
+  const rankTooltip = document.createElement("div");
+  rankTooltip.className = "rank-tooltip";
+  rankTooltip.textContent = rankTooltipText; // SAFE: no HTML injection
+
+  // Prevent clicks inside tooltip from bubbling to overlay
+  rankTooltip.addEventListener("click", e => e.stopPropagation());
+
+  document.body.appendChild(rankTooltip);
+
   // ==================== MOBILE HAMBURGER MENU ====================
   const navToggle = document.querySelector(".nav-toggle");
   const appNav = document.querySelector(".app-nav");
@@ -117,11 +127,16 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const overlay = document.getElementById('popup-overlay');
   overlay.addEventListener('click', () => {
+    // Close game card popups
     document.querySelectorAll('.bracket-popup-wrapper').forEach(p => p.style.display = 'none');
-    overlay.classList.remove('active');
-  });
+
+     // Close rank tooltips
+    document.querySelectorAll('.rank-tooltip').forEach(t => t.style.display = 'none');
+
+    overlay.classList.remove('active');    
+  });  
   
-  const PERCENT_COLUMNS=["Win Rate","Avg Eff","Avg SG","Avg LG"];
+  const PERCENT_COLUMNS=["Win %","Avg Eff","Avg SG","Avg LG"];
   function formatCell(h,v){
     if(PERCENT_COLUMNS.includes(h)){
       if(v==null||v==="") return "";
@@ -131,44 +146,114 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return v;
   }
-  
-  function renderTable(id,data){
-    const c=document.getElementById(id);
-    c.innerHTML="";
-    if(!data?.length){ c.textContent="No data."; return; }
-    const t=document.createElement("table");
-    const h=Object.keys(data[0]);
+
+  function attachRankTooltip(iconEl) {
     
-    t.innerHTML =
-      "<thead><tr>" +
-      h.map(col => {
-        if (col === "Rank") {
-          return `
-            <th>
-              <span class="rank-header">
-                Rank
-                <span class="rank-tooltip-icon" aria-label="Rank info">ℹ️</span>
-                <span class="rank-tooltip">
-                  ${rankTooltipText}
-                </span>
-              </span>
-            </th>`;
+    //Auto-close any open tooltip when opening another
+    //document.querySelectorAll('.rank-tooltip').forEach(t => t.style.display = 'none');
+
+    const tooltip = document.querySelector(".rank-tooltip");
+    if (!tooltip) return;
+
+    iconEl.onclick = e => {
+      e.stopPropagation();
+
+      tooltip.style.display = "block";
+       overlay.classList.add('active');
+
+      tooltip.style.visibility = "hidden";
+      tooltip.style.left = "0px";
+      tooltip.style.top = "0px";
+
+      requestAnimationFrame(() => {
+        const rect = tooltip.getBoundingClientRect();
+        const margin = 10;
+
+        let x = e.clientX + 12; // nudge right (first column)
+        let y = e.clientY - rect.height - 12; // above icon
+
+        // Clamp horizontally
+        if (x + rect.width > window.innerWidth - margin) {
+          x = window.innerWidth - rect.width - margin;
         }
-        return `<th>${col}</th>`;
-      }).join("") +
-      "</tr></thead>";
-    
-    const tb=document.createElement("tbody");
-    data.forEach(r=>{
-      const tr=document.createElement("tr");
-      h.forEach(k=>{
-        const td=document.createElement("td");
-        td.textContent=formatCell(k,r[k]);
+
+        // Clamp vertically
+        if (y < margin) {
+          y = e.clientY + 14; // fallback below
+        }
+
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+        tooltip.style.visibility = "visible";
+      });
+    };
+
+    // Prevent clicks inside tooltip from closing it
+    tooltip.onclick = e => e.stopPropagation();
+  }
+
+  function renderTable(id, data) {
+    const c = document.getElementById(id);
+    c.innerHTML = "";
+
+    if (!data?.length) {
+      c.textContent = "No data.";
+      return;
+    }
+
+    const t = document.createElement("table");
+    const h = Object.keys(data[0]);
+
+    /* ---------- THEAD ---------- */
+    const thead = document.createElement("thead");
+    const trHead = document.createElement("tr");
+
+    h.forEach(col => {
+      const th = document.createElement("th");
+
+      if (col === "Rank") {
+        const wrapper = document.createElement("span");
+        wrapper.className = "rank-header";
+
+        const label = document.createElement("span");
+        label.textContent = "Rank";
+
+        const icon = document.createElement("span");
+        icon.className = "rank-tooltip-icon";
+        icon.setAttribute("aria-label", "Rank info");
+        icon.textContent = "ℹ️";
+
+        wrapper.append(label, icon);
+        th.appendChild(wrapper);
+
+        // Attach tooltip behavior
+        attachRankTooltip(icon);
+      } else {
+        th.textContent = col;
+      }
+
+      trHead.appendChild(th);
+    });
+
+    thead.appendChild(trHead);
+    t.appendChild(thead);
+
+    /* ---------- TBODY ---------- */
+    const tbody = document.createElement("tbody");
+
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+
+      h.forEach(key => {
+        const td = document.createElement("td");
+        td.textContent = formatCell(key, row[key]);
         tr.appendChild(td);
       });
-      tb.appendChild(tr);
+
+      tbody.appendChild(tr);
     });
-    t.appendChild(tb);
+
+    t.appendChild(tbody);
     c.appendChild(t);
   }
   
@@ -288,15 +373,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     if (g.played) {
-      /*info.onclick = (e) => {
-        e.stopPropagation();
-        document.querySelectorAll('.bracket-popup-wrapper').forEach(p => {
-          if (p !== popup) p.style.display = 'none';
-        });
-        const isOpen = popup.style.display === "block";
-        popup.style.display = isOpen ? "none" : "block";
-        overlay.classList.toggle('active', !isOpen);
-      };*/
       info.onclick = e => {
         e.stopPropagation();
 
@@ -726,20 +802,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .then(r => r.json())
       .then(renderPlayoffsBracket)
       .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
-  }
-  
-  document.addEventListener("click", e => {
-    const icon = e.target.closest(".rank-tooltip-icon");
-    document.querySelectorAll(".rank-tooltip.open")
-      .forEach(t => t.classList.remove("open"));
-    if (icon) {
-      const tooltip = icon.parentElement.querySelector(".rank-tooltip");
-      if (tooltip) {
-        tooltip.classList.add("open");
-        e.stopPropagation();
-      }
-    }
-  });
+  }    
 
   // ==================== MOBILE SWIPE NAVIGATION ====================
   (function enableSwipeNavigation() {

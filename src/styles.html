@@ -189,6 +189,7 @@ table th {
   font-size: 0.85em;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  vertical-align: top;
 }
 table td {
   border: 1px solid #374151;
@@ -196,11 +197,6 @@ table td {
   white-space: nowrap;
   color: #f3f4f6;
   text-align: center;
-}
-/* Team column left-aligned */
-table th:nth-child(2),
-table td:nth-child(2) {
-  text-align: left;
 }
 table tbody tr {
   background-color: #1f2937;
@@ -233,7 +229,8 @@ table tbody tr:hover {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  /*gap: 6px;*/
 }
 .rank-tooltip-icon {
   cursor: pointer;
@@ -244,9 +241,6 @@ table tbody tr:hover {
 .rank-tooltip {
   display: none;
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   background: #1f2937;
   border: 1px solid #4b5563;
   border-radius: 6px;
@@ -256,7 +250,7 @@ table tbody tr:hover {
   min-width: 220px;
   max-width: 320px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-  z-index: 10001;
+  z-index: 9100;
   color: #d1d5db;
 }
 .rank-tooltip.open {
@@ -490,7 +484,7 @@ h1, h2, h3, .round-header {
   border: 1px solid #4b5563;
   border-radius: 8px;
   padding: 12px;
-  z-index: 10000;
+  z-index: 9100;
   min-width: 300px;
   max-width: 450px;
   max-height: 80vh;
@@ -506,7 +500,7 @@ h1, h2, h3, .round-header {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.75);
-  z-index: 9999;
+  z-index: 9000;
 }
 .popup-overlay.active {
   display: block;
