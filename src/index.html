@@ -16,7 +16,11 @@
       <h1 class="app-title"><?= appTitle ?></h1>     
     </div>
   </div>
+  <? if (wikiUrl) { ?>
   <nav class="app-nav">    
+  <? } else { ?>
+  <nav class="app-nav-left"> 
+  <? } ?>  
     <button data-target="standings">🏆 Standings</button>
     <button data-target="schedule">📆 Schedule</button>
     <button data-target="teams">👥 Teams</button>
