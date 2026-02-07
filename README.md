@@ -12,7 +12,7 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 ---
 
-## How to use this - beginngers
+## How to use this (for beginners)
 
 ### Requirements
 
