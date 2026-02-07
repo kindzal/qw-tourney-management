@@ -25,7 +25,7 @@ The only requirements are:
 Log in to your Google account, then create your own instance of the QuakeWorld Tournament Management Google Sheet for the tournament you want to manage by navigating here
   👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
 
-and clicking `Make a copy`.
+and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament.
 
 Populate the following tabs as the miniumum viable setup.
 
