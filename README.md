@@ -14,12 +14,20 @@ Google Sheets acts as the **single source of truth**, with Apps Script providing
 
 ## How to use this - beginngers
 
+### Requirements
+
+The only requirements are:
+- a Google account
+- a bit of patience 😀
+  
 ### Initial setup
 
-Firstly copy a template Google Sheets doc here  
+Log in to your Google account, then create your own instance of the QuakeWorld Tournament Management Google Sheet for the tournament you want to manage by navigating here
   👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
 
-and populate the following tabs:
+and clicking `Make a copy`.
+
+Populate the following tabs as the miniumum viable setup.
 
 - **Players / Standins**
 - **Teams**
@@ -81,14 +89,14 @@ The sheet itself allows manual data imports from the QuakeWorld hub. In order to
 
 ### Web App (simplified deployment method)
 
-Each copy of the QuakeWorld Tournament Management Google Sheet comes with the code ready to be provied a simple display layer for the players.
-To "deploy" it follow the steps below:
+Each copy of the QuakeWorld Tournament Management Google Sheet comes with a simple display layer for the players.
+To use it follow the steps below:
 
-- open your instead of QuakeWorld Tournament Management Google Sheet and navigate to `Extensions`->`Apps Script`
-- on the Apps Script page click the blue `Deploy` button in the top right part of the screen and select `New deployment`
-- in `Select type` choose `Web app`, `Description` could be left blank. Leave `Execute as` as default. `Who has access` - select `Anyone`. Then click `Deploy`
-- On the `New deployment` screen look for `Web app` section and click `Copy` which should copy your own web app URL which schould look like something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
-- Navigate to the `Discord` tab and paste the URL in `Web App deployment URL` configuration option (see above). Link to the instance of the web app will be posted as part of the Discord msg
+- open your instance of the QuakeWorld Tournament Management Google Sheet and navigate to `Extensions`->`Apps Script`
+- on the `Apps Script` page click the blue `Deploy` button in the top right of the screen and select `New deployment`
+- in `Select type` choose `Web app`. `Description` could be left blank. Leave `Execute as` as default. In `Who has access` - select `Anyone`. Then click `Deploy`
+- On the `New deployment` screen look for `Web app` section and click `Copy` which will copy your own web app URL to the clipboard. This URL schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
+- Navigate to the `Discord` tab and paste the URL in `Web App deployment URL` configuration option (see above). From now on the link to the web app will be posted as part of the Discord msg
 
 ## How to use this - advanced (using Automation)
 
