@@ -1,6 +1,63 @@
 <style>
 /* ==================== DARK THEME ==================== */
 /* Base */
+/* Desktop background image */
+@media (min-width: 769px) { 
+  body {
+    background-color: #0b1220; /* fallback */
+
+    background-image:
+      linear-gradient(
+        to bottom,
+        rgba(11, 18, 32, 0.92),
+        rgba(11, 18, 32, 0.85),
+        rgba(11, 18, 32, 0.95)
+      ),
+      url("https://cdn.leonardo.ai/users/90982cb1-cd91-4e14-8986-e8d151e9a1ac/generations/1f103689-2c9b-6210-9deb-77cdf9d36c62/gemini-2.5-flash-image_Can_you_darken_the_highlights_and_change_the_color_pallette_of_this_image_so_it_-0.jpg");
+
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+
+    animation: bgFadeIn 1.2s cubic-bezier(0.4, 0.0, 0.2, 1) both;   
+  }
+  .app-container, main {
+    background: rgba(17, 24, 39, 0.22);
+    backdrop-filter: blur(6px);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+  section .content-wrapper {
+    background: rgba(17, 24, 39, 0.22);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+
+    transition:
+      background-color 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
+      box-shadow 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
+      transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }  
+  section.active .content-wrapper {
+    background: rgba(17, 24, 39, 0.22);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+  }
+  table, .team-card, .bracket-match {
+    background-color: rgba(31, 41, 55, 0.95);
+  }
+}
+@keyframes bgFadeIn {
+  from {
+    background-position: center 40%;
+    opacity: 0;
+  }
+  to {
+    background-position: center top;
+    opacity: 1;
+  }
+}
 body {
   font-family: 'Open Sans', Arial, sans-serif;
   margin: 0;
@@ -11,13 +68,13 @@ body {
 }
 /* Content Wrapper - CENTERED */
 .content-wrapper {
-  max-width: 1400px;
+  max-width: 1211px;
   margin: 0 auto;
   padding: 0 20px;
 }
 /* Header - STICKY & CENTERED */
 .app-header {
-  background-color: #1f2937;
+  background-color: #111827; /*#1f2937;*/
   border-bottom: 1px solid #374151;
   padding: 5px;
   margin: 0;
@@ -30,9 +87,9 @@ body {
 .app-header-main {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /*justify-content: center;*/
   gap: 16px;
-  max-width: 1400px;
+  max-width: 1211px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -58,7 +115,7 @@ body {
   border: 1px solid #3b82f6;
   border-radius: 6px;
   background: rgba(59, 130, 246, 0.1);
-  transition: all 0.2s ease;
+  transition: all 0.2s ease;  
 }
 .wiki-link:hover {
   background: rgba(59, 130, 246, 0.2);
@@ -69,15 +126,15 @@ body {
   position: sticky;
   top:90px;
   z-index: 90;
-  background-color: #111827;
+  /*background-color: #111827;*/
   padding: 6px 0 6px;
   margin: 0 auto;
-  max-width: 1400px;
+  max-width: 1211px;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: center;
-  border-bottom: 1px solid #374151;
+  justify-content: space-between;  
+  /*border-bottom: 1px solid #374151;*/
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 .app-nav button {
@@ -319,13 +376,13 @@ h1, h2, h3, .round-header {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 /* ==================== RECENT GAMES - CENTERED ==================== */
-.recent-games {
+/*.recent-games {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 16px;
   align-items: center;
-}
+}*/
 .recent-show-more {
   display: block;
   margin: 12px auto 0;
@@ -339,13 +396,6 @@ h1, h2, h3, .round-header {
 .recent-show-more:hover {
   color: #93c5fd;
 }
-.recent-hidden {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  align-items: center;
-}
 /* ==================== GROUP BRACKET / SCHEDULE ==================== */
 .bracket-wrapper {
   margin-top: 20px;
@@ -357,7 +407,10 @@ h1, h2, h3, .round-header {
 .round-block.active {
   display: block;
 }
-.round-games {
+.recent-hidden {
+  padding-top: 30px;
+}
+.round-games, .recent-games, .recent-hidden {
   display: flex;
   gap: 40px;
   align-items: stretch;
@@ -446,9 +499,9 @@ h1, h2, h3, .round-header {
 .bracket-popup-wrapper {
   display: none;
   position: fixed;
-  top: 50%;
+  /*top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);*/
   background: #1f2937;
   border: 1px solid #4b5563;
   border-radius: 8px;
@@ -634,6 +687,7 @@ h1, h2, h3, .round-header {
   transition: all 0.2s ease;
   text-decoration: none;
   display: inline-block;
+  margin-left: auto;
 }
 
 .nav-wiki-link:hover {
@@ -755,9 +809,7 @@ h1, h2, h3, .round-header {
   .bracket-winner-wrap {
     margin-left: 0;
   }
-  .recent-games {
-    max-width: 100%;
-  } 
+  
   .teams-grid {
     grid-template-columns: 1fr;
   }
@@ -795,7 +847,7 @@ h1, h2, h3, .round-header {
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.55);
-    z-index: 104;
+    /*z-index: 104;*/
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease;
@@ -809,12 +861,12 @@ h1, h2, h3, .round-header {
   /* Drawer menu */
   .app-nav {
     position: fixed;
-    top: 92px;
+    top: 94px;
     left: 0;
-    height: calc(100dvh - 92px);
+    height: calc(100dvh - 118px);
     /* width: 78%; */
     max-width: 320px;
-    background: #1f2937;
+    background: #111827;
     z-index: 105;
     /* padding: 80px 14px 14px; */
     display: flex;
@@ -827,6 +879,10 @@ h1, h2, h3, .round-header {
 
   .app-nav.open {
     transform: translateX(0);
+  }
+
+  .nav-wiki-link {
+    margin-top: auto;
   }
 
   /* Nav buttons = big touch targets */

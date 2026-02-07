@@ -16,20 +16,20 @@
       <h1 class="app-title"><?= appTitle ?></h1>     
     </div>
   </div>
-</header>
-<nav class="app-nav">
-  <button data-target="standings">🏆 Standings</button>
-  <button data-target="schedule">📆 Schedule</button>
-  <button data-target="teams">👥 Teams</button>
-  <button data-target="players">🎯 Ranking</button>
-  <? if (hidePlayoffs !== 'Yes') { ?>
-    <button data-target="playoffs">🏁 Playoffs</button>
-  <? } ?>
-  <button data-target="recent">🕒 Recent</button>
-  <? if (wikiUrl) { ?>
-    <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="nav-wiki-link">📖 Wiki</a>
-  <? } ?>
-</nav> 
+  <nav class="app-nav">    
+    <button data-target="standings">🏆 Standings</button>
+    <button data-target="schedule">📆 Schedule</button>
+    <button data-target="teams">👥 Teams</button>
+    <button data-target="players">🎯 Ranking</button>
+    <? if (hidePlayoffs !== 'Yes') { ?>
+      <button data-target="playoffs">🏁 Playoffs</button>
+    <? } ?>
+    <button data-target="recent">🕒 Recent</button>    
+    <? if (wikiUrl) { ?>
+      <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="nav-wiki-link">📖 Wiki</a>
+    <? } ?>    
+  </nav>
+</header> 
 <div class="popup-overlay" id="popup-overlay"></div>
 <section id="standings">
   <div class="content-wrapper">
@@ -277,7 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     if (g.played) {
-      info.onclick = (e) => {
+      /*info.onclick = (e) => {
         e.stopPropagation();
         document.querySelectorAll('.bracket-popup-wrapper').forEach(p => {
           if (p !== popup) p.style.display = 'none';
@@ -285,10 +285,64 @@ document.addEventListener("DOMContentLoaded", () => {
         const isOpen = popup.style.display === "block";
         popup.style.display = isOpen ? "none" : "block";
         overlay.classList.toggle('active', !isOpen);
+      };*/
+      info.onclick = e => {
+        e.stopPropagation();
+
+        // Close any other open popups
+        document.querySelectorAll('.bracket-popup-wrapper').forEach(p => {
+          if (p !== popup) p.style.display = 'none';
+        });
+
+        popup.style.display = "block";
+        overlay.classList.add("active");
+
+        // Measure popup
+        popup.style.visibility = "hidden";
+        popup.style.left = "0px";
+        popup.style.top = "0px";
+
+        requestAnimationFrame(() => {
+          const rect = popup.getBoundingClientRect();
+          const margin = 12;
+
+          let x = e.clientX;
+          let y = e.clientY;
+
+          // Prefer above the tap/click
+          x -= rect.width / 2;
+          y -= rect.height + 16;
+
+          // Clamp horizontally
+          if (x < margin) x = margin;
+          if (x + rect.width > window.innerWidth - margin) {
+            x = window.innerWidth - rect.width - margin;
+          }
+
+          // Clamp vertically
+          if (y < margin) {
+            y = e.clientY + 16; // fallback below
+          }
+          if (y + rect.height > window.innerHeight - margin) {
+            y = window.innerHeight - rect.height - margin;
+          }
+
+          /*const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+          if (isMobile) {
+            y = window.innerHeight - rect.height - 24;
+            x = (window.innerWidth - rect.width) / 2;
+          }*/
+
+          popup.style.left = `${x}px`;
+          popup.style.top = `${y}px`;
+          popup.style.visibility = "visible";
+        });
       };
     }
     
-    match.append(a, info, b, popup);
+    match.append(a, info, b);
+    document.body.appendChild(popup);
     card.appendChild(match);
     return card;
   }
@@ -312,47 +366,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${dd}/${mm}/${yyyy}`;
   }
       
-  function renderRecentGames(allGames) {
+  function renderRecentGames(recentGames) {
     recentOut.innerHTML = "";
-    if (!allGames?.length) {
+    if (!recentGames?.length) {
       recentOut.textContent = "No recent games.";
       return;
-    }
-    
-    const played = allGames.filter(g => !!g.played);
-    played.sort((a, b) => getGameDateValue(b) - getGameDateValue(a));
+    }   
     
     const wrap = document.createElement("div");
-    wrap.className = "recent-games";
+    wrap.className = "recent-games";  
     
-    const initial = played.slice(0, recentGamesLimit);
-    const rest = played.slice(recentGamesLimit);
+    recentGames.forEach(g => wrap.appendChild(buildGameCard(g)));
     
-    initial.forEach(g => wrap.appendChild(buildGameCard(g)));
-    
-    if (rest.length) {
-      const hiddenContainer = document.createElement("div");
-      hiddenContainer.className = "recent-hidden";
-      hiddenContainer.style.display = "none";
-      hiddenContainer.style.flexDirection = "column";
-      hiddenContainer.style.gap = "10px";
-      
-      rest.forEach(g => hiddenContainer.appendChild(buildGameCard(g)));
-      
-      const toggle = document.createElement("div");
-      toggle.className = "recent-show-more";
-      toggle.textContent = "Show more games";
-      toggle.onclick = () => {
-        const isOpen = hiddenContainer.style.display === "flex";
-        hiddenContainer.style.display = isOpen ? "none" : "flex";
-        toggle.textContent = isOpen ? "Show more games" : "Show fewer games";
-      };
-      
-      wrap.appendChild(toggle);
-      wrap.appendChild(hiddenContainer);
-    }
-    
-    recentOut.appendChild(wrap);
+    recentOut.appendChild(wrap);        
   }
   
   Promise.allSettled([
@@ -364,7 +390,33 @@ document.addEventListener("DOMContentLoaded", () => {
         all.push(...res.value);
       }
     });
-    renderRecentGames(all);
+    const played = all.filter(g => !!g.played);
+    played.sort((a, b) => getGameDateValue(b) - getGameDateValue(a));
+
+    const initial = played.slice(0, recentGamesLimit);
+    const rest = played.slice(recentGamesLimit);
+
+    renderRecentGames(initial);        
+
+    if (rest.length) {
+      const hiddenContainer = document.createElement("div");
+      hiddenContainer.className = "recent-hidden";
+      hiddenContainer.style.display = "none";
+      
+      rest.forEach(g => hiddenContainer.appendChild(buildGameCard(g)));
+      
+      const toggle = document.createElement("div");
+      toggle.className = "recent-show-more";
+      toggle.textContent = "Show more games";
+      toggle.onclick = () => {
+        const isOpen = hiddenContainer.style.display === "flex";
+        hiddenContainer.style.display = isOpen ? "none" : "flex";
+        toggle.textContent = isOpen ? "Show more games" : "Show fewer games";
+      };
+            
+      recentOut.appendChild(hiddenContainer);      
+      recentOut.appendChild(toggle);
+    }
   }).catch(e => {
     recentOut.textContent = "Error loading recent games: " + e;
   });  
