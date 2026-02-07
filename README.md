@@ -29,7 +29,7 @@ and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament
 
 Populate the following tabs as the miniumum viable setup:
 
-- **Players** (**Standins** are optional)
+- **Players**
 - **Teams**
 - **Schedule**
 - **ScheduleConfig**
