@@ -94,24 +94,24 @@ To use it follow the steps below:
 
 - open your instance of the QuakeWorld Tournament Management Google Sheet and navigate to `Extensions`->`Apps Script`
 - on the `Apps Script` page click the blue `Deploy` button in the top right of the screen and select `New deployment`
-- in `Select type` choose `Web app`. `Description` could be left blank. Leave `Execute as` as default. In `Who has access` - select `Anyone`. Then click `Deploy`
-- on the next screen you will have to authorise the web app to access your Google Sheets spreadsheet data. Click `Authroise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to 4on4-League (unsafe)`
+- in `Select type` choose `Web app`. `Description` could be left blank. Leave `Execute as` on default. In `Who has access` - select `Anyone`. Then click `Deploy`
+- on the next screen you will have to authorise the web app to access and modify your Google Sheets spreadsheet data (this spreadsheet only). Click `Authroise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to 4on4-League (unsafe)`
 - in the `4on4-League wants access to your Google Account` prompt tick `Select all` then click continue at the bottom. You'll receive a `Security alert` email from Google
-- on the `New deployment` screen look for `Web app` section and click `Copy` which will copy your own web app URL to the clipboard. This URL schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
+- on the `New deployment` screen look for `Web app` section and click `Copy`. This URL you are copying schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
 - navigate to the `Discord` tab and paste the URL in `Web App deployment URL` configuration option (see above). From now on the link to the web app will be posted as part of the Discord msg
 
 ## How to use this - advanced (using Automation)
 
 Configure automation and integrations for a complete self-managing system:
 
-- Deploy the **Apps Script code / Web frontend / API**    
+- Deploy the **Apps Script code / Web frontend / API** using clasp (if not deployed using the Google Apps Script `Deploy` UI already - see above)
 
 Web App exposes standings & schedule details, playoff bracket, played matches and player stats using `Web App deployment URL` configured & posted via `Discord` tab. 
-Read below for deployment instructions.
+Read below for deployment instructions using `clasp`.
 
 - Deploy the **Reports Watcher Discord bot**  
  
-Match reports are posted on Discord by the players. The Reports Watcher Discord bot extracts Hub URLs from the posts and URLs are sent to a Google Apps Script endpoint. Games are then imported automatically into the `Games` tab.
+Match reports are posted on Discord by the players. The Reports Watcher Discord bot extracts Hub URLs from the posts and sends to a Google Apps Script endpoint. Games are then imported automatically into the `Games` tab.
 Successful processing is indicated by **bot reactions** on Discord messages.
 
 See 👉 https://github.com/kindzal/qw-reports-watcher for deployment instructions.
@@ -321,6 +321,9 @@ deploy.bat
 4. `Update-UrlShortener.ps1`
    - updates the short URL via API
 ---
+
+> ⚠️ If URL shortener is not required navigate to `Apps Script` -> `Deploy` -> `Manage deployments`, select the current (first from the top) `Acitve` deployment, copy `Deployment IO` using the `Copy` button and insert it into your .env file.
+> Using this method the web app URL stays the same.
 
 ### Deleting Deployments (Cleanup)
 
