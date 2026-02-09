@@ -197,3 +197,67 @@ function postToDiscord(mode = 'post') {
     logPostHistory(message, 'Failed');
   }
 }
+
+function sendAvailabilityRequestsToDiscord() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Teams');
+  const data = sheet.getDataRange().getValues();
+  const ui = SpreadsheetApp.getUi();
+
+  // --- Confirm Before Posting ---
+  const response = ui.alert('Are you sure you want to post this to Discord?', ui.ButtonSet.YES_NO);
+  if (response !== ui.Button.YES) {
+    ui.alert('Post cancelled.');
+    return;
+  }
+
+  const DAYS = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+  ];
+
+  // Start from row 2 (skip headers)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+
+    const teamName = row[1];              // Team Name
+    const roleId = row[4];                // Discord Role ID
+    const webhookUrl = row[5];            // Discord Channel Webhook
+
+    if (!webhookUrl || !roleId) continue;
+
+    // 1️⃣ First message: role ping + instructions
+    const introPayload = {
+      content: `<@&${roleId}> react with 👍🏻👎🏻 to the days you are available/unavailable 👇.`
+    };
+
+    _postToDiscord(webhookUrl, introPayload);
+
+    Utilities.sleep(800); // small delay to keep order clean
+
+    // 2️⃣ One message per day
+    DAYS.forEach(day => {
+      const dayPayload = {
+        content: day
+      };
+
+      _postToDiscord(webhookUrl, dayPayload);
+      Utilities.sleep(500);
+    });
+  }
+}
+
+function _postToDiscord(webhookUrl, payload) {
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  UrlFetchApp.fetch(webhookUrl, options);
+}
