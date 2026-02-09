@@ -1,69 +1,137 @@
 /** @OnlyCurrentDoc */
 function doPost(e) {
+  const action = e.parameter?.action || "reports";
+
+  switch (action) {
+    case "reports":
+      return handleReports(e);
+    case "schedule":
+      return handleSchedule(e);
+    default:
+      return ContentService.createTextOutput("Unknown action");
+  }
+}
+
+function handleReports(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DataImport");
   if (!sheet) {
     return ContentService.createTextOutput("Sheet 'DataImport' not found.");
   }
 
-  // Parse JSON body
   let data;
   try {
     data = JSON.parse(e.postData.contents);
-  } catch (err) {
+  } catch {
     return ContentService.createTextOutput("Invalid JSON payload.");
   }
 
-  const urls = data.urls;
-  if (!Array.isArray(urls)) {
-    return ContentService.createTextOutput("Payload must contain an array 'urls'.");
-  }
-
-  // Required URL prefix
+  const urls = Array.isArray(data.urls) ? data.urls : [];
   const REQUIRED_PREFIX = "https://hub.quakeworld.nu/games/?gameId=";
 
-  // Filter URLs to include only valid ones
-  const filteredUrls = urls.filter(url => 
-    typeof url === "string" && url.startsWith(REQUIRED_PREFIX)
-  );
+  const filtered = urls
+    .filter(u => typeof u === "string" && u.startsWith(REQUIRED_PREFIX))
+    .slice(0, 10);
 
-  // Limit to first 10 valid URLs
-  const limitedUrls = filteredUrls.slice(0, 10);
-
-  // Prepare values for writing (each URL in its own row)
-  const values = limitedUrls.map(url => [url]);
-
-  // Target range A1:A30
+  const values = filtered.map(u => [u]);
   const maxRows = 30;
   const column = 1;
 
-  // Get existing values in A1:A30
-  const existing = sheet
-    .getRange(1, column, maxRows, 1)
-    .getValues()
-    .flat();
+  const existing = sheet.getRange(1, column, maxRows, 1).getValues().flat();
+  const firstEmpty = existing.findIndex(v => !v);
 
-  // Find first empty row (0-based index)
-  const firstEmptyIndex = existing.findIndex(v => !v);
-
-  if (firstEmptyIndex === -1) {
-    // No space left in A1:A30
+  if (firstEmpty === -1) {
     throw new Error("DataImport A1:A30 is full");
   }
 
-  // How many URLs can we write?
-  const spaceLeft = maxRows - firstEmptyIndex;
-  const valuesToWrite = values.slice(0, spaceLeft);
-
-  // Write URLs starting at first empty row
   sheet
-    .getRange(firstEmptyIndex + 1, column, valuesToWrite.length, 1)
-    .setValues(valuesToWrite);
-
-  // Force Google Sheets to apply all writes BEFORE calling functions
-  //SpreadsheetApp.flush();
+    .getRange(firstEmpty + 1, column, values.length, 1)
+    .setValues(values);
 
   return ContentService.createTextOutput(
-    "Accepted " + limitedUrls.length + " valid URLs. importDataFromWeb executed."
+    `Accepted ${filtered.length} valid URLs`
+  );
+}
+
+function getTeamByRoleId(roleId) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+  if (!sheet) {
+    throw new Error("Teams sheet not found");
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const roleCol = headers.indexOf("Discord Role ID");
+  const nameCol = headers.indexOf("Team Name");
+
+  if (roleCol === -1 || nameCol === -1) {
+    throw new Error("Teams sheet missing required columns");
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][roleCol]) === String(roleId)) {
+      return {
+        id: roleId,
+        name: data[i][nameCol]
+      };
+    }
+  }
+
+  return null;
+}
+
+function handleScheduleGameReport(payload) {
+  const { teams, scheduledAt } = payload;
+
+  if (!teams || teams.length < 2) {
+    throw new Error("Invalid team data");
+  }
+
+  const teamA = getTeamByRoleId(teams[0].id);
+  const teamB = getTeamByRoleId(teams[1].id);
+
+  if (!teamA || !teamB) {
+    throw new Error("One or more team role IDs are not registered");
+  }
+
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName("Schedule");
+
+  if (!sheet) {
+    throw new Error("Schedule sheet not found");
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const team1Col = headers.indexOf("Team1");
+  const team2Col = headers.indexOf("Team2");
+  const scheduledCol = headers.indexOf("Scheduled For");
+
+  if (team1Col === -1 || team2Col === -1 || scheduledCol === -1) {
+    throw new Error("Schedule sheet missing required columns");
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    const rowTeam1 = String(data[i][team1Col]);
+    const rowTeam2 = String(data[i][team2Col]);
+
+    const sameMatch =
+      (rowTeam1 === teamA.id && rowTeam2 === teamB.id) ||
+      (rowTeam1 === teamB.id && rowTeam2 === teamA.id);
+
+    if (sameMatch) {
+      sheet
+        .getRange(i + 1, scheduledCol + 1)
+        .setValue(scheduledAt);
+
+      return;
+    }
+  }
+
+  throw new Error(
+    `No matching schedule row found for teams ${teamA.name} vs ${teamB.name}`
   );
 }
 
