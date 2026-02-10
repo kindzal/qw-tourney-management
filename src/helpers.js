@@ -5,8 +5,8 @@ function parseDateTime(text) {
   let hour = 21;
   let minute = 0;
 
-  // Normalize
-  const cleanText = text.replace(/CET|CEST/gi, "").trim();
+  // Strip timezone text (we infer authoritatively)
+  const cleanText = text.replace(/(CET|CEST)/gi, "").trim();
 
   // ---- TIME ----
   const time24 = cleanText.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
@@ -20,65 +20,76 @@ function parseDateTime(text) {
     if (time12[2].toLowerCase() === "pm") hour += 12;
   }
 
-  // ---- DATE: "Thursday 12 Feb" ----
-  const namedDate = cleanText.match(
-    /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i
-  );
-
-  if (namedDate) {
-    const day = Number(namedDate[2]);
-    const month = monthToIndex(namedDate[3]);
-    let year = now.getFullYear();
-
-    // If date already passed this year → assume next year
-    const candidate = new Date(year, month, day);
-    if (candidate < now) year++;
-
-    date = new Date(year, month, day);
-  }
-
-  // ---- ISO / EU fallback ----
-  if (!date) {
-    const isoDate = cleanText.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
-    const euDate = cleanText.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(20\d{2}))?\b/);
-
-    if (isoDate) {
-      date = new Date(
-        Number(isoDate[1]),
-        Number(isoDate[2]) - 1,
-        Number(isoDate[3])
-      );
-    } else if (euDate) {
-      const year = euDate[3] ? Number(euDate[3]) : now.getFullYear();
-      date = new Date(
-        year,
-        Number(euDate[2]) - 1,
-        Number(euDate[1])
-      );
-    }
-  }
-
-  // ---- Relative days ----
-  if (!date && /tomorrow/i.test(cleanText)) {
-    date = new Date(now);
-    date.setDate(date.getDate() + 1);
-  }
-
-  if (!date && /today/i.test(cleanText)) {
-    date = new Date(now);
-  }
-
-  if (!date) {
-    date = parseWeekday(cleanText, now);
-  }
+  // ---- DATE ----
+  date =
+    parseNamedDate(cleanText, now) ||
+    parseNumericDate(cleanText, now) ||
+    parseRelativeDate(cleanText, now) ||
+    parseWeekday(cleanText, now);
 
   if (!date) return null;
 
   date.setHours(hour, minute, 0, 0);
-  return formatDate(date);
+
+  const timezone = inferCetOrCest(date);
+  return formatDate(date, timezone);
 }
 
-function parseWeekday(text, baseDate) {
+function parseNamedDate(text, now) {
+  const match = text.match(
+    /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)?\s*(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i
+  );
+
+  if (!match) return null;
+
+  const day = Number(match[2]);
+  const month = monthToIndex(match[3]);
+  let year = now.getFullYear();
+
+  const candidate = new Date(year, month, day);
+  if (candidate < now) year++;
+
+  return new Date(year, month, day);
+}
+
+function parseRelativeDate(text, now) {
+  if (/today/i.test(text)) {
+    return new Date(now);
+  }
+
+  if (/tomorrow/i.test(text)) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  return null;
+}
+
+function parseNumericDate(text, now) {
+  const iso = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (iso) {
+    return new Date(
+      Number(iso[1]),
+      Number(iso[2]) - 1,
+      Number(iso[3])
+    );
+  }
+
+  const eu = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(20\d{2}))?\b/);
+  if (eu) {
+    const year = eu[3] ? Number(eu[3]) : now.getFullYear();
+    return new Date(
+      year,
+      Number(eu[2]) - 1,
+      Number(eu[1])
+    );
+  }
+
+  return null;
+}
+
+function parseWeekday(text, now) {
   const days = {
     sunday: 0,
     monday: 1,
@@ -98,7 +109,7 @@ function parseWeekday(text, baseDate) {
   const isNext = !!match[1];
   const targetDay = days[match[2].toLowerCase()];
 
-  const d = new Date(baseDate);
+  const d = new Date(now);
   const diff = (targetDay - d.getDay() + 7) % 7 || 7;
 
   d.setDate(d.getDate() + (isNext ? diff + 7 : diff));
@@ -106,21 +117,92 @@ function parseWeekday(text, baseDate) {
 }
 
 function monthToIndex(mon) {
-  const months = {
+  return {
     jan: 0, feb: 1, mar: 2, apr: 3,
     may: 4, jun: 5, jul: 6, aug: 7,
     sep: 8, oct: 9, nov: 10, dec: 11
-  };
-
-  return months[mon.toLowerCase()];
+  }[mon.toLowerCase()];
 }
 
-function formatDate(date) {
+function formatDate(date, timezone) {
   const dd = String(date.getDate()).padStart(2, '0');
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const yyyy = date.getFullYear();
   const hh = String(date.getHours()).padStart(2, '0');
   const min = String(date.getMinutes()).padStart(2, '0');
 
-  return `${dd}/${mm}/${yyyy} @ ${hh}:${min} CET/CEST`;
+  return `${dd}/${mm}/${yyyy} @ ${hh}:${min} ${timezone}`;
+}
+
+function inferCetOrCest(date) {
+  const year = date.getFullYear();
+  const marchLastSunday = lastSundayOfMonth(year, 2);
+  const octoberLastSunday = lastSundayOfMonth(year, 9);
+
+  return (date >= marchLastSunday && date < octoberLastSunday)
+    ? "CEST"
+    : "CET";
+}
+
+function lastSundayOfMonth(year, monthIndex) {
+  const d = new Date(year, monthIndex + 1, 0);
+  while (d.getDay() !== 0) {
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+function parseScheduledFor(dateStr) {
+  // "12/02/2026 @ 21:00 CET"
+  const match = dateStr.match(
+    /(\d{2})\/(\d{2})\/(\d{4})\s*@\s*(\d{2}):(\d{2})/
+  );
+  if (!match) return null;
+
+  return {
+    day: Number(match[1]),
+    month: Number(match[2]),
+    year: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5])
+  };
+}
+
+// Helper function to parse deadline from ScheduleConfig
+function parseDeadline(deadlineStr) {
+  if (!deadlineStr) return null;
+  
+  // Convert to string in case it's a Date object or other type
+  const str = String(deadlineStr);
+  
+  // Try format with time: "08/02/2026 23:59:59"
+  let match = str.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+  if (match) {
+    const [, day, month, year, hour, minute, second] = match;
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hour),
+      parseInt(minute),
+      parseInt(second)
+    );
+  }
+  
+  // Try format without time: "08/02/2026"
+  match = str.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (match) {
+    const [, day, month, year] = match;
+    // Default to end of day (23:59:59) if no time specified
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      23,
+      59,
+      59
+    );
+  }
+  
+  return null;
 }

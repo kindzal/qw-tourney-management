@@ -261,3 +261,172 @@ function _postToDiscord(webhookUrl, payload) {
 
   UrlFetchApp.fetch(webhookUrl, options);
 }
+
+function getDiscordWebhookUrl() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Discord");
+  if (!sheet) throw new Error("Discord sheet not found");
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Discord web hook") {
+      return data[i][1];
+    }
+  }
+
+  throw new Error("Discord webhook not configured");
+}
+
+function sendTodayGameReminders() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Schedule");
+  if (!sheet) throw new Error("Schedule sheet not found");
+
+  const webhookUrl = getDiscordWebhookUrl();
+  const now = new Date();
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const team1Col = headers.indexOf("Team1");
+  const team2Col = headers.indexOf("Team2");
+  const scheduledCol = headers.indexOf("Scheduled For");
+  const reminderCol = headers.indexOf("Reminder Sent");
+
+  if ([team1Col, team2Col, scheduledCol, reminderCol].includes(-1)) {
+    throw new Error("Schedule sheet missing required columns");
+  }
+
+  const gamesToday = [];
+  const rowsToUpdate = [];
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][reminderCol] == "Yes") continue;
+
+    const parsed = parseScheduledFor(data[i][scheduledCol]);
+    if (!parsed) continue;
+
+    const isToday =
+      parsed.day === now.getDate() &&
+      parsed.month === now.getMonth() + 1 &&
+      parsed.year === now.getFullYear();
+
+    if (!isToday) continue;
+
+    const isTonight = parsed.hour >= 17;
+    const when = isTonight ? "tonight" : "today";
+
+    const roleA = getRoleIdByTeamName(data[i][team1Col]);
+    const roleB = getRoleIdByTeamName(data[i][team2Col]);
+
+    const timePart = data[i][scheduledCol].split("@")[1].trim();
+
+    gamesToday.push(
+      `• <@&${roleA}> vs <@&${roleB}> — ${when} @ ${timePart}`
+    );
+
+    rowsToUpdate.push(i + 1);
+  }
+
+  if (!gamesToday.length) return;
+
+  const message =
+    `🔥 **Game Reminder** 🔥\n\n` +
+    gamesToday.join("\n");
+
+  UrlFetchApp.fetch(webhookUrl, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ content: message })
+  });
+
+  // Mark reminders as sent
+  rowsToUpdate.forEach(row =>
+    sheet.getRange(row, reminderCol + 1).setValue("Yes")
+  );
+}
+
+function sendUnscheduledGamesReminder() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scheduleSheet = ss.getSheetByName("Schedule");
+  const configSheet = ss.getSheetByName("ScheduleConfig");
+  
+  if (!scheduleSheet) throw new Error("Schedule sheet not found");
+  if (!configSheet) throw new Error("ScheduleConfig sheet not found");
+
+  const webhookUrl = getDiscordWebhookUrl();
+  const now = new Date();
+
+  // Check if today is Wednesday or later (0=Sunday, 1=Monday, ..., 6=Saturday)
+  const dayOfWeek = now.getDay();
+  // Convert to Monday=1, Tuesday=2, Wednesday=3, ..., Sunday=7
+  const mondayBasedDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+  
+  if (mondayBasedDay < 3) return; // Exit if before Wednesday
+
+  // Get current round based on deadline
+  const configData = configSheet.getDataRange().getValues();
+  const configHeaders = configData[0];
+  const roundCol = configHeaders.indexOf("Round");
+  const deadlineCol = configHeaders.indexOf("Deadline");
+
+  if ([roundCol, deadlineCol].includes(-1)) {
+    throw new Error("ScheduleConfig sheet missing required columns");
+  }
+
+  let currentRound = null;
+  for (let i = 1; i < configData.length; i++) {
+    const deadlineStr = configData[i][deadlineCol];
+    const deadline = parseDeadline(deadlineStr);
+    
+    if (deadline && now <= deadline) {
+      currentRound = configData[i][roundCol];
+      break;
+    }
+  }
+
+  if (currentRound === null) return; // No active round found
+
+  // Find unscheduled games in current round
+  const scheduleData = scheduleSheet.getDataRange().getValues();
+  const scheduleHeaders = scheduleData[0];
+  
+  const roundColSchedule = scheduleHeaders.indexOf("Round");
+  const team1Col = scheduleHeaders.indexOf("Team1");
+  const team2Col = scheduleHeaders.indexOf("Team2");
+  const scheduledCol = scheduleHeaders.indexOf("Scheduled For");
+
+  if ([roundColSchedule, team1Col, team2Col, scheduledCol].includes(-1)) {
+    throw new Error("Schedule sheet missing required columns");
+  }
+
+  const unscheduledGames = [];
+
+  for (let i = 1; i < scheduleData.length; i++) {
+    const round = scheduleData[i][roundColSchedule];
+    const scheduledValue = scheduleData[i][scheduledCol];
+
+    // Check if this row is in current round and not scheduled
+    if (round == currentRound && !scheduledValue) {
+      const roleA = getRoleIdByTeamName(scheduleData[i][team1Col]);
+      const roleB = getRoleIdByTeamName(scheduleData[i][team2Col]);
+
+      unscheduledGames.push(
+        `• <@&${roleA}> vs <@&${roleB}>`
+      );
+    }
+  }
+
+  if (!unscheduledGames.length) return; // No unscheduled games
+
+  const message =
+    `⚠️ **Unscheduled Games - Round ${currentRound}** ⚠️\n\n` +
+    `The following games still need to be scheduled:\n\n` +
+    unscheduledGames.join("\n") +
+    `\n\nPlease schedule your matches soon!`;
+
+  UrlFetchApp.fetch(webhookUrl, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ content: message })
+  });
+}

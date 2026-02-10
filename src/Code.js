@@ -80,6 +80,29 @@ function getTeamByRoleId(roleId) {
   return null;
 }
 
+function getRoleIdByTeamName(teamName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+  if (!sheet) throw new Error("Teams sheet not found");
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const nameCol = headers.indexOf("Team Name");
+  const roleCol = headers.indexOf("Discord Role ID");
+
+  if (nameCol === -1 || roleCol === -1) {
+    throw new Error("Teams sheet missing required columns");
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][nameCol]) === String(teamName)) {
+      return data[i][roleCol];
+    }
+  }
+
+  return null;
+}
+
 function handleScheduleGameReport(payload) {
   const { teams, scheduledAt, rawText } = payload;
 
@@ -122,12 +145,27 @@ function handleScheduleGameReport(payload) {
   for (let i = 1; i < data.length; i++) {
     const rowTeam1 = String(data[i][team1Col]);
     const rowTeam2 = String(data[i][team2Col]);
+    const scheduledValue = data[i][scheduledCol];
 
     const sameMatch =
       (rowTeam1 === teamA.name && rowTeam2 === teamB.name) ||
       (rowTeam1 === teamB.name && rowTeam2 === teamA.name);
 
-    if (sameMatch) {
+    let canUpdate = true;
+
+    if (scheduledValue) {
+      const parsed = parseScheduledFor(scheduledValue);
+      if (parsed) {
+        const now = new Date();
+        const scheduledDate = new Date(parsed.year, parsed.month - 1, parsed.day);
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        // Allow update if scheduled date is today or in the future
+        canUpdate = scheduledDate >= today;
+      }
+    }
+
+    if (sameMatch && canUpdate) {
       sheet
         .getRange(i + 1, scheduledCol + 1)
         .setValue(parsedDateTime);
