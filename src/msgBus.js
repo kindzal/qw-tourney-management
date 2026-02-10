@@ -9,7 +9,8 @@ function processMsgQueue(limit = 10) {
       timestamp,
       type,
       content,
-      status
+      status,
+      processedAt
     ] = data[i];
 
     if (status && status !== "NEW") continue;
@@ -107,16 +108,10 @@ function handleSchedule(e) {
 
   if (!Array.isArray(roles) || roles.length < 2) {
     return ContentService.createTextOutput("Not enough teams mentioned.");
-  }
-
-  const parsedDate = parseDateTime(content);
-  if (!parsedDate) {
-    return ContentService.createTextOutput("No valid date found.");
-  }
+  } 
 
   const queuePayload = {
     teams: roles.map(r => ({ id: r.id, name: r.name })),
-    scheduledAt: parsedDate,
     rawText: content
   };
 

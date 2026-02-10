@@ -81,7 +81,7 @@ function getTeamByRoleId(roleId) {
 }
 
 function handleScheduleGameReport(payload) {
-  const { teams, scheduledAt } = payload;
+  const { teams, scheduledAt, rawText } = payload;
 
   if (!teams || teams.length < 2) {
     throw new Error("Invalid team data");
@@ -113,18 +113,24 @@ function handleScheduleGameReport(payload) {
     throw new Error("Schedule sheet missing required columns");
   }
 
+  //const scheduledAt = "12/02/26 @ 21:00" //parseDateTime(content);
+  const parsedDateTime = parseDateTime(rawText);
+  if (!parsedDateTime) {
+    return ContentService.createTextOutput(`No valid date found: ${parsedDateTime}.`);
+  }
+
   for (let i = 1; i < data.length; i++) {
     const rowTeam1 = String(data[i][team1Col]);
     const rowTeam2 = String(data[i][team2Col]);
 
     const sameMatch =
-      (rowTeam1 === teamA.id && rowTeam2 === teamB.id) ||
-      (rowTeam1 === teamB.id && rowTeam2 === teamA.id);
+      (rowTeam1 === teamA.name && rowTeam2 === teamB.name) ||
+      (rowTeam1 === teamB.name && rowTeam2 === teamA.name);
 
     if (sameMatch) {
       sheet
         .getRange(i + 1, scheduledCol + 1)
-        .setValue(scheduledAt);
+        .setValue(parsedDateTime);
 
       return;
     }
