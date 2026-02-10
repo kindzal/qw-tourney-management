@@ -672,12 +672,45 @@ function populateTeamPlayers() {
 
 function updateTeams() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const gamesSheet = ss.getSheetByName("Games");
-  const standingsSheet = ss.getSheetByName("Standings");
-  const teamGamesSheet = ss.getSheetByName("TeamGames");
+  const gamesSheet = ss.getSheetByName("Games");  
   const teamsSheet = ss.getSheetByName("Teams");
   const scheduleSheet = ss.getSheetByName("Schedule");
   const otherConfigSheet = ss.getSheetByName("OtherConfig");
+
+  const teamGamesHeader = ["#", "Stage", "Round", "TeamA", "MapsWonA", "Score", "TeamB", "MapsWonB", "AllMapsJSON", "Date"];
+  // -------------------------------------------------------
+  // Check/Create TeamGames sheet
+  // -------------------------------------------------------
+  let teamGamesSheet = ss.getSheetByName("TeamGames");
+  if (!teamGamesSheet) {
+    teamGamesSheet = ss.insertSheet("TeamGames");    
+    teamGamesSheet.getRange(1, 1, 1, teamGamesHeader.length)
+      .setNumberFormat("@STRING@")
+      .setValues([teamGamesHeader]);
+  }  
+  
+  // -------------------------------------------------------
+  // Check/Create WOTeamGames sheet
+  // -------------------------------------------------------
+  let woTeamGamesSheet = ss.getSheetByName("WOTeamGames");
+  if (!woTeamGamesSheet) {
+    woTeamGamesSheet = ss.insertSheet("WOTeamGames");    
+    woTeamGamesSheet.getRange(1, 1, 1, teamGamesHeader.length)
+      .setNumberFormat("@STRING@")
+      .setValues([teamGamesHeader]);
+  }
+
+  const standingseader = ["#", "Team", "Games", "Maps", "Diff"];  
+  // -------------------------------------------------------
+  // Check/Create Standings sheet
+  // -------------------------------------------------------
+  const standingsSheet = ss.getSheetByName("Standings");  
+  if (!standingsSheet) {
+    standingsSheet = ss.insertSheet("Standings");    
+    standingsSheet.getRange(1, 1, 1, standingseader.length)
+      .setNumberFormat("@STRING@")
+      .setValues([standingseader]);
+  }  
   
   // -------------------------------------------------------
   // Read OtherConfig (key -> value)
@@ -790,7 +823,8 @@ function updateTeams() {
       gameMaps[gameId] = {
         maps: [],
         mapDate: gameDate,
-        isPlayoff
+        isPlayoff,
+        isWalkover: false
       };
     }
     
@@ -826,6 +860,92 @@ function updateTeams() {
       if (!gameToMapTeams[gameId][team]) gameToMapTeams[gameId][team] = 0;
       if (won) gameToMapTeams[gameId][team]++;
     }
+  }
+  
+  // -------------------------------------------------------
+  // Load WOTeamGames (walkover games)
+  // -------------------------------------------------------
+  if (woTeamGamesSheet && woTeamGamesSheet.getLastRow() > 1) {
+    const woData = woTeamGamesSheet.getDataRange().getValues();
+    const woHeaders = woData[0];
+    const woRows = woData.slice(1);
+    
+    const woIdx = {};
+    woHeaders.forEach((h, i) => (woIdx[h.trim()] = i));
+    
+    // Track next available WO game ID
+    let woCounter = 1;
+    
+    woRows.forEach(row => {
+      const stage = String(row[woIdx.Stage] || "").trim();
+      const teamA = String(row[woIdx.TeamA] || "").trim();
+      const teamB = String(row[woIdx.TeamB] || "").trim();
+      const mapsWonA = Number(row[woIdx.MapsWonA]) || 0;
+      const mapsWonB = Number(row[woIdx.MapsWonB]) || 0;
+      const rawDate = row[woIdx.Date];
+      
+      if (!teamA || !teamB) return; // Skip invalid rows
+      
+      let gameDate;
+      if (rawDate instanceof Date) {
+        gameDate = rawDate;
+      } else if (rawDate) {
+        const iso = String(rawDate)
+          .replace(" ", "T")
+          .replace(/ ([+-]\d{2})(\d{2})$/, "$1:$2");
+        gameDate = new Date(iso);
+      } else {
+        gameDate = new Date(); // Default to now if no date
+      }
+      
+      const isPlayoff = stage === "Playoff";
+      const gameId = `WO|${woCounter++}`;
+      
+      gameMaps[gameId] = {
+        maps: [], // No maps for walkover games
+        mapDate: gameDate,
+        isPlayoff,
+        isWalkover: true
+      };
+      
+      // Find team tags from team names
+      let teamATag = teamA;
+      let teamBTag = teamB;
+      for (const [tag, name] of Object.entries(teamNameLookup)) {
+        if (name === teamA) teamATag = tag;
+        if (name === teamB) teamBTag = tag;
+      }
+      
+      gameToMapTeams[gameId] = {
+        [teamATag]: mapsWonA,
+        [teamBTag]: mapsWonB
+      };
+      
+      // Update team stats for group stage walkovers
+      if (!isPlayoff) {
+        if (!teamStats[teamATag]) {
+          teamStats[teamATag] = {
+            mapWins: 0,
+            mapLosses: 0,
+            gameWins: 0,
+            gameLosses: 0
+          };
+        }
+        if (!teamStats[teamBTag]) {
+          teamStats[teamBTag] = {
+            mapWins: 0,
+            mapLosses: 0,
+            gameWins: 0,
+            gameLosses: 0
+          };
+        }
+        
+        teamStats[teamATag].mapWins += mapsWonA;
+        teamStats[teamATag].mapLosses += mapsWonB;
+        teamStats[teamBTag].mapWins += mapsWonB;
+        teamStats[teamBTag].mapLosses += mapsWonA;
+      }
+    });
   }
   
   // -------------------------------------------------------
@@ -942,21 +1062,30 @@ function updateTeams() {
       }
     }
     
-    const allMapsJSON = JSON.stringify(
-      g.maps.map(m => {
-        let aFrags = 0, bFrags = 0;
-        mapGroups[m.mapUrl].forEach(r => {
-          if (r[teamCol] === tA) aFrags += Number(r[fragsCol]);
-          if (r[teamCol] === tB) bFrags += Number(r[fragsCol]);
-        });
-        return {
-          mapName: m.mapName,
-          teamAFrags: aFrags,
-          teamBFrags: bFrags,
-          gameUrl: m.mapUrl
-        };
-      })
-    );
+    let allMapsJSON;
+    if (g.isWalkover) {
+      // For walkover games, use empty array since no maps are played
+      allMapsJSON = "[]";
+    } else {
+      // For regular games, calculate frags from mapGroups
+      allMapsJSON = JSON.stringify(
+        g.maps.map(m => {
+          let aFrags = 0, bFrags = 0;
+          if (mapGroups[m.mapUrl]) {
+            mapGroups[m.mapUrl].forEach(r => {
+              if (r[teamCol] === tA) aFrags += Number(r[fragsCol]);
+              if (r[teamCol] === tB) bFrags += Number(r[fragsCol]);
+            });
+          }
+          return {
+            mapName: m.mapName,
+            teamAFrags: aFrags,
+            teamBFrags: bFrags,
+            gameUrl: m.mapUrl
+          };
+        })
+      );
+    }
     
     const row = [
       rowNumber++,

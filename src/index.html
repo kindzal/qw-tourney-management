@@ -376,7 +376,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     const info = document.createElement("span");
-    if (g.played) {
+    const isWalkover = g.played && (!g.maps || g.maps.length === 0);
+    const hasMapData = g.played && g.maps && g.maps.length > 0;
+
+    if (isWalkover) {
+      info.className = "walkover-icon";
+      info.textContent = "🏳️"; // White flag for walkover
+    } else if (hasMapData) {
       info.className = "info-icon";
       info.textContent = "ℹ️";
     } else {
@@ -396,7 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>`;
     });
     
-    if (g.played) {
+    if (hasMapData) {
       info.onclick = e => {
         e.stopPropagation();
 
