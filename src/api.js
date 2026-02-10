@@ -13,7 +13,7 @@ function handleApiRequest(e) {
     case "teams":
       return jsonResponse(getTeams());        
     case "allGames":
-      return jsonResponse(getAllGames());  
+      return jsonResponse(getTeamGames('all'));  
     case "scheduleConfig":
       return jsonResponse(getScheduleConfig());  
     default:
@@ -112,60 +112,52 @@ function getPlayers() {
 
 function getTeamGames(mode = 'group') {
   const ss = SpreadsheetApp.getActive();
-
-  const gamesSheet =
-    mode === 'group'
-      ? ss.getSheetByName("TeamGames")
-      : ss.getSheetByName("TeamGamesPlayoffs");
-
+  const gamesSheet = ss.getSheetByName("TeamGames");
   if (!gamesSheet) {
-    throw new Error(`Games sheet not found for mode: ${mode}`);
+    throw new Error("TeamGames sheet not found");
   }
-
   const scheduleSheet = ss.getSheetByName("Schedule");
   if (!scheduleSheet) {
     throw new Error("Sheet 'Schedule' not found");
   }
-
+  
   /* ---------- HELPERS ---------- */
-
   function isNumericRound(r) {
     return !isNaN(Number(r));
   }
-
+  
   function pairKey(a, b) {
     return [String(a).trim(), String(b).trim()]
       .sort()
       .join("||")
       .toLowerCase();
   }
-
+  
   /* ---------- READ PLAYED GAMES ---------- */
-
   const gameValues = gamesSheet.getDataRange().getValues();
   const gameHeaders = gameValues.shift();
-
   const gIdx = {};
   gameHeaders.forEach((h, i) => (gIdx[h.trim()] = i));
-
-  const REQUIRED = ["Round", "TeamA", "TeamB", "MapsWonA", "MapsWonB", "AllMapsJSON", "Date"];
+  
+  const REQUIRED = ["Stage", "Round", "TeamA", "TeamB", "MapsWonA", "MapsWonB", "AllMapsJSON", "Date"];
   REQUIRED.forEach(col => {
     if (!(col in gIdx)) {
       throw new Error(`Missing column in games sheet: ${col}`);
     }
   });
-
+  
   // Played games indexed by team-pair
   const playedByPair = {};
-
   gameValues.forEach(row => {
+    const stage = String(row[gIdx.Stage]).trim();
     const round = row[gIdx.Round];
     if (round === "" || round == null) return;
-
-    // Respect mode: numeric = group, non-numeric = playoff
-    if (mode === 'group' && !isNumericRound(round)) return;
-    if (mode === 'playoff' && isNumericRound(round)) return;
-
+    
+    // Filter by mode using Stage column
+    if (mode === 'group' && stage !== 'Group') return;
+    if (mode === 'playoff' && stage !== 'Playoff') return;
+    // mode === 'all' → include everything
+    
     let maps = [];
     const raw = row[gIdx.AllMapsJSON];
     if (raw) {
@@ -180,9 +172,9 @@ function getTeamGames(mode = 'group') {
         Logger.log(`Failed to parse AllMapsJSON: ${e}`);
       }
     }
+    
     const rawDate = row[gIdx.Date];
     let gameDate;
-
     if (rawDate instanceof Date) {
       gameDate = rawDate;
     } else {
@@ -191,7 +183,9 @@ function getTeamGames(mode = 'group') {
         .replace(/ ([+-]\d{2})(\d{2})$/, "$1:$2");
       gameDate = new Date(iso);
     }
+    
     const game = {
+      stage,
       round: String(round),
       teamA: row[gIdx.TeamA],
       teamB: row[gIdx.TeamB],
@@ -199,52 +193,54 @@ function getTeamGames(mode = 'group') {
       mapsWonB: Number(row[gIdx.MapsWonB]) || 0,
       played: 1,
       maps,
-      date: gameDate 
+      date: gameDate
     };
-
+    
     const key = pairKey(game.teamA, game.teamB);
     if (!playedByPair[key]) playedByPair[key] = [];
     playedByPair[key].push(game);
   });
-
+  
   /* ---------- READ SCHEDULE ---------- */
-
   const schedValues = scheduleSheet.getDataRange().getValues();
   const schedHeaders = schedValues.shift();
-
   const sIdx = {};
   schedHeaders.forEach((h, i) => (sIdx[h.trim()] = i));
-
+  
   ["Round", "Team1", "Team2"].forEach(col => {
     if (!(col in sIdx)) {
       throw new Error(`Missing column in Schedule: ${col}`);
     }
   });
-
-  // Track how many games we’ve already consumed per team-pair
+  
+  // Track how many games we've already consumed per team-pair
   const pairCursor = {};
   const result = [];
-
+  
   schedValues.forEach(row => {
     const round = row[sIdx.Round];
     if (round === "" || round == null) return;
-
-    // Respect mode
-    if (mode === 'group' && !isNumericRound(round)) return;
-    if (mode === 'playoff' && isNumericRound(round)) return;
-
+    
+    // Determine stage based on round type
+    const isGroup = isNumericRound(round);
+    const stage = isGroup ? 'Group' : 'Playoff';
+    
+    // Filter by mode
+    if (mode === 'group' && !isGroup) return;
+    if (mode === 'playoff' && isGroup) return;
+    // mode === 'all' → include everything
+    
     const team1 = row[sIdx.Team1];
     const team2 = row[sIdx.Team2];
-
     const key = pairKey(team1, team2);
+    
     const playedList = playedByPair[key] || [];
     const idx = pairCursor[key] || 0;
-
+    
     if (idx < playedList.length) {
       // Consume next played game
       const game = playedList[idx];
       pairCursor[key] = idx + 1;
-
       result.push({
         ...game,
         round: String(round)
@@ -252,6 +248,7 @@ function getTeamGames(mode = 'group') {
     } else {
       // No played game yet → placeholder
       result.push({
+        stage,
         round: String(round),
         teamA: team1,
         teamB: team2,
@@ -263,94 +260,7 @@ function getTeamGames(mode = 'group') {
       });
     }
   });
-
-  return result;
-}
-function getAllGames() {
-  const ss = SpreadsheetApp.getActive();
-
-  const SOURCES = [
-    { sheetName: "TeamGames", mode: "group" },
-    { sheetName: "TeamGamesPlayoffs", mode: "playoff" }
-  ];
-
-  const REQUIRED = [
-    "Round",
-    "TeamA",
-    "TeamB",
-    "MapsWonA",
-    "MapsWonB",
-    "AllMapsJSON",
-    "Date"
-  ];
-
-  const result = [];
-
-  SOURCES.forEach(({ sheetName, mode }) => {
-    const sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      throw new Error(`Sheet not found: ${sheetName}`);
-    }
-
-    const values = sheet.getDataRange().getValues();
-    const headers = values.shift();
-
-    const idx = {};
-    headers.forEach((h, i) => (idx[h.trim()] = i));
-
-    REQUIRED.forEach(col => {
-      if (!(col in idx)) {
-        throw new Error(`Missing column in ${sheetName}: ${col}`);
-      }
-    });
-
-    values.forEach(row => {
-      const round = row[idx.Round];
-      
-      /* ---- Parse maps ---- */
-      let maps = [];
-      const rawMaps = row[idx.AllMapsJSON];
-      if (rawMaps) {
-        try {
-          maps = JSON.parse(rawMaps).map(m => ({
-            mapName: m.mapName || "",
-            teamAFrags: Number(m.teamAFrags) || 0,
-            teamBFrags: Number(m.teamBFrags) || 0,
-            gameUrl: m.gameUrl || ""
-          }));
-        } catch (e) {
-          Logger.log(`Failed to parse AllMapsJSON (${sheetName}): ${e}`);
-        }
-      }
-
-      /* ---- Parse date ---- */
-      const rawDate = row[idx.Date];
-      let gameDate = "";
-
-      if (rawDate instanceof Date) {
-        gameDate = rawDate;
-      } else if (rawDate) {
-        const iso = String(rawDate)
-          .replace(" ", "T")
-          .replace(/ ([+-]\d{2})(\d{2})$/, "$1:$2");
-        const d = new Date(iso);
-        if (!isNaN(d)) gameDate = d;
-      }
-
-      result.push({
-        round: String(round),
-        teamA: row[idx.TeamA],
-        teamB: row[idx.TeamB],
-        mapsWonA: Number(row[idx.MapsWonA]) || 0,
-        mapsWonB: Number(row[idx.MapsWonB]) || 0,
-        played: 1,
-        maps,
-        date: gameDate,
-        mode // "group" or "playoff"
-      });
-    });
-  });
-
+  
   return result;
 }
 
