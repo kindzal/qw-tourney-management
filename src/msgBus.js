@@ -1,6 +1,13 @@
-function processMsgQueue(limit = 10) {
+function processMsgQueue() {
   const sheet = ensureMsgQueueSheet();
-  const data = sheet.getDataRange().getValues();
+  
+  let limit = 10;
+  
+  // Get explicit last row instead of relying on getDataRange
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return; // Only header exists
+  
+  const data = sheet.getRange(1, 1, lastRow, 6).getValues();
 
   // Skip header
   for (let i = 1; i < data.length && limit > 0; i++) {
@@ -84,7 +91,7 @@ function enqueueMessage(messageId, timestamp, type, contentObj) {
     JSON.stringify(contentObj),    // D: Content
     "NEW",                          // E: Status
     ""                              // F: Processed At
-  ]);
+  ]);  
 }
 
 function handleSchedule(e) {
