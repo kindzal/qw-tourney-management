@@ -1,6 +1,9 @@
 function processMsgQueue() {
   const sheet = ensureMsgQueueSheet();
   
+  // Flush any pending changes first
+  SpreadsheetApp.flush();
+  
   let limit = 10;
   
   // Get explicit last row instead of relying on getDataRange
@@ -37,14 +40,27 @@ function processMsgQueue() {
         "ERROR",
         err.message
       ]]);
+      
+      Logger.log(`Error processing message ${messageId}: ${err.message}`);
     }
   }
+  
+  // Flush changes at the end
+  SpreadsheetApp.flush();
 }
 
 function routeMessage(type, payload) {
   switch (type) {
     case "SCHEDULE_GAME_REPORT":
       handleScheduleGameReport(payload);
+      break;
+    
+    case "MATCH_REPORT":
+      handleMatchReport(payload);
+      break;
+    
+    case "UPDATE_STATS":
+      updateStats();
       break;
 
     default:
@@ -73,9 +89,16 @@ function ensureMsgQueueSheet() {
 
 function enqueueMessageIfNew(messageId, timestamp, type, contentObj) {
   const sheet = ensureMsgQueueSheet();
-  const ids = sheet.getRange(2, 1, sheet.getLastRow(), 1).getValues().flat();
-
-  if (ids.includes(messageId)) return false;
+  
+  // Check for duplicates
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+    if (ids.includes(messageId)) {
+      Logger.log(`Duplicate message ignored: ${messageId}`);
+      return false;
+    }
+  }
 
   enqueueMessage(messageId, timestamp, type, contentObj);
   return true;
@@ -91,7 +114,10 @@ function enqueueMessage(messageId, timestamp, type, contentObj) {
     JSON.stringify(contentObj),    // D: Content
     "NEW",                          // E: Status
     ""                              // F: Processed At
-  ]);  
+  ]);
+  
+  // Force immediate write to sheet
+  SpreadsheetApp.flush();
 }
 
 function handleSchedule(e) {

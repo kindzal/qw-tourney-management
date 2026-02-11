@@ -13,11 +13,6 @@ function doPost(e) {
 }
 
 function handleReports(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DataImport");
-  if (!sheet) {
-    return ContentService.createTextOutput("Sheet 'DataImport' not found.");
-  }
-
   let data;
   try {
     data = JSON.parse(e.postData.contents);
@@ -32,23 +27,45 @@ function handleReports(e) {
     .filter(u => typeof u === "string" && u.startsWith(REQUIRED_PREFIX))
     .slice(0, 10);
 
-  const values = filtered.map(u => [u]);
-  const maxRows = 30;
-  const column = 1;
-
-  const existing = sheet.getRange(1, column, maxRows, 1).getValues().flat();
-  const firstEmpty = existing.findIndex(v => !v);
-
-  if (firstEmpty === -1) {
-    throw new Error("DataImport A1:A30 is full");
+  if (filtered.length === 0) {
+    return ContentService.createTextOutput("No valid URLs to process.");
   }
 
-  sheet
-    .getRange(firstEmpty + 1, column, values.length, 1)
-    .setValues(values);
+  // Enqueue each URL as a separate MATCH_REPORT message
+  let enqueuedCount = 0;
+  filtered.forEach((url, index) => {
+    const messageId = `match_${Date.now()}_${index}`;
+    const timestamp = new Date().toISOString();
+    const payload = { url };
+    
+    const enqueued = enqueueMessageIfNew(
+      messageId,
+      timestamp,
+      "MATCH_REPORT",
+      payload
+    );
+    
+    if (enqueued) enqueuedCount++;
+  });
+
+  // After all matches are enqueued, enqueue UPDATE_STATS message
+  if (enqueuedCount > 0) {
+    const updateStatsMessageId = `update_stats_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    
+    enqueueMessage(
+      updateStatsMessageId,
+      timestamp,
+      "UPDATE_STATS",
+      {}
+    );
+  }
+
+  // Force flush to ensure writes are committed
+  SpreadsheetApp.flush();
 
   return ContentService.createTextOutput(
-    `Accepted ${filtered.length} valid URLs`
+    `Queued ${enqueuedCount} match reports${enqueuedCount > 0 ? ' + 1 stats update' : ''}`
   );
 }
 
@@ -179,23 +196,6 @@ function handleScheduleGameReport(payload) {
   );
 }
 
-function processPendingReports() {
-  
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DataImport");
-  
-  // Check if A1 has data
-  const hasData = sheet.getRange("A1").getValue();
-
-  if (!hasData) {
-    // Nothing to process
-    return;
-  }
-
-  // Only run if there is data
-  importDataFromWeb();
-  updateStats();
-}
-
 function postPreview() {
   postToDiscord('preview');
 }
@@ -216,158 +216,241 @@ function logPostHistory(message, status) {
   historySheet.appendRow([timestamp, status, preview]);
 }
 
+// Manual import function - reads URLs from DataImport sheet and enqueues them to MsgQueue
 function importDataFromWeb() {
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var dataSheet = spreadsheet.getSheetByName("DataImport");
-  var gamesSheet = spreadsheet.getSheetByName("Games");
-  var importedGamesSheet = spreadsheet.getSheetByName("ImportedURLs");
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const dataSheet = spreadsheet.getSheetByName("DataImport");
   
   if (!dataSheet) {
     Logger.log("Sheet 'DataImport' not found");
     return;
   }
-  if (!gamesSheet) {
-    Logger.log("Sheet 'Games' not found");
-    return;
-  }
   
-  var urls = dataSheet.getRange("A1:A30").getValues().flat(); // Get URLs from column A, rows 1 to 30  
+  const urls = dataSheet.getRange("A1:A30").getValues().flat();
+  let enqueuedCount = 0;
   
-  urls.forEach(function(url, index) {
+  urls.forEach((url, index) => {
     if (!url) return; // Skip empty cells
-
-    var importedUrls = new Set(importedGamesSheet.getRange("A1:A100").getValues().flat().filter(String)); // Store imported URLs in a Set for quick lookup
-
-    if (importedUrls.has(url)) {
-      Logger.log("URL already imported, clearing: " + url);
-      dataSheet.getRange(index + 1, 1).setValue(''); // Clear the URL if it has already been imported
-      return;
-    }
     
-    var gameIdMatch = url.match(/gameId=(\d+)/);
-    if (!gameIdMatch) {
-      Logger.log("Invalid URL format: " + url);
-      return;
-    }
-    var gameId = gameIdMatch[1];
+    const messageId = `manual_match_${Date.now()}_${index}`;
+    const timestamp = new Date().toISOString();
+    const payload = { url };
     
-    var apiEndpoint = 'https://ncsphkjfominimxztjip.supabase.co/functions/v1/gameinfo';
-    var options = {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify({ gameId: gameId })
-    };
+    const enqueued = enqueueMessageIfNew(
+      messageId,
+      timestamp,
+      "MATCH_REPORT",
+      payload
+    );
     
-    try {
-      var response = UrlFetchApp.fetch(apiEndpoint, options);
-      var jsonData = JSON.parse(response.getContentText());
-      
-      if (jsonData.ktxstats_url) {
-        var apiUrl = jsonData.ktxstats_url;
-        Logger.log("Extracted API URL: " + apiUrl);
-      } else {
-        Logger.log("ktxstats_url not found for gameId: " + gameId);
-      }
-    } catch (e) {
-      Logger.log("Error fetching data for gameId " + gameId + ": " + e.message);
-    }
-    
-    var response = UrlFetchApp.fetch(apiUrl);
-    var jsonData = JSON.parse(response.getContentText());
-    
-    var date = jsonData.date;
-    var map = jsonData.map;
-    var hostname = jsonData.hostname;
-    var matchtag = jsonData.matchtag;
-    var players = jsonData.players;
-    
-    var teamScores = {};    
-    
-    for (var i = 0; i < players.length; i++) {
-      var player = players[i];
-      var team = quakeNameToStandard(player.team);
-      if (!teamScores[team]) {
-        teamScores[team] = 0;
-      }
-      teamScores[team] += player.stats.frags;      
-    }
-    
-    var teams = Object.keys(teamScores);
-    var winningTeam = teamScores[teams[0]] > teamScores[teams[1]] ? teams[0] : teams[1];
-    
-    var rowData = [];
-    var importedGamesRowData = [];
-    
-    players.sort((a, b) => b.stats.frags - a.stats.frags); // Sort players by frags (highest first)
-    
-    players.forEach(function(player) {
-      var name = quakeNameToStandard(player.name).replace(/=/g, "");
-      var team = quakeNameToStandard(player.team);
-      var frags = player.stats.frags;
-      var deaths = player.stats.deaths;
-      var tk = player.stats.tk;
-      var spawnFrags = player.stats["spawn-frags"];
-      var kills = player.stats.kills;
-      var suicides = player.stats.suicides;
-      
-      var eff = (kills + deaths) > 0 ? (kills / (kills + deaths) * 100).toFixed(2) + "%" : "0%";
-      
-      var sgAttacks = player.weapons.sg && player.weapons.sg.acc && player.weapons.sg.acc.attacks ? player.weapons.sg.acc.attacks : 0;
-      var sgHits = player.weapons.sg && player.weapons.sg.acc && player.weapons.sg.acc.hits ? player.weapons.sg.acc.hits : 0;
-      var sgAccuracy = sgAttacks > 0 ? (sgHits / sgAttacks * 100).toFixed(2) + "%" : "0%";
-      
-      var rlAttacks = player.weapons.rl && player.weapons.rl.acc && player.weapons.rl.acc.attacks ? player.weapons.rl.acc.attacks : 0;
-      var rlHits = player.weapons.rl && player.weapons.rl.acc && player.weapons.rl.acc.hits ? player.weapons.rl.acc.hits : 0;
-      var rlAccuracy = rlAttacks > 0 ? (rlHits / rlAttacks * 100).toFixed(2) + "%" : "0%";
-            
-      var lgAttacks = player.weapons.lg && player.weapons.lg.acc && player.weapons.lg.acc.attacks ? player.weapons.lg.acc.attacks : 0;
-      var lgHits = player.weapons.lg && player.weapons.lg.acc && player.weapons.lg.acc.hits ? player.weapons.lg.acc.hits : 0;
-      var lgAccuracy = lgAttacks > 0 ? (lgHits / lgAttacks * 100).toFixed(2) + "%" : "0%";
-
-      if (lgAttacks) 
-        lgAttacks = 1;
-      else
-        lgAttacks = 0;
-
-      var rlPickups = player.weapons.rl?.pickups?.taken || 0;
-      var rlKills = player.weapons.rl?.kills?.enemy || 0;
-      var rlDropped = player.weapons.rl?.pickups?.dropped || 0;
-      
-      var lgPickups = player.weapons.lg?.pickups?.taken || 0;
-      var lgKills = player.weapons.lg?.kills?.enemy || 0;
-      var lgDropped = player.weapons.lg?.pickups?.dropped || 0;
-      
-      var mapWon = team === winningTeam ? 1 : 0;
-      
-      var ga = player.items?.ga?.took || 0;
-      var ya = player.items?.ya?.took || 0;
-      var ra = player.items?.ra?.took || 0;
-      var p = player.items?.p?.took || 0;
-      var q = player.items?.q?.took || 0;      
-      var r = player.items?.r?.took || 0;
-      var mh = player.items?.health_100?.took || 0;
-      
-      var ewep = player.dmg?.["enemy-weapons"] || 0;
-      var given = player.dmg?.given || 0;
-      var self = player.dmg?.self || 0;
-      var taken = player.dmg?.taken || 0;
-      var toDie = player.dmg?.["taken-to-die"] || 0;
-      
-      rowData.push([url, date, map, hostname, matchtag, mapWon, frags, team, name, eff, kills, deaths, suicides, tk, given, taken, ewep, toDie, ga, ya, ra, mh, sgAccuracy, lgAttacks, lgAccuracy, rlHits, lgPickups, lgKills, lgDropped, rlPickups, rlKills, rlDropped, q, p, r, self]);
-    });
-    
-    if (rowData.length > 0) {
-      var lastRow = Math.max(gamesSheet.getLastRow(), 1) + 1;
-      gamesSheet.getRange(lastRow, 1, rowData.length, rowData[0].length).setValues(rowData);
-
-      // Clear the corresponding A cell after successful import
-      dataSheet.getRange(index + 1, 1).setValue(''); 
-      
-      lastRow = Math.max(importedGamesSheet.getLastRow(), 1) + 1;
-      importedGamesRowData.push([url]);
-      importedGamesSheet.getRange(lastRow, 1, importedGamesRowData.length, importedGamesRowData[0].length).setValues(importedGamesRowData);
+    if (enqueued) {
+      enqueuedCount++;
+      // Clear the URL from DataImport after successful enqueue
+      dataSheet.getRange(index + 1, 1).setValue('');
+    } else {
+      Logger.log(`URL already in queue or imported: ${url}`);
     }
   });
+  
+  // Enqueue UPDATE_STATS message if any matches were enqueued
+  if (enqueuedCount > 0) {
+    const updateStatsMessageId = `update_stats_manual_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    
+    enqueueMessage(
+      updateStatsMessageId,
+      timestamp,
+      "UPDATE_STATS",
+      {}
+    );
+  }
+  
+  SpreadsheetApp.flush();
+  
+  Logger.log(`✅ Enqueued ${enqueuedCount} URLs from DataImport to MsgQueue`);
+  
+  if (enqueuedCount > 0) {
+    SpreadsheetApp.getUi().alert(
+      `✅ Success!\n\n` +
+      `Enqueued ${enqueuedCount} match reports to MsgQueue.\n\n` +
+      `They will be processed automatically by the trigger.`
+    );
+  } else {
+    SpreadsheetApp.getUi().alert(
+      `ℹ️ No URLs to process.\n\n` +
+      `Either DataImport is empty or all URLs are already queued/imported.`
+    );
+  }
+}
+
+function handleMatchReport(payload) {
+  const { url } = payload;
+  
+  if (!url) {
+    throw new Error("Missing URL in MATCH_REPORT payload");
+  }
+
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const gamesSheet = spreadsheet.getSheetByName("Games");
+  const importedGamesSheet = spreadsheet.getSheetByName("ImportedURLs");
+  
+  if (!gamesSheet) {
+    throw new Error("Sheet 'Games' not found");
+  }
+  if (!importedGamesSheet) {
+    throw new Error("Sheet 'ImportedURLs' not found");
+  }
+
+  // Check if URL was already imported
+  const importedUrlsLastRow = importedGamesSheet.getLastRow();
+  const importedUrls = new Set(
+    importedUrlsLastRow > 0 
+      ? importedGamesSheet.getRange(1, 1, importedUrlsLastRow, 1).getValues().flat().filter(String)
+      : []
+  );
+
+  if (importedUrls.has(url)) {
+    Logger.log("URL already imported, skipping: " + url);
+    return; // Not an error, just skip
+  }
+
+  // Import the single match
+  importSingleMatch(url, gamesSheet, importedGamesSheet);
+}
+
+function importSingleMatch(url, gamesSheet, importedGamesSheet) {
+  const gameIdMatch = url.match(/gameId=(\d+)/);
+  if (!gameIdMatch) {
+    Logger.log("Invalid URL format: " + url);
+    throw new Error("Invalid URL format: " + url);
+  }
+  const gameId = gameIdMatch[1];
+  
+  const apiEndpoint = 'https://ncsphkjfominimxztjip.supabase.co/functions/v1/gameinfo';
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ gameId: gameId })
+  };
+  
+  let apiUrl;
+  try {
+    const response = UrlFetchApp.fetch(apiEndpoint, options);
+    const jsonData = JSON.parse(response.getContentText());
+    
+    if (jsonData.ktxstats_url) {
+      apiUrl = jsonData.ktxstats_url;
+      Logger.log("Extracted API URL: " + apiUrl);
+    } else {
+      Logger.log("ktxstats_url not found for gameId: " + gameId);
+      throw new Error("ktxstats_url not found for gameId: " + gameId);
+    }
+  } catch (e) {
+    Logger.log("Error fetching data for gameId " + gameId + ": " + e.message);
+    throw e;
+  }
+  
+  let jsonData;
+  try {
+    const response = UrlFetchApp.fetch(apiUrl);
+    jsonData = JSON.parse(response.getContentText());
+  } catch (e) {
+    Logger.log("Error fetching game data from " + apiUrl + ": " + e.message);
+    throw e;
+  }
+  
+  const date = jsonData.date;
+  const map = jsonData.map;
+  const hostname = jsonData.hostname;
+  const matchtag = jsonData.matchtag;
+  const players = jsonData.players;
+  
+  const teamScores = {};    
+  
+  for (let i = 0; i < players.length; i++) {
+    const player = players[i];
+    const team = quakeNameToStandard(player.team);
+    if (!teamScores[team]) {
+      teamScores[team] = 0;
+    }
+    teamScores[team] += player.stats.frags;      
+  }
+  
+  const teams = Object.keys(teamScores);
+  const winningTeam = teamScores[teams[0]] > teamScores[teams[1]] ? teams[0] : teams[1];
+  
+  const rowData = [];
+  
+  players.sort((a, b) => b.stats.frags - a.stats.frags); // Sort players by frags (highest first)
+  
+  players.forEach(function(player) {
+    const name = quakeNameToStandard(player.name).replace(/=/g, "");
+    const team = quakeNameToStandard(player.team);
+    const frags = player.stats.frags;
+    const deaths = player.stats.deaths;
+    const tk = player.stats.tk;
+    const spawnFrags = player.stats["spawn-frags"];
+    const kills = player.stats.kills;
+    const suicides = player.stats.suicides;
+    
+    const eff = (kills + deaths) > 0 ? (kills / (kills + deaths) * 100).toFixed(2) + "%" : "0%";
+    
+    const sgAttacks = player.weapons.sg?.acc?.attacks || 0;
+    const sgHits = player.weapons.sg?.acc?.hits || 0;
+    const sgAccuracy = sgAttacks > 0 ? (sgHits / sgAttacks * 100).toFixed(2) + "%" : "0%";
+    
+    const rlAttacks = player.weapons.rl?.acc?.attacks || 0;
+    const rlHits = player.weapons.rl?.acc?.hits || 0;
+    const rlAccuracy = rlAttacks > 0 ? (rlHits / rlAttacks * 100).toFixed(2) + "%" : "0%";
+          
+    const lgAttacks = player.weapons.lg?.acc?.attacks || 0;
+    const lgHits = player.weapons.lg?.acc?.hits || 0;
+    const lgAccuracy = lgAttacks > 0 ? (lgHits / lgAttacks * 100).toFixed(2) + "%" : "0%";
+    const lgAttacksFlag = lgAttacks ? 1 : 0;
+    
+    const rlPickups = player.weapons.rl?.pickups?.taken || 0;
+    const rlKills = player.weapons.rl?.kills?.enemy || 0;
+    const rlDropped = player.weapons.rl?.pickups?.dropped || 0;
+    
+    const lgPickups = player.weapons.lg?.pickups?.taken || 0;
+    const lgKills = player.weapons.lg?.kills?.enemy || 0;
+    const lgDropped = player.weapons.lg?.pickups?.dropped || 0;
+    
+    const mapWon = team === winningTeam ? 1 : 0;
+    
+    const ga = player.items?.ga?.took || 0;
+    const ya = player.items?.ya?.took || 0;
+    const ra = player.items?.ra?.took || 0;
+    const p = player.items?.p?.took || 0;
+    const q = player.items?.q?.took || 0;      
+    const r = player.items?.r?.took || 0;
+    const mh = player.items?.health_100?.took || 0;
+    
+    const ewep = player.dmg?.["enemy-weapons"] || 0;
+    const given = player.dmg?.given || 0;
+    const self = player.dmg?.self || 0;
+    const taken = player.dmg?.taken || 0;
+    const toDie = player.dmg?.["taken-to-die"] || 0;
+    
+    rowData.push([url, date, map, hostname, matchtag, mapWon, frags, team, name, eff, kills, deaths, suicides, tk, given, taken, ewep, toDie, ga, ya, ra, mh, sgAccuracy, lgAttacksFlag, lgAccuracy, rlHits, lgPickups, lgKills, lgDropped, rlPickups, rlKills, rlDropped, q, p, r, self]);
+  });
+  
+  if (rowData.length > 0) {
+    const lastRow = Math.max(gamesSheet.getLastRow(), 1) + 1;
+    gamesSheet.getRange(lastRow, 1, rowData.length, rowData[0].length).setValues(rowData);
+    
+    // Add URL to ImportedURLs sheet
+    const importedLastRow = Math.max(importedGamesSheet.getLastRow(), 1) + 1;
+    importedGamesSheet.getRange(importedLastRow, 1, 1, 1).setValues([[url]]);
+    
+    Logger.log("Successfully imported: " + url);
+  }
+}
+
+function updateStats() {
+  Logger.log("Running updateStats (UPDATE_STATS handler)");
+  updatePlayerAndStandinsStats();
+  updateTeamStats();
 }
 
 function quakeNameToStandard(name) {
@@ -394,7 +477,7 @@ function quakeNameToStandard(name) {
   return convertedName;
 }
 
-function updateStats() {
+function updatePlayerAndStandinsStats() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
   updatePlayerStats(sheet.getSheetByName('Players'), sheet.getSheetByName('Games'), sheet.getSheetByName('UnmatchedPlayers'), sheet.getSheetByName('Standins'));
   updatePlayerStats(sheet.getSheetByName('Standins'), sheet.getSheetByName('Games'));
@@ -595,8 +678,7 @@ function updatePlayerStats(p, g, u, x) {
     for (var i = 0; i < unmatchedPlayers.length; i++) {
       unmatchedPlayersSheet.getRange(i + 2, 1).setValue(unmatchedPlayers[i]);
     }
-  }
-  updateTeams();
+  }  
 }
 
 function populateTeamPlayers() {
@@ -670,7 +752,7 @@ function populateTeamPlayers() {
     .setValues(output);
 }
 
-function updateTeams() {
+function updateStats() {
 
   const MATCH_WINDOW_MINUTES = 90;
 
@@ -1050,3 +1132,79 @@ function updateTeams() {
     .setValues(output);
 
 }
+
+/*
+function parseDateTime(input) {
+  if (!input) return null;
+  
+  // Regex to match formats like:
+  // 12/02/26 @ 21:00
+  // 12/02/2026 @ 21:00
+  // 12/2/26 @ 9:00 PM
+  // etc.
+  
+  const patterns = [
+    // DD/MM/YY or DD/MM/YYYY @ HH:MM [AM/PM]
+    /(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*@\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i,
+    // MM-DD-YY or MM-DD-YYYY @ HH:MM [AM/PM]
+    /(\d{1,2})-(\d{1,2})-(\d{2,4})\s*@\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    if (match) {
+      let [_, part1, part2, year, hour, minute, meridiem] = match;
+      
+      // Convert 2-digit year to 4-digit
+      if (year.length === 2) {
+        year = `20${year}`;
+      }
+      
+      // Handle 12-hour format
+      hour = parseInt(hour);
+      if (meridiem) {
+        if (meridiem.toUpperCase() === 'PM' && hour !== 12) {
+          hour += 12;
+        } else if (meridiem.toUpperCase() === 'AM' && hour === 12) {
+          hour = 0;
+        }
+      }
+      
+      // Assuming DD/MM/YYYY format (adjust if needed)
+      const day = parseInt(part1);
+      const month = parseInt(part2);
+      
+      // Format as DD/MM/YY @ HH:MM
+      const shortYear = year.slice(-2);
+      const formattedHour = String(hour).padStart(2, '0');
+      const formattedMinute = String(minute).padStart(2, '0');
+      const formattedDay = String(day).padStart(2, '0');
+      const formattedMonth = String(month).padStart(2, '0');
+      
+      return `${formattedDay}/${formattedMonth}/${shortYear} @ ${formattedHour}:${formattedMinute}`;
+    }
+  }
+  
+  return null;
+}
+
+function parseScheduledFor(scheduledValue) {
+  if (!scheduledValue) return null;
+  
+  // Try to match DD/MM/YY @ HH:MM format
+  const match = String(scheduledValue).match(/(\d{1,2})\/(\d{1,2})\/(\d{2})\s*@\s*(\d{1,2}):(\d{2})/);
+  
+  if (match) {
+    const [_, day, month, year, hour, minute] = match;
+    return {
+      day: parseInt(day),
+      month: parseInt(month),
+      year: 2000 + parseInt(year), // Convert YY to YYYY
+      hour: parseInt(hour),
+      minute: parseInt(minute)
+    };
+  }
+  
+  return null;
+}
+*/
