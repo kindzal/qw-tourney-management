@@ -206,3 +206,41 @@ function parseDeadline(deadlineStr) {
   
   return null;
 }
+
+/**
+ * Parses a date value that may be:
+ *  - A native Date object (GAS read a date-formatted cell)
+ *  - A string in DD/MM/YYYY format
+ * Returns a Date set to midnight UTC, or null if unparseable.
+ */
+function parseDdMmYyyy(value) {
+  if (value instanceof Date && !isNaN(value)) return value;
+
+  const match = String(value).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const [, dd, mm, yyyy] = match;
+  return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+}
+
+/**
+ * Returns true if any excluded keyword appears in the matchtag (case-insensitive).
+ */
+function hasExcludedKeyword(matchtag, excludedKeywords) {
+  if (!excludedKeywords || excludedKeywords.length === 0) return false;
+  const lower = String(matchtag).toLowerCase();
+  return excludedKeywords.some(kw => lower.includes(kw));
+}
+
+/**
+ * Returns true if [teamA, teamB] (or swapped) matches any entry in scheduledPairs.
+ * Both sides are already lower-cased before comparison.
+ */
+function isScheduledPair(teamNames, scheduledPairs) {
+  if (teamNames.length < 2) return false;
+  const [a, b] = teamNames;
+
+  return scheduledPairs.some(([pa, pb]) =>
+    (pa === a && pb === b) || (pa === b && pb === a)
+  );
+}

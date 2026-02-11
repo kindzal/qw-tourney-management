@@ -1133,6 +1133,97 @@ function updateStats() {
 
 }
 
+// ─────────────────────────────────────────────
+// Main entry point — attach a trigger to this
+// ─────────────────────────────────────────────
+function autoImportGames() {
+
+  // Get current hour (0–23)
+  const currentHour = now.getHours();
+
+  // Exit if current time is before 19:00 or after 23:59
+  if (currentHour < 19 || currentHour > 23) return;
+  
+  // ── 1. Load config ──────────────────────────────────────────────────────
+  const cfg = loadAutoImportConfig();
+  if (!cfg) return; // logged inside
+
+  // ── 2. Load already-imported URLs (Set for O(1) lookup) ─────────────────
+  const importedUrls = loadImportedUrls();
+
+  // ── 3. Load schedule team pairs ─────────────────────────────────────────
+  const scheduledPairs = loadScheduledTeamPairs();
+
+  // ── 4. Query Hub API ─────────────────────────────────────────────────────
+  const games = fetchHubGames(cfg);
+  if (!games || games.length === 0) {
+    Logger.log("autoImportGames: no games returned from API");
+    return;
+  }
+  Logger.log(`autoImportGames: ${games.length} games returned from API`);
+
+  // ── 5. Filter & enqueue ──────────────────────────────────────────────────
+  let enqueuedCount = 0;
+
+  games.forEach(game => {
+
+    const url = GAME_URL_PREFIX + game.id;
+
+    // a) Already imported?
+    if (importedUrls.has(url)) {
+      Logger.log(`autoImport: skip (already imported) ${url}`);
+      return;
+    }
+
+    // b) Excluded keyword in matchtag?
+    if (hasExcludedKeyword(game.matchtag, cfg.excludedKeywords)) {
+      Logger.log(`autoImport: skip (excluded keyword) matchtag="${game.matchtag}"`);
+      return;
+    }
+
+    // c) Timestamp within tournament window?
+    const gameDate = new Date(game.timestamp);
+    if (gameDate < cfg.tournamentStart || gameDate > cfg.tournamentEnd) {
+      Logger.log(`autoImport: skip (outside tournament window) ${game.timestamp}`);
+      return;
+    }
+
+    // d) Team pair exists in schedule?
+    const teamNames = game.teams.map(t => quakeNameToStandard(t.name).toLowerCase());
+    if (!isScheduledPair(teamNames, scheduledPairs)) {
+      Logger.log(`autoImport: skip (no schedule entry) teams=${teamNames.join(" vs ")}`);
+      return;
+    }
+
+    // ── Passed all filters — enqueue ──────────────────────────────────────
+    const messageId = `auto_match_${game.id}`;
+    const enqueued  = enqueueMessageIfNew(
+      messageId,
+      new Date().toISOString(),
+      "MATCH_REPORT",
+      { url }
+    );
+
+    if (enqueued) {
+      enqueuedCount++;
+      Logger.log(`autoImport: enqueued game ${game.id} (${teamNames.join(" vs ")})`);
+    }
+  });
+
+  // ── 6. Enqueue a single UPDATE_STATS after all new matches ───────────────
+  if (enqueuedCount > 0) {
+    enqueueMessage(
+      `update_stats_auto_${Date.now()}`,
+      new Date().toISOString(),
+      "UPDATE_STATS",
+      {}
+    );
+    Logger.log(`autoImportGames: enqueued ${enqueuedCount} new game(s) + UPDATE_STATS`);
+  } else {
+    Logger.log("autoImportGames: no new games to enqueue");
+  }
+}
+
 /*
 function parseDateTime(input) {
   if (!input) return null;
