@@ -1138,6 +1138,8 @@ function updateStats() {
 // ─────────────────────────────────────────────
 function autoImportGames() {
 
+  const now = new Date();
+  
   // Get current hour (0–23)
   const currentHour = now.getHours();
 
