@@ -28,7 +28,8 @@
     <? if (hidePlayoffs !== 'Yes') { ?>
       <button data-target="playoffs">🏁 Playoffs</button>
     <? } ?>
-    <button data-target="recent">🕒 Recent</button>    
+    <button data-target="recent">🕒 Recent</button>
+    <button data-target="mapstats">🗺️ Map Stats</button>
     <? if (wikiUrl) { ?>
       <a href="<?= wikiUrl ?>" target="_blank" rel="noopener" class="nav-wiki-link">📖 Wiki</a>
     <? } ?>    
@@ -72,6 +73,12 @@
   <div class="content-wrapper">
     <div class="section-title">Recent</div>
     <div id="recent-games-output" class="loading">Loading…</div>
+  </div>
+</section>
+<section id="mapstats">
+  <div class="content-wrapper">
+    <div class="section-title">Map Statistics</div>
+    <div id="mapstats-output" class="loading">Loading…</div>
   </div>
 </section>
 <script>
@@ -850,6 +857,164 @@ document.addEventListener("DOMContentLoaded", () => {
       .then(renderPlayoffsBracket)
       .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
   }    
+
+  // ==================== MAP STATS ====================
+  const MAP_BAR_COLORS = [
+    "#3b82f6", // blue   - most played
+    "#8b5cf6", // purple
+    "#06b6d4", // cyan
+    "#10b981", // green
+    "#f59e0b", // amber
+    "#ef4444", // red    - least played
+  ];
+
+  function buildMapCard(map, maxPlayed) {
+    const card = document.createElement("div");
+    card.className = "map-card";
+
+    // ---- header: snapshot + map name overlay ----
+    const snapWrap = document.createElement("div");
+    snapWrap.className = "map-card-snap";
+
+    const img = document.createElement("img");
+    img.src = map.mapSnapUrl || "";
+    img.alt = map["Map Name"];
+    img.className = "map-card-img";
+    img.loading = "lazy";
+
+    const nameOverlay = document.createElement("div");
+    nameOverlay.className = "map-card-name";
+    nameOverlay.textContent = (map["Map Name"] || "").toUpperCase();
+
+    snapWrap.appendChild(img);
+    snapWrap.appendChild(nameOverlay);
+    card.appendChild(snapWrap);
+
+    // ---- stats body ----
+    const body = document.createElement("div");
+    body.className = "map-card-body";
+
+    function statRow(icon, label, value, extra) {
+      const row = document.createElement("div");
+      row.className = "map-stat-row";
+      row.innerHTML = `<span class="map-stat-icon">${icon}</span><span class="map-stat-label">${label}</span><span class="map-stat-value">${value}</span>`;
+      if (extra) row.appendChild(extra);
+      return row;
+    }
+
+    // played + progress bar
+    const played = map.Played || 0;
+    const pct = maxPlayed > 0 ? (played / maxPlayed) * 100 : 0;
+    const colorIndex = maxPlayed > 1
+      ? Math.round((1 - (played - 1) / (maxPlayed - 1)) * (MAP_BAR_COLORS.length - 1))
+      : 0;
+    const barColor = MAP_BAR_COLORS[Math.min(colorIndex, MAP_BAR_COLORS.length - 1)];
+
+    const barWrap = document.createElement("div");
+    barWrap.className = "map-bar-wrap";
+    barWrap.innerHTML = `<div class="map-bar-fill" style="width:${pct}%;background:${barColor}"></div>`;
+
+    const playedRow = statRow("🎮", "Played", played);
+    playedRow.appendChild(barWrap);
+    body.appendChild(playedRow);
+
+    // total frags
+    body.appendChild(statRow("💥", "Total Frags", Math.ceil(map["Total Frags"] || 0)));
+
+    // avg frags
+    body.appendChild(statRow("📊", "Avg Frags", Math.ceil(Number(map["Avg Frags"]) || 0)));
+
+    // dominant team
+    if (map["Dominant Team"] && map["Dominant Team"].teamName) {
+      const dt = map["Dominant Team"];
+      const winPct = Math.round(dt.winPercentage || 0);
+      body.appendChild(statRow("👑", "Dominant Team",
+        `${dt.teamName} <span class="map-stat-accent">${winPct}% wins</span>`
+      ));
+      // fix: innerHTML used above so set via innerHTML on value span
+      const lastRow = body.lastElementChild;
+      const valSpan = lastRow.querySelector(".map-stat-value");
+      valSpan.innerHTML = `${dt.teamName} <span class="map-stat-accent">${winPct}% wins</span>`;
+    } else {
+      body.appendChild(statRow("👑", "Dominant Team", "—"));
+    }
+
+    // highest frag game
+    if (map["Highest Frag Game"] && map["Highest Frag Game"].gameUrl) {
+      const hf = map["Highest Frag Game"];
+      const link = document.createElement("a");
+      link.href = hf.gameUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.className = "map-game-link";
+      link.textContent = `${hf.teamNameA} ${hf.fragsA} vs ${hf.teamNameB} ${hf.fragsB}`;
+      const row = statRow("🔥", "Highest Frags", "");
+      row.querySelector(".map-stat-value").appendChild(link);
+      body.appendChild(row);
+    } else {
+      body.appendChild(statRow("🔥", "Highest Frags", "—"));
+    }
+
+    // most one-sided game
+    if (map["Most One-Sided Game"] && map["Most One-Sided Game"].gameUrl) {
+      const os = map["Most One-Sided Game"];
+      const link = document.createElement("a");
+      link.href = os.gameUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.className = "map-game-link";
+      link.textContent = `${os.teamNameA} ${os.fragsA} vs ${os.teamNameB} ${os.fragsB}`;
+      const row = statRow("⚡", "Most One-Sided", "");
+      row.querySelector(".map-stat-value").appendChild(link);
+      body.appendChild(row);
+    } else {
+      body.appendChild(statRow("⚡", "Most One-Sided", "—"));
+    }
+
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderMapStats(data) {
+    const out = document.getElementById("mapstats-output");
+    out.innerHTML = "";
+
+    if (!data || !data.maps) {
+      out.textContent = "No map data.";
+      return;
+    }
+
+    // Summary header
+    const summary = document.createElement("div");
+    summary.className = "mapstats-summary";
+    summary.innerHTML = `
+      <span class="mapstats-summary-item">🗺️ <strong>${data.maps.filter(m => m.Played > 0).length}</strong> maps played</span>
+      <span class="mapstats-summary-sep">·</span>
+      <span class="mapstats-summary-item">🎮 <strong>${data.totals?.totalPlayed ?? 0}</strong> total games</span>
+      <span class="mapstats-summary-sep">·</span>
+      <span class="mapstats-summary-item">💥 <strong>${Math.ceil(data.totals?.avgFrags ?? 0)}</strong> avg frags/game</span>
+    `;
+    out.appendChild(summary);
+
+    // grid of cards
+    const grid = document.createElement("div");
+    grid.className = "mapstats-grid";
+
+    const maxPlayed = Math.max(...data.maps.map(m => m.Played || 0));
+
+    data.maps.forEach(map => {
+      grid.appendChild(buildMapCard(map, maxPlayed));
+    });
+
+    out.appendChild(grid);
+  }
+
+  fetch(baseUrl + "?endpoint=mapStats")
+    .then(r => r.json())
+    .then(renderMapStats)
+    .catch(e => {
+      document.getElementById("mapstats-output").textContent = "Error loading map stats: " + e;
+    });
 
   // ==================== MOBILE SWIPE NAVIGATION ====================
   (function enableSwipeNavigation() {
