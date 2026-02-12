@@ -754,7 +754,7 @@ function populateTeamPlayers() {
 
 function updateTeamStats() {
 
-  const MATCH_WINDOW_MINUTES = 90;
+  const MATCH_WINDOW_MINUTES = 240;
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const gamesSheet = ss.getSheetByName("Games");
