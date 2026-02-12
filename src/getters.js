@@ -40,9 +40,12 @@ function loadAutoImportConfig() {
     return null;
   }
 
-  const tournamentStart = startVal instanceof Date ? startVal : new Date(startVal);
-  const tournamentEnd   = endVal   instanceof Date ? endVal   : new Date(endVal);
-
+  let [dd,mm,yyyy] = String(startVal).split("/");    
+  const tournamentStart = new Date(Number(yyyy), Number(mm)-1, Number(dd));
+  
+  [dd,mm,yyyy] = String(endVal).split("/");
+  const tournamentEnd = new Date(Number(yyyy), Number(mm)-1, Number(dd));
+  
   // Excluded keywords: comma-separated string → trimmed array (may be empty)
   const excludedRaw     = raw["Automagic excluded keywords"] || "";
   const excludedKeywords = String(excludedRaw)
@@ -90,7 +93,7 @@ function loadScheduledTeamPairs() {
   const teamsData = teamsSheet.getDataRange().getValues();
   const teamHeaders = teamsData[0];
 
-  const tagCol = teamHeaders.indexOf("Team Tag");
+  const tagCol = teamHeaders.indexOf("Team Tag Display");
   const nameCol = teamHeaders.indexOf("Team Name");
 
   if (tagCol === -1 || nameCol === -1) {
