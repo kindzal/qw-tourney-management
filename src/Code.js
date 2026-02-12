@@ -752,7 +752,7 @@ function populateTeamPlayers() {
     .setValues(output);
 }
 
-function updateStats() {
+function updateTeamStats() {
 
   const MATCH_WINDOW_MINUTES = 90;
 
