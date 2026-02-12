@@ -382,20 +382,38 @@ document.addEventListener("DOMContentLoaded", () => {
       if (bWinner) b.classList.add("advanced");
     }
     
-    const info = document.createElement("span");
+    let info;
     const isWalkover = g.played && (!g.maps || g.maps.length === 0);
     const hasMapData = g.played && g.maps && g.maps.length > 0;
 
     if (isWalkover) {
+      info = document.createElement("span");
       info.className = "walkover-icon";
       info.textContent = "🏳️"; // White flag for walkover
     } else if (hasMapData) {
+      info = document.createElement("span");
+      info = document.createElement("span");
       info.className = "info-icon";
       info.textContent = "ℹ️";
+    } else if (g.date) {
+      info = document.createElement("div");
+      info.className = "info-scheduled-wrap";
+
+      const icon = document.createElement("span");
+      icon.className = "info-scheduled-icon";
+      icon.textContent = "📢";
+
+      const label = document.createElement("span");
+      label.className = "info-scheduled";
+      label.textContent = g.date;
+
+      info.appendChild(icon);
+      info.appendChild(label);
     } else {
-      info.className = "info-icon disabled";
-      info.textContent = "ℹ️";
-    }
+        info = document.createElement("span");
+        info.className = "info-icon disabled";
+        info.textContent = "ℹ️";
+    }    
     
     const popup = document.createElement("div");
     popup.className = "bracket-popup-wrapper";

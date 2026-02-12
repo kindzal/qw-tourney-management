@@ -209,7 +209,7 @@ function getTeamGames(mode = 'group') {
   const sIdx = {};
   schedHeaders.forEach((h, i) => (sIdx[h.trim()] = i));
   
-  ["Round", "Team1", "Team2"].forEach(col => {
+  ["Round", "Team1", "Team2", "Scheduled For"].forEach(col => {
     if (!(col in sIdx)) {
       throw new Error(`Missing column in Schedule: ${col}`);
     }
@@ -235,6 +235,7 @@ function getTeamGames(mode = 'group') {
     const team1 = row[sIdx.Team1];
     const team2 = row[sIdx.Team2];
     const key = pairKey(team1, team2);
+    const scheduledFor = row[sIdx["Scheduled For"]];
     
     const playedList = playedByPair[key] || [];
     const idx = pairCursor[key] || 0;
@@ -258,7 +259,7 @@ function getTeamGames(mode = 'group') {
         mapsWonB: "",
         played: 0,
         maps: [],
-        date: ""
+        date: scheduledFor
       });
     }
   });
