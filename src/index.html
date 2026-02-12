@@ -947,7 +947,7 @@ document.addEventListener("DOMContentLoaded", () => {
       link.target = "_blank";
       link.rel = "noopener";
       link.className = "map-game-link";
-      link.textContent = `${hf.teamNameA} ${hf.fragsA} vs ${hf.teamNameB} ${hf.fragsB}`;
+      link.textContent = `${hf.teamNameA} ${hf.fragsA} vs ${hf.fragsB} ${hf.teamNameB} `;
       const row = statRow("🔥", "Highest Frags", "");
       row.querySelector(".map-stat-value").appendChild(link);
       body.appendChild(row);
@@ -963,7 +963,7 @@ document.addEventListener("DOMContentLoaded", () => {
       link.target = "_blank";
       link.rel = "noopener";
       link.className = "map-game-link";
-      link.textContent = `${os.teamNameA} ${os.fragsA} vs ${os.teamNameB} ${os.fragsB}`;
+      link.textContent = `${os.teamNameA} ${os.fragsA} vs ${os.fragsB} ${os.teamNameB}`;
       const row = statRow("⚡", "Most One-Sided", "");
       row.querySelector(".map-stat-value").appendChild(link);
       body.appendChild(row);
