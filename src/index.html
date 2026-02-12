@@ -544,33 +544,46 @@ document.addEventListener("DOMContentLoaded", () => {
   // Find current round based on deadline closest to today (>= today)
   function findCurrentRound(roundKeys) {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-    
-    let currentRoundIndex = 0;
+    today.setHours(0, 0, 0, 0);
+
+    let closestRound = null;
     let closestDiff = Infinity;
-    
-    roundKeys.forEach((round, index) => {
+
+    roundKeys.forEach(round => {
       const config = scheduleConfigByRound[String(round)];
-      if (!config?.deadline) return;
-      
-      // Parse deadline (format: DD/MM/YYYY or similar)
-      const deadlineDate = new Date(config.deadline);
-      if (isNaN(deadlineDate.getTime())) return;
-      
-      // Calculate difference in days
-      const diff = deadlineDate - today;
-      
-      // Only consider deadlines that are today or in the future
+      if (!config || !config.deadline) return;
+
+      const deadlineDate = parseDDMMYYYY(config.deadline);
+      if (!deadlineDate) return;
+
+      const diff = deadlineDate.getTime() - today.getTime();
+
+      // Only consider today or future deadlines
       if (diff >= 0 && diff < closestDiff) {
         closestDiff = diff;
-        currentRoundIndex = index;
+        closestRound = round; // return round number directly
       }
     });
-    
-    return currentRoundIndex;
+
+    return closestRound; // null if all rounds are past
   }
   
-  
+  function parseDDMMYYYY(str) {
+    if (!str) return null;
+
+    const match = String(str).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+
+    const day = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const year = Number(match[3]);
+
+    const date = new Date(year, month, day);
+    date.setHours(0, 0, 0, 0);
+
+    return isNaN(date.getTime()) ? null : date;
+  }
+    
   Promise.all([scheduleConfigPromise, groupGamesPromise])
     .then(([configOk, data]) => {
       scheduleRoundsContainer.innerHTML="";
@@ -592,17 +605,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const roundKeys = Object.keys(rounds).sort((a,b)=>Number(a)-Number(b));
       
       // Determine which round to show by default
-      const defaultRoundIndex = findCurrentRound(roundKeys);
+      const defaultRound = findCurrentRound(roundKeys);
       
       const nav = document.createElement("div");
       nav.className = "round-nav";
       
-      roundKeys.forEach((round, index) => {
+      roundKeys.forEach((round) => {
         const btn = document.createElement("button");
         btn.textContent = `R${round}`;
         btn.dataset.round = round;
-        if (index === defaultRoundIndex) btn.classList.add("active");
         
+        // Compare round number directly
+        if (round === defaultRound) {
+          btn.classList.add("active");
+        }
+              
         btn.onclick = () => {
           document.querySelectorAll(".round-nav button").forEach(b => b.classList.remove("active"));
           btn.classList.add("active");
@@ -615,11 +632,11 @@ document.addEventListener("DOMContentLoaded", () => {
       
       roundNavContainer.appendChild(nav);
       
-      roundKeys.forEach((round, index) => {
+      roundKeys.forEach((round) => {
         const rb = document.createElement("div");
         rb.className = "round-block";
         rb.id = `round-${round}`;
-        if (index === defaultRoundIndex) rb.classList.add("active");
+        if (round === defaultRound) rb.classList.add("active");
         
         const deadlineText = scheduleConfigByRound[String(round)]?.deadline || "";
         rb.innerHTML = `
