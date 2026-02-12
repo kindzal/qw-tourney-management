@@ -15,7 +15,9 @@ function handleApiRequest(e) {
     case "allGames":
       return jsonResponse(getTeamGames('all'));  
     case "scheduleConfig":
-      return jsonResponse(getScheduleConfig());  
+      return jsonResponse(getScheduleConfig());
+    case "mapStats":                       
+      return jsonResponse(getMapStats());  
     default:
       return jsonResponse({ error: "Unknown endpoint" });
   }
@@ -280,4 +282,86 @@ function getTeams() {
       headers.map((h, i) => [h, row[i]])
     )
   );
+}
+
+function getMapStats() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("MapStats");
+
+  // If sheet does not exist → return empty structure
+  if (!sheet) {
+    return {
+      totals: {},
+      maps: []
+    };
+  }
+
+  const values = sheet.getDataRange().getValues();
+
+  // If sheet exists but has no data rows
+  if (values.length < 2) {
+    return {
+      totals: {},
+      maps: []
+    };
+  }
+
+  const headers = values.shift().map(h => String(h).trim());
+
+  const playedIdx = headers.indexOf("Played");
+  const totalFragsIdx = headers.indexOf("Total Frags");
+  const mapNameIdx = headers.indexOf("Map Name");
+
+  const maps = values.map(row => {
+    const obj = Object.fromEntries(
+      headers.map((h, i) => [h, row[i]])
+    );
+
+    // Parse JSON columns safely
+    ["Dominant Team", "Highest Frag Game", "Most One-Sided Game"]
+      .forEach(col => {
+        if (obj[col]) {
+          try {
+            obj[col] = JSON.parse(obj[col]);
+          } catch (e) {
+            // Leave as raw value if parsing fails
+          }
+        }
+      });
+
+    // ----------------------------------------
+    // Add Map Snap URL
+    // ----------------------------------------
+    const mapName = row[mapNameIdx];
+    obj.mapSnapUrl =
+      "https://a.quake.world/mapshots/webp/sm/" +
+      mapName +
+      ".webp";
+
+    return obj;
+  });
+
+  // ----------------------------------------
+  // Build totals
+  // ----------------------------------------
+  let totalPlayed = 0;
+  let totalFrags = 0;
+
+  values.forEach(row => {
+    totalPlayed += Number(row[playedIdx]) || 0;
+    totalFrags += Number(row[totalFragsIdx]) || 0;
+  });
+
+  const avgFrags =
+    totalPlayed > 0
+      ? Number((totalFrags / totalPlayed).toFixed(2))
+      : 0;
+
+  return {
+    totals: {
+      totalPlayed,
+      totalFrags,
+      avgFrags
+    },
+    maps
+  };
 }

@@ -795,7 +795,38 @@ function updateTeamStats() {
     standingsSheet.getRange(1, 1, 1, standingseader.length)
       .setNumberFormat("@STRING@")
       .setValues([standingseader]);
-  }  
+  }
+  
+  // -------------------------------------------------------
+  // Check/Create MapStats sheet
+  // -------------------------------------------------------
+  const mapStatsHeader = [
+    "Map Name",
+    "Played",
+    "Total Frags",
+    "Avg Frags",
+    "Dominant Team",
+    "Highest Frag Game",
+    "Most One-Sided Game"
+  ];
+
+  let mapStatsSheet = ss.getSheetByName("MapStats");
+
+  if (!mapStatsSheet) {
+    mapStatsSheet = ss.insertSheet("MapStats");
+
+    mapStatsSheet
+      .getRange(1, 1, 1, mapStatsHeader.length)
+      .setNumberFormat("@STRING@")
+      .setValues([mapStatsHeader]);
+
+  } else {
+    // Ensure headers are correct if sheet already exists
+    mapStatsSheet
+      .getRange(1, 1, 1, mapStatsHeader.length)
+      .setNumberFormat("@STRING@")
+      .setValues([mapStatsHeader]);
+  }
 
   // -------------------------------------------------------
   // Playoffs start date
@@ -1004,9 +1035,178 @@ function updateTeamStats() {
           [teamBTag]:mapsWonB
         }
       });
-
     });
   }
+
+  // -------------------------------------------------------
+  // Load Full Tournament Map Pool
+  // -------------------------------------------------------
+  const rawTournamentMaps = config["Tournament maps"] || "";
+
+  const tournamentMaps = String(rawTournamentMaps)
+    .split(",")
+    .map(m => m.trim())
+    .filter(m => m.length > 0);
+
+  // -------------------------------------------------------
+  // MAP STATS
+  // -------------------------------------------------------
+  const mapStats = {};
+
+  matches.forEach(m => {
+    if (m.isWalkover) return; // ignore walkovers
+
+    m.maps.forEach(map => {
+
+      const mapName = map.mapName || "Unknown";
+
+      if (!mapStats[mapName]) {
+        mapStats[mapName] = {
+          played: 0,
+          totalFrags: 0,
+          teamWins: {},
+          dominantTeam: null,
+          highestFragGame: null,
+          highestFragTotal: -1,
+          mostOneSidedGame: null,
+          biggestFragDiff: -1
+        };
+      }
+
+      const stats = mapStats[mapName];
+      stats.played++;
+
+      const teamTags = Object.keys(map.teams);
+      if (teamTags.length !== 2) return;
+
+      const [teamA, teamB] = teamTags;
+      const dataA = map.teams[teamA];
+      const dataB = map.teams[teamB];
+
+      const fragsA = dataA.frags || 0;
+      const fragsB = dataB.frags || 0;
+
+      const totalFrags = fragsA + fragsB;
+      stats.totalFrags += totalFrags;
+
+      // ----------------------------------
+      // Track map wins per team
+      // ----------------------------------
+      let winner = null;
+      if (dataA.won) winner = teamA;
+      if (dataB.won) winner = teamB;
+
+      if (winner) {
+        if (!stats.teamWins[winner]) {
+          stats.teamWins[winner] = 0;
+        }
+        stats.teamWins[winner]++;
+      }
+
+      // ----------------------------------
+      // Highest frag game
+      // ----------------------------------
+      if (totalFrags > stats.highestFragTotal) {
+        stats.highestFragTotal = totalFrags;
+        stats.highestFragGame = {
+          gameUrl: map.mapUrl,
+          teamNameA: teamNameLookup[teamA] || teamA,
+          teamNameB: teamNameLookup[teamB] || teamB,
+          fragsA,
+          fragsB
+        };
+      }
+
+      // ----------------------------------
+      // Most one-sided game
+      // ----------------------------------
+      const fragDiff = Math.abs(fragsA - fragsB);
+
+      if (fragDiff > stats.biggestFragDiff) {
+        stats.biggestFragDiff = fragDiff;
+        stats.mostOneSidedGame = {
+          gameUrl: map.mapUrl,
+          teamNameA: teamNameLookup[teamA] || teamA,
+          teamNameB: teamNameLookup[teamB] || teamB,
+          fragsA,
+          fragsB
+        };
+      }
+
+    });
+  });
+
+     // -------------------------------------------------------
+  // Build Output (Include Unplayed Maps)
+  // -------------------------------------------------------
+  const mapStatsOutput = [mapStatsHeader];
+
+  // Ensure every tournament map exists in mapStats
+  tournamentMaps.forEach(mapName => {
+    if (!mapStats[mapName]) {
+      mapStats[mapName] = {
+        played: 0,
+        totalFrags: 0,
+        teamWins: {},
+        dominantTeam: null,
+        highestFragGame: null,
+        mostOneSidedGame: null
+      };
+    }
+  });
+
+  Object.entries(mapStats)
+    .sort((a, b) => b[1].played - a[1].played)
+    .forEach(([mapName, stats]) => {
+
+      // ----------------------------------
+      // Determine dominant team
+      // ----------------------------------
+      let dominantTeamTag = null;
+      let maxWins = 0;
+
+      Object.entries(stats.teamWins).forEach(([teamTag, wins]) => {
+        if (wins > maxWins) {
+          maxWins = wins;
+          dominantTeamTag = teamTag;
+        }
+      });
+
+      if (dominantTeamTag && stats.played > 0) {
+        const dominantTeamName =
+          teamNameLookup[dominantTeamTag] || dominantTeamTag;
+
+        const percentage = ((maxWins / stats.played) * 100).toFixed(2);
+
+        stats.dominantTeam = {
+          teamName: dominantTeamName,
+          wins: maxWins,
+          winPercentage: Number(percentage)
+        };
+      } else {
+        stats.dominantTeam = null;
+      }
+
+      const avgFrags =
+        stats.played > 0
+          ? (stats.totalFrags / stats.played).toFixed(2)
+          : "0";
+
+      mapStatsOutput.push([
+        mapName,
+        stats.played,
+        stats.totalFrags,
+        avgFrags,
+        stats.dominantTeam ? JSON.stringify(stats.dominantTeam) : "",
+        stats.highestFragGame ? JSON.stringify(stats.highestFragGame) : "",
+        stats.mostOneSidedGame ? JSON.stringify(stats.mostOneSidedGame) : ""
+      ]);
+    });
+
+  mapStatsSheet.clearContents()
+    .getRange(1, 1, mapStatsOutput.length, mapStatsHeader.length)
+    .setNumberFormat("@STRING@")
+    .setValues(mapStatsOutput);
 
   // -------------------------------------------------------
   // STANDINGS
