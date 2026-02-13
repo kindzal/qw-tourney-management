@@ -3,13 +3,13 @@
  */
 
 // -------------------------------------------------------
-// Read OtherConfig (key -> value)
+// Read Configuration (key -> value)
 // -------------------------------------------------------
 const ss = SpreadsheetApp.getActiveSpreadsheet();
-const otherConfigSheet = ss.getSheetByName("OtherConfig");
+const ConfigurationSheet = ss.getSheetByName("Configuration");
 
-const lastRow = otherConfigSheet.getLastRow();
-const configData = otherConfigSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+const lastRow = ConfigurationSheet.getLastRow();
+const configData = ConfigurationSheet.getRange(2, 1, lastRow - 1, 2).getValues();
 const config = {};
 configData.forEach(([key, value]) => {
   if (key) config[String(key).trim()] = value;

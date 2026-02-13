@@ -697,7 +697,7 @@ function updateTeamStats() {
   const gamesSheet = ss.getSheetByName("Games");
   const teamsSheet = ss.getSheetByName("Teams");
   const scheduleSheet = ss.getSheetByName("Schedule");
-  const otherConfigSheet = ss.getSheetByName("OtherConfig");
+  const ConfigurationSheet = ss.getSheetByName("Configuration");
 
    const teamGamesHeader = ["#", "Stage", "Round", "TeamA", "MapsWonA", "Score", "TeamB", "MapsWonB", "AllMapsJSON", "Date"];
   // -------------------------------------------------------
@@ -768,7 +768,7 @@ function updateTeamStats() {
   // -------------------------------------------------------
   // Playoffs start date
   // -------------------------------------------------------
-  const configData = otherConfigSheet.getRange(2,1,otherConfigSheet.getLastRow()-1,2).getValues();
+  const configData = ConfigurationSheet.getRange(2,1,ConfigurationSheet.getLastRow()-1,2).getValues();
   const config = {};
   configData.forEach(([k,v]) => { if(k) config[String(k).trim()] = v; });
 

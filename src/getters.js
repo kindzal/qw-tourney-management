@@ -3,21 +3,21 @@
 // ─────────────────────────────────────────────
 
 /**
- * Reads all required autoImport keys from OtherConfig.
+ * Reads all required autoImport keys from Configuration.
  * Returns a config object or null if required keys are missing.
  */
 function loadAutoImportConfig() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("OtherConfig");
+  const sheet = ss.getSheetByName("Configuration");
 
   if (!sheet) {
-    Logger.log("autoImport: OtherConfig sheet not found");
+    Logger.log("autoImport: Configuration sheet not found");
     return null;
   }
 
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) {
-    Logger.log("autoImport: OtherConfig sheet is empty");
+    Logger.log("autoImport: Configuration sheet is empty");
     return null;
   }
 
@@ -33,7 +33,7 @@ function loadAutoImportConfig() {
 
   if (!mode || !ilike || !startVal || !endVal) {
     Logger.log(
-      "autoImport: missing required OtherConfig keys. " +
+      "autoImport: missing required Configuration keys. " +
       "Need: 'Tournament mode', 'Automagic import game tag', " +
       "'Tournament start', 'Tournament end'"
     );
