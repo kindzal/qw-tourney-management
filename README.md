@@ -33,7 +33,7 @@ Populate the following tabs as the miniumum viable setup:
 - **Teams**
 - **Schedule**
 - **ScheduleConfig**
-- **OtherConfig**
+- **Configuration**
 - **Discord**
 
 For a quick reference guide you can take a look at the QML6 Sheet used to run that tournament here:
@@ -53,7 +53,7 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 | **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
 | **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
 | **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. |
-| **OtherConfig** | Global config | Backend + Web App |
+| **Configuration** | Global config | Backend + Web App |
 | **Games** | Games database | Core dataset – **DO NOT EDIT** unless fixing import issues|
 | **ImportedURLs** | Deduplication list | Prevents duplicate imports |
 | **PostHistory** | Discord message log | Auto-generated |
@@ -156,7 +156,7 @@ flowchart TD
   Players[Players / Standins]
   Teams[Teams]
   Schedule[Schedule]
-  Config[OtherConfig]
+  Config[Configuration]
 
   Games --> Match[Match Grouping]
   Games --> Ranking[Player Matching]
@@ -438,7 +438,7 @@ If any of these values differ between games (e.g. server change, match tag chang
 
 ### Date handling and playoff separation
 
-- Playoff cutoff is defined in **OtherConfig** using the key:
+- Playoff cutoff is defined in **Configuration** using the key:
   `Playoffs start date`
 
 - Group stage games:
@@ -547,7 +547,7 @@ Used for:
 ### Extensibility
 
 The system can be extended by:
-- Adding new config keys to **OtherConfig**
+- Adding new config keys to **Configuration**
 - Adding new derived sheets
 - Exposing more data via the Web App
 
@@ -567,9 +567,9 @@ This section lists common issues, their likely causes, and how to resolve them.
 |------|------------|---------|
 | **Exception: The number of rows in the range must be at least 1** | No stand-in records exist | Add a dummy record to the **Standins** tab (e.g. `standin, standin, standin`) |
 | **Stats not updating after imports** | Trigger not running | Check time-based trigger is configured to run `processPendingReports()` |
-| **Games appear but standings are empty** | All games treated as playoffs | Check **Playoffs start date** in `OtherConfig` (format must be `DD/MM/YYYY`) |
+| **Games appear but standings are empty** | All games treated as playoffs | Check **Playoffs start date** in `Configuration` (format must be `DD/MM/YYYY`) |
 | **Playoff games appear in Standings** | Date parsing failed | Ensure `Games → Date` column contains valid dates or ISO-style timestamps |
-| **Group-stage games appear in Playoffs sheet** | Incorrect cutoff date | Verify `OtherConfig → Playoffs start date` |
+| **Group-stage games appear in Playoffs sheet** | Incorrect cutoff date | Verify `Configuration → Playoffs start date` |
 
 ---
 
@@ -627,7 +627,7 @@ Safe to edit:
 - `Teams`
 - `Schedule`
 - `ScheduleConfig`
-- `OtherConfig`
+- `Configuration`
 - `Discord` (column B only) to configure Web App url and webhook and/or to customise the message )
 
 Avoid editing unless fixing broken imports:
