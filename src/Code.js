@@ -12,6 +12,10 @@ function doPost(e) {
   }
 }
 
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
 function handleReports(e) {
   let data;
   try {
@@ -214,73 +218,6 @@ function logPostHistory(message, status) {
   const preview = message.length > 1200 ? message.substring(0, 1200) + '...' : message;
 
   historySheet.appendRow([timestamp, status, preview]);
-}
-
-// Manual import function - reads URLs from DataImport sheet and enqueues them to MsgQueue
-function importDataFromWeb() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const dataSheet = spreadsheet.getSheetByName("DataImport");
-  
-  if (!dataSheet) {
-    Logger.log("Sheet 'DataImport' not found");
-    return;
-  }
-  
-  const urls = dataSheet.getRange("A1:A30").getValues().flat();
-  let enqueuedCount = 0;
-  
-  urls.forEach((url, index) => {
-    if (!url) return; // Skip empty cells
-    
-    const messageId = `manual_match_${Date.now()}_${index}`;
-    const timestamp = new Date().toISOString();
-    const payload = { url };
-    
-    const enqueued = enqueueMessageIfNew(
-      messageId,
-      timestamp,
-      "MATCH_REPORT",
-      payload
-    );
-    
-    if (enqueued) {
-      enqueuedCount++;
-      // Clear the URL from DataImport after successful enqueue
-      dataSheet.getRange(index + 1, 1).setValue('');
-    } else {
-      Logger.log(`URL already in queue or imported: ${url}`);
-    }
-  });
-  
-  // Enqueue UPDATE_STATS message if any matches were enqueued
-  if (enqueuedCount > 0) {
-    const updateStatsMessageId = `update_stats_manual_${Date.now()}`;
-    const timestamp = new Date().toISOString();
-    
-    enqueueMessage(
-      updateStatsMessageId,
-      timestamp,
-      "UPDATE_STATS",
-      {}
-    );
-  }
-  
-  SpreadsheetApp.flush();
-  
-  Logger.log(`✅ Enqueued ${enqueuedCount} URLs from DataImport to MsgQueue`);
-  
-  if (enqueuedCount > 0) {
-    SpreadsheetApp.getUi().alert(
-      `✅ Success!\n\n` +
-      `Enqueued ${enqueuedCount} match reports to MsgQueue.\n\n` +
-      `They will be processed automatically by the trigger.`
-    );
-  } else {
-    SpreadsheetApp.getUi().alert(
-      `ℹ️ No URLs to process.\n\n` +
-      `Either DataImport is empty or all URLs are already queued/imported.`
-    );
-  }
 }
 
 function handleMatchReport(payload) {

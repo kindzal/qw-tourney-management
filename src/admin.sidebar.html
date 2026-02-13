@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <?!= include('admin.styles'); ?>
+</head>
+
+<body>
+  
+  <div id="loader-overlay">
+    <div class="loader-content">
+      <div class="spinner"></div>
+      <p>Processing...</p>
+    </div>
+  </div>
+
+  <div class="active-info">
+    <span id="currentTab">Loading...</span>
+  </div>
+
+<!-- Sections -->
+<?!= include('admin.section.Teams'); ?>
+<?!= include('admin.section.Players'); ?>
+<?!= include('admin.section.Standins'); ?>
+<?!= include('admin.section.DataImport'); ?>
+<?!= include('admin.section.Discord'); ?>
+<?!= include('admin.section.Schedule'); ?>
+<?!= include('admin.section.ScheduleConfig'); ?>
+<?!= include('admin.section.UnmatchedPlayers'); ?>
+<?!= include('admin.section.READ-ME'); ?>
+
+<?!= include('admin.section.Default'); ?>
+
+<?!= include('admin.scripts'); ?>
+
+</body>
+</html>

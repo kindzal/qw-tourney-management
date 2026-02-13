@@ -1,0 +1,43 @@
+<div id="DataImport" class="section">  
+  
+  <button onclick="runTask('importDataFromWeb')">Run Game Import</button>
+  <button onclick="runTask('updateStatsUI')">Run UpdateStats</button>
+
+  <div class="info-box">
+      Read the below first if you don't know what you are doing!
+  </div>
+
+  <div class="container">
+      <div class="note-box">
+          <strong>⚠️ Important ⚠️</strong>
+          <p>Check <span class="inline-tab" onclick="runTask('switchTab', 'UnmatchedPlayers')">UnmatchedPlayers</span> tab for missing game nicks. Update <span class="inline-tab" onclick="runTask('switchTab', 'Players'))">Players</span> and/or <span class="inline-tab" onclick="runTask('switchTab', 'Standins')">Standins</span> tab by adding missing <span class="inline-col">Game Nicks</span> (comma separated) and re-run <span class="inline-btn">UpdateStats</span>.</p>
+      </div>
+      <div class="info-box">
+          When using the automated games import feature and/or 
+          <a href="https://github.com/kindzal/qw-reports-watcher" target="_blank">Reports Watcher Discord Bot</a>, 
+          there is no need to import games by hand. Note that the ⚠️ Important section still applies regardless.
+      </div>
+
+      <div class="manual-steps">
+          <h3>Manual Import Instructions</h3>
+          <p>If for any reason games need to be imported manually, follow these steps:</p>
+          
+          <ol class="step-list">
+              <li>
+                  Insert <a href="https://hub.quakeworld.nu/games/" target="_blank">Hub</a> URLs into cells <strong>A1:A30</strong> (1 match at a time, any number of maps). 
+                  Format as follows:
+                  <span class="code-block">https://hub.quakeworld.nu/games/?gameId=113867</span>
+              </li>
+              <li>
+                  Click <span class="inline-btn">Run Game Import</span>. Successful imports move the URL to the <span class="inline-tab" onclick="runTask('switchTab', 'ImportedURLs')">ImportedURLs</span> tab. Game which had already been imported is skipped. Proceed to step 3 once complete.
+              </li>
+              <li>
+                  Click <span class="inline-btn">Run UpdateStats</span> to recalculate system stats and to refresh the 
+                  <a href="https://github.com/kindzal/qw-tourney-management" target="_blank">Web App</a> data.
+              </li>
+          </ol>
+      </div>
+
+  </div>
+
+</div>

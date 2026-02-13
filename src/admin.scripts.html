@@ -1,0 +1,62 @@
+<script>
+  let currentSheet = null;
+
+  function hideAllSections() {
+    document.querySelectorAll('.section')
+      .forEach(sec => sec.style.display = 'none');
+  }
+
+  function showSection(sheetName) {
+    hideAllSections();
+
+    document.getElementById("currentTab").innerText = sheetName;
+
+    const section = document.getElementById(sheetName);
+
+    if (section) {
+      section.style.display = "block";
+    } else {
+      document.getElementById("DefaultTitle").innerText = sheetName;
+      document.getElementById("Default").style.display = "block";
+    }
+  }
+
+  function runTask(functionName, parameter = null) {
+    const loader = document.getElementById('loader-overlay');
+    
+    // 1. Show the spinner
+    loader.style.display = 'flex';
+    
+    // 2. Build the runner
+    const runner = google.script.run
+      .withSuccessHandler(() => {
+        loader.style.display = 'none';
+      })
+      .withFailureHandler((msg) => {
+        loader.style.display = 'none';
+        alert('Error: ' + msg);
+      });
+
+    // 3. Call the function with or without the parameter
+    if (parameter !== null) {
+      runner[functionName](parameter);
+    } else {
+      runner[functionName]();
+    }
+  }
+  
+  function checkActiveSheet() {
+    google.script.run
+      .withSuccessHandler(function(sheetName) {
+        if (sheetName !== currentSheet) {
+          currentSheet = sheetName;
+          showSection(sheetName);
+        }
+      })
+      .getActiveSheetName();
+  }
+
+  //How responsive the admin sidebar is - experiment with values 
+  setInterval(checkActiveSheet, 500);
+  checkActiveSheet();
+</script>

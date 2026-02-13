@@ -34,7 +34,7 @@ function postToDiscord(mode = 'post') {
 
   const webhookUrl = config["Discord web hook"];
   if (!webhookUrl) {
-    throw new Error("Missing 'Discord web hook' in Discor config");
+    throw new Error("Missing 'Discord web hook' in Discord config");
   }
   
   // --- Fetch Maps and Deadline from Schedule Config ---
