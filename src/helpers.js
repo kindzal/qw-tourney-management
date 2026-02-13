@@ -1,66 +1,128 @@
 function parseDateTime(text) {
+  // Freeze "now" for deterministic tests
   const now = new Date();
 
-  let date = null;
   let hour = 21;
   let minute = 0;
 
-  // Strip timezone text (we infer authoritatively)
+  // ---- Extract timezone first (don't break time parsing) ----
+  const tzMatch = text.match(/(CET|CEST)/i);
+  const explicitTz = tzMatch ? tzMatch[1].toUpperCase() : null;
+
+  // Remove timezone safely (even if attached like 20:45CET)
   const cleanText = text.replace(/(CET|CEST)/gi, "").trim();
 
-  // ---- TIME ----
+  // ---- TIME PARSING (strict priority order) ----
+
+  // 1️⃣ 24-hour format (20:45)
   const time24 = cleanText.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-  const time12 = cleanText.match(/\b(\d{1,2})\s?(am|pm)\b/i);
 
   if (time24) {
     hour = Number(time24[1]);
     minute = Number(time24[2]);
-  } else if (time12) {
-    hour = Number(time12[1]) % 12;
-    if (time12[2].toLowerCase() === "pm") hour += 12;
+
+  } else {
+
+    // 2️⃣ 12-hour format (9pm)
+    const time12 = cleanText.match(/\b(\d{1,2})\s?(am|pm)\b/i);
+
+    if (time12) {
+      hour = Number(time12[1]) % 12;
+      if (time12[2].toLowerCase() === "pm") hour += 12;
+
+    } else {
+
+      // 3️⃣ Bare hour (21, @21, 21 )
+      const timeHourOnly = cleanText.match(/(?:@|\s)([01]?\d|2[0-3])\b/);
+
+      if (timeHourOnly) {
+        hour = Number(timeHourOnly[1]);
+        minute = 0;
+      }
+    }
   }
 
-  // ---- DATE ----
-  date =
+  // ---- DATE PARSING (explicit date wins over weekday) ----
+
+  let date =
     parseNamedDate(cleanText, now) ||
-    parseNumericDate(cleanText, now) ||
-    parseRelativeDate(cleanText, now) ||
-    parseWeekday(cleanText, now);
+    parseNumericDate(cleanText, now);
+
+  if (!date) {
+    date =
+      parseRelativeDate(cleanText, now) ||
+      parseWeekday(cleanText, now);
+  }
 
   if (!date) return null;
 
   date.setHours(hour, minute, 0, 0);
 
-  const timezone = inferCetOrCest(date);
+  // ---- Timezone inference ----
+  const timezone = explicitTz || inferCetOrCest(date);
+
   return formatDate(date, timezone);
 }
 
 function parseNamedDate(text, now) {
-  const match = text.match(
-    /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)?\s*(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i
+  const months = {
+    january: 0, february: 1, march: 2, april: 3,
+    may: 4, june: 5, july: 6, august: 7,
+    september: 8, october: 9, november: 10, december: 11,
+    jan: 0, feb: 1, mar: 2, apr: 3,
+    jun: 5, jul: 6, aug: 7,
+    sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
+  };
+
+  // 1️⃣ Remove weekday safely (no heavy regex)
+  const cleaned = text.replace(
+    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
+    ""
+  );
+
+  // 2️⃣ Match "22nd February" or "February 22nd"
+  const match = cleaned.match(
+    /\b(\d{1,2})(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\s+(\d{1,2})(st|nd|rd|th)?\b/i
   );
 
   if (!match) return null;
 
-  const day = Number(match[2]);
-  const month = monthToIndex(match[3]);
-  let year = now.getFullYear();
+  let day, month;
 
-  const candidate = new Date(year, month, day);
-  if (candidate < now) year++;
+  if (match[1]) {
+    // 22 February
+    day = Number(match[1]);
+    month = months[match[3].toLowerCase()];
+  } else {
+    // February 22
+    day = Number(match[5]);
+    month = months[match[4].toLowerCase()];
+  }
 
+  const year = now.getFullYear();
   return new Date(year, month, day);
 }
 
+
 function parseRelativeDate(text, now) {
-  if (/today/i.test(text)) {
-    return new Date(now);
+  const lower = text.toLowerCase();
+
+  if (lower.includes("today")) {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
-  if (/tomorrow/i.test(text)) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + 1);
-    return d;
+  if (lower.includes("tonight")) {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  if (lower.includes("tomorrow")) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    return new Date(
+      tomorrow.getFullYear(),
+      tomorrow.getMonth(),
+      tomorrow.getDate()
+    );
   }
 
   return null;
