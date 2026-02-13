@@ -23,6 +23,9 @@ function testParseDateTime() {
   let result = parseDateTime("Sunday 22nd February @ 20:45CET");
   assertEquals("22/02/2026 @ 20:45 CET", result);
 
+  result = parseDateTime("Sunday 22nd Feb @ 20:49CET");
+  assertEquals("22/02/2026 @ 20:49 CET", result);
+
   result = parseDateTime("february 12th 21 cet");
   assertEquals("12/02/2026 @ 21:00 CET", result);
 
