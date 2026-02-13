@@ -1,4 +1,29 @@
 <div id="Teams" class="section">
-  <h3>Teams</h3>
-  <button onclick="google.script.run.manageTeams()">Manage Teams</button>
+  <div class="container"></div>      
+    <div class="info-box">
+      <p>This tab is used to record teams taking part in the tournament.</p>
+      <p>The only columns you need edit/enter are <span class="inline-col">Team Tag</span>, <span class="inline-col">Team Name</span>, <span class="inline-col">Players</span> and <span class="inline-col">Team Tag Display</span>.</p>
+      <p><span class="inline-col">Team Tag Display</span> is a bit of a hack due to a slight quirk with Google Sheets.</p>
+      <div class="note-box">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>If team tag starts with an apostrophe (') you need to add an extra apostrophe to the beginning of the tag in <span class="inline-col">Team Tag Display</span>.</p>        
+        <p>These two columns are used to link team names and team tags throughoutt the sheet and are used for various matching purposes so they need to be set up correctly.</p>
+        <p>Ask teams participating in the tournament for these upfornt and make sure they use them consistently to avoid dissapointment.</span></p>                
+      </div>
+    </div>
+
+  
+    <div class="note-box">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>Below will auto-create teams based on their order on the <span class="inline-tab" onclick="runTask('switchTab', 'Players')">Players</span> tab. Proceed with caution!</p>
+    </div>
+
+    <button onclick="runTask('populateTeamPlayers')">Build Rank-based Teams</button>  
+
+    <div class="info-box">
+      <p><span class="inline-col">Discord Role ID</span> and <span class="inline-col">Discord Channel Webhook</span> are optional.</p>
+      <p>They are used for automatic game reminders posting to Discord and for manual availability polls. </p>
+    </div>
+
+  </div>
 </div>
