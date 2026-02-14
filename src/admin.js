@@ -26,7 +26,7 @@ function openSidebar() {
 
   const template = HtmlService.createTemplateFromFile('admin.sidebar');
   const html = template.evaluate()
-    .setTitle('Tournament Control Panel');
+    .setTitle('Tournament Control Panel');    
     
   SpreadsheetApp.getUi().showSidebar(html);
 }

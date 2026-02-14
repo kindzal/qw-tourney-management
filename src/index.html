@@ -281,7 +281,8 @@ document.addEventListener("DOMContentLoaded", () => {
       card.className = "team-card";
       
       const teamName = team['Team Name'] || team['Team'] || '';
-      const teamTag = team['Team Tag Display'] || team['Tag'] || '';
+      const rawTag = team['Team Tag Display'] || team['Tag'] || '';
+      const teamTag = Array.isArray(rawTag) ? rawTag.join(' / ') : rawTag;
       const players = team['Players'] || '';
       
       // Team name

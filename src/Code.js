@@ -803,8 +803,17 @@ function updateTeamStats() {
   // -------------------------------------------------------
   const teamsData = teamsSheet.getDataRange().getValues().slice(1);
   const teamNameLookup = {};
-  teamsData.forEach(([tag,name]) => {
-    if(tag) teamNameLookup[tag] = name || tag;
+  const tagAliasMap = {};
+  teamsData.forEach(([rawTag,name]) => {
+    if(!rawTag) return;
+    const aliases = parseTagAliases(rawTag);
+    const canonical = aliases[0];
+    // Register every alias so Games rows using any variant resolve to the team name
+    // and so alias tags are normalised to the canonical tag before match grouping
+    aliases.forEach(tag => {
+      teamNameLookup[tag] = name || canonical || rawTag;
+      tagAliasMap[tag] = canonical;
+    });
   });
 
   // -------------------------------------------------------
@@ -854,9 +863,11 @@ function updateTeamStats() {
 
     const teams = {};
     mapRows.forEach(r=>{
-      if(!teams[r[teamCol]]) teams[r[teamCol]]={won:false, frags:0};
-      if(r[mapWonCol]==1) teams[r[teamCol]].won=true;
-      teams[r[teamCol]].frags += Number(r[fragsCol])||0;
+      // Normalise any alias tag to its canonical form so match grouping is consistent
+      const tag = tagAliasMap[r[teamCol]] || r[teamCol];
+      if(!teams[tag]) teams[tag]={won:false, frags:0};
+      if(r[mapWonCol]==1) teams[tag].won=true;
+      teams[tag].frags += Number(r[fragsCol])||0;
     });
 
     maps.push({
@@ -1293,6 +1304,9 @@ function autoImportGames() {
   // ── 3. Load schedule team pairs ─────────────────────────────────────────
   const scheduledPairs = loadScheduledTeamPairs();
 
+  // ── 3a. Load alias map to normalise multi-tag teams ──────────────────────
+  const tagAliasMap = loadTagAliasMap();
+
   // ── 4. Query Hub API ─────────────────────────────────────────────────────
   const games = fetchHubGames(cfg);
   if (!games || games.length === 0) {
@@ -1328,7 +1342,12 @@ function autoImportGames() {
     }
 
     // d) Team pair exists in schedule?
-    const teamNames = game.teams.map(t => quakeNameToStandard(t.name).toLowerCase());
+    const teamNames = game.teams.map(t => {
+      const raw = quakeNameToStandard(t.name).toLowerCase();
+      // Resolve any alias to the canonical tag so schedule matching works
+      // regardless of which tag variant the API returned
+      return (tagAliasMap[raw] || raw).toLowerCase();
+    });
     if (!isScheduledPair(teamNames, scheduledPairs)) {
       Logger.log(`autoImport: skip (no schedule entry) teams=${teamNames.join(" vs ")}`);
       return;

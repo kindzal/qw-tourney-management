@@ -278,11 +278,15 @@ function getTeams() {
   const values = sheet.getRange(1, 1, lastRow, 4).getValues();
   const headers = values.shift();
 
-  return values.map(row =>
-    Object.fromEntries(
-      headers.map((h, i) => [h, row[i]])
-    )
-  );
+  const TAG_COLUMNS = ["Team Tag", "Team Tag Display"];
+
+  return values.map(row => {
+    const obj = Object.fromEntries(headers.map((h, i) => [h, row[i]]));
+    TAG_COLUMNS.forEach(col => {
+      if (col in obj) obj[col] = parseTagAliases(obj[col]);
+    });
+    return obj;
+  });
 }
 
 function getMapStats() {

@@ -1,29 +1,39 @@
 <div id="Teams" class="section">
-  <div class="container"></div>      
+  <div class="container">
     <div class="info-box">
       <p>This tab is used to record teams taking part in the tournament.</p>
-      <p>The only columns you need edit/enter are <span class="inline-col">Team Tag</span>, <span class="inline-col">Team Name</span>, <span class="inline-col">Players</span> and <span class="inline-col">Team Tag Display</span>.</p>
-      <p><span class="inline-col">Team Tag Display</span> is a bit of a hack due to a slight quirk with Google Sheets.</p>
-      <div class="note-box">
-        <strong>⚠️ Important ⚠️</strong>
-        <p>If team tag starts with an apostrophe (') you need to add an extra apostrophe to the beginning of the tag in <span class="inline-col">Team Tag Display</span>.</p>        
-        <p>These two columns are used to link team names and team tags throughoutt the sheet and are used for various matching purposes so they need to be set up correctly.</p>
-        <p>Ask teams participating in the tournament for these upfornt and make sure they use them consistently to avoid dissapointment.</span></p>                
-      </div>
+      <p>The columns you need edit / enter are <span class="inline-col">Team Tag</span>, <span class="inline-col">Team Name</span>, <span class="inline-col">Players</span> and <span class="inline-col">Team Tag Display</span>.</p>      
     </div>
-
-  
-    <div class="note-box">
-        <strong>⚠️ Important ⚠️</strong>
-        <p>Below will auto-create teams based on their order on the <span class="inline-tab" onclick="runTask('switchTab', 'Players')">Players</span> tab. Proceed with caution!</p>
-    </div>
-
-    <button onclick="runTask('populateTeamPlayers')">Build Rank-based Teams</button>  
-
     <div class="info-box">
       <p><span class="inline-col">Discord Role ID</span> and <span class="inline-col">Discord Channel Webhook</span> are optional.</p>
       <p>They are used for automatic game reminders posting to Discord and for manual availability polls. </p>
     </div>
+
+    <div class="note-box">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>If a team tag starts with an apostrophe (') you need to add an extra apostrophe (') to the beginning of the tag in <span class="inline-col">Team Tag Display</span> due to a slight quirk with Google Sheets.</p>        
+        <p><span class="inline-col">Team Tag</span> and <span class="inline-col">Team Tag Display</span> are used to link team names and team tags throughout this system so need to be set up correctly.</p>
+        <p>Tags should be provided upfront and used consistently by teams in their games.</span></p>                
+    </div>
+    <div class="note-box">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>For teams who use multiple tags the system supports a special tag separator (‡).</p>                
+        <p>To use this functionality enter <span class="inline-col">Team Tag</span> and <span class="inline-col">Team Tag Display</span>as follows:</p>                
+        <p>tag1‡tag2‡tag3</p>
+        <div class="copy-container">
+          <input type="text" value="‡" id="item1" class="cb-input" readonly>
+          <button class="copy-btn" onclick="copyToClipboard('item1', this)">Copy</button>    
+        </div>
+        
+    </div>    
+  
+    <div class="note-box">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>Below will auto-create teams based on <span class="inline-tab" onclick="runTask('switchTab', 'Players')">Players</span> rank. Proceed with caution!</p>
+    </div>
+
+    <button onclick="runTask('populateTeamPlayers')">Build Rank-based Teams</button>  
+
 
   </div>
 </div>

@@ -21,6 +21,37 @@
     }
   }
 
+  async function copyToClipboard(elementId, btn) {
+    const element = document.getElementById(elementId);
+    
+    if (!element) {
+      console.error('Element not found');
+      return;
+    }
+
+    // Use .value for inputs/textareas, .innerText for divs/spans
+    const text = element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' ? element.value : element.innerText;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      
+      // Save original state
+      const originalContent = btn.innerHTML;
+      
+      // Change to "Copied ✔"
+      btn.innerHTML = 'Copied &#10004;'; // Unicode for tick sign
+      btn.style.pointerEvents = 'none'; // Prevent double-clicks during delay
+
+      setTimeout(() => {
+        btn.innerHTML = originalContent;
+        btn.style.pointerEvents = 'auto';
+      }, 2000);
+
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  }
+
   function runTask(functionName, parameter = null) {
     const loader = document.getElementById('loader-overlay');
     

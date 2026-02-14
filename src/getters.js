@@ -3,6 +3,19 @@
 // ─────────────────────────────────────────────
 
 /**
+ * Splits a "Team Tag Display" cell value on the ‡ delimiter.
+ * Returns an array of trimmed, non-empty tag strings.
+ * The first element is treated as the canonical tag.
+ * e.g. "TAG1‡TAG2" → ["TAG1", "TAG2"]
+ */
+function parseTagAliases(rawTag) {
+  return String(rawTag)
+    .split("‡")
+    .map(t => t.trim())
+    .filter(Boolean);
+}
+
+/**
  * Reads all required autoImport keys from Configuration.
  * Returns a config object or null if required keys are missing.
  */
@@ -72,8 +85,33 @@ function loadImportedUrls() {
 }
 
 /**
+ * Builds a map of every tag alias → canonical (first) tag from the Teams sheet.
+ * Used to normalise game team tags returned by the API before schedule matching.
+ * e.g. if "Team Tag Display" is "TAG1‡TAG2", both "TAG1" and "TAG2" map to "TAG1".
+ */
+function loadTagAliasMap() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+  if (!sheet || sheet.getLastRow() < 2) return {};
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const tagCol = headers.indexOf("Team Tag Display");
+  if (tagCol === -1) return {};
+
+  const aliasMap = {};
+  data.slice(1).forEach(row => {
+    const aliases = parseTagAliases(row[tagCol]);
+    if (aliases.length === 0) return;
+    const canonical = aliases[0];
+    aliases.forEach(alias => { aliasMap[alias] = canonical; });
+  });
+
+  return aliasMap;
+}
+
+/**
  * Loads scheduled team pairs from the Schedule sheet.
- * Returns an array of [teamNameA_lower, teamNameB_lower] pairs.
+ * Returns an array of [canonicalTagA, canonicalTagB] pairs.
  *
  * Schedule columns: Round (A), Team1 (B), Team2 (C)
  */
@@ -103,11 +141,15 @@ function loadScheduledTeamPairs() {
   const nameToTag = {};
 
   teamsData.slice(1).forEach(row => {
-    const tag = row[tagCol];
+    const rawTag = row[tagCol];
     const name = row[nameCol];
 
-    if (tag && name) {
-      nameToTag[String(name).trim().toLowerCase()] = String(tag).trim();
+    if (rawTag && name) {
+      // Use the first alias as the canonical tag for schedule pair matching
+      const canonicalTag = parseTagAliases(rawTag)[0];
+      if (canonicalTag) {
+        nameToTag[String(name).trim().toLowerCase()] = canonicalTag;
+      }
     }
   });
 
