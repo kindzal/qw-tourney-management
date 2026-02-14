@@ -619,75 +619,73 @@ function updatePlayerStats(p, g, u, x) {
 }
 
 function populateTeamPlayers() {
-  
-   // --- Confirm Before Updating ---
   const ui = SpreadsheetApp.getUi();
-  const response = ui.alert('Are you sure you want to update Players for each team from the Players tab?', ui.ButtonSet.YES_NO);
-  if (response !== ui.Button.YES) {
-    ui.alert('Update cancelled.');
-    return;
-  }
-
   const ss = SpreadsheetApp.getActive();
-
   const playersSheet = ss.getSheetByName('Players');
   const teamsSheet = ss.getSheetByName('Teams');
 
   if (!playersSheet || !teamsSheet) {
-    throw new Error('Players or Teams sheet not found');
+    ui.alert('Error: Players or Teams sheet not found');
+    return;
   }
 
-  // -------------------------------
-  // Read Players data (skip header)
-  // -------------------------------
+  // 1. Read Players data (Assuming names are in Column C / Index 2)
   const playersLastRow = playersSheet.getLastRow();
-  if (playersLastRow < 2) return;
+  if (playersLastRow < 2) {
+    ui.alert('No players found in the Players sheet.');
+    return;
+  }
+  
+  // Get all player names from Column C
+  const playersData = playersSheet.getRange(2, 3, playersLastRow - 1, 1).getValues();
+  const playerList = playersData.map(row => row[0]).filter(name => name !== "");
+  const playerCount = playerList.length;
 
-  const playersData = playersSheet
-    .getRange(2, 1, playersLastRow - 1, 3)
-    .getValues();
+  // 2. Validation: Multiple of 8 check
+  if (playerCount % 8 !== 0) {
+    const warnResponse = ui.alert(
+      '⚠️ Warning', 
+      `The list has ${playerCount} players, which is not a multiple of 8. Proceeding will result in uneven teams.\n\nDo you want to continue?`, 
+      ui.ButtonSet.YES_NO
+    );
+    if (warnResponse !== ui.Button.YES) return;
+  } else {
+    // Standard confirmation if validation passes
+    const confirm = ui.alert('Confirm', 'Generate even teams using snake system?\nAny existing team players data will be lost.', ui.ButtonSet.YES_NO);
+    if (confirm !== ui.Button.YES) return;
+  }
 
-  // Build map: Team -> [Players]
-  const playersByTeam = {};
-  playersData.forEach(([team, , player]) => {
-    if (!team || !player) return;
+  // 3. Snake System Logic (Teams of 4)
+  // Calculate how many teams are needed for everyone to have 4 players
+  const playersPerTeam = 4;
+  const numTeams = Math.ceil(playerCount / playersPerTeam); 
+  const teams = Array.from({ length: numTeams }, () => []);
 
-    const teamKey = String(team).trim();
-    if (!playersByTeam[teamKey]) {
-      playersByTeam[teamKey] = [];
+  // Distribute players using the "Snake" pattern
+  for (let i = 0; i < playerList.length; i++) {
+    const roundIndex = Math.floor(i / numTeams); // Which round of picks (0, 1, 2, 3)
+    const stepInRound = i % numTeams;           // Position within the current round
+    
+    // Snake direction: Even rounds go 1 -> N, Odd rounds go N -> 1
+    const teamIndex = (roundIndex % 2 === 0) 
+      ? stepInRound 
+      : (numTeams - 1 - stepInRound);
+    
+    if (teams[teamIndex]) {
+      teams[teamIndex].push(playerList[i]);
     }
+  }
 
-    playersByTeam[teamKey].push(String(player).trim());
-  });
+  // 4. Prepare Output for Teams Sheet (Column C)
+  const teamsOutput = teams.map(teamPlayers => [teamPlayers.join(', ')]);
 
-  // -------------------------------
-  // Read Teams data (skip header)
-  // -------------------------------
-  const teamsLastRow = teamsSheet.getLastRow();
-  if (teamsLastRow < 2) return;
+  // 5. Write to Teams Sheet starting at Row 2, Column 3
+  teamsSheet.getRange(2, 3, teamsSheet.getLastRow() - 1, 1).clearContent();
+  teamsSheet.getRange(2, 3, teamsOutput.length, 1).setValues(teamsOutput);
 
-  const teamsData = teamsSheet
-    .getRange(2, 1, teamsLastRow - 1, 3)
-    .getValues();
-
-  // Build output for Players column
-  const output = teamsData.map(([teamTag]) => {
-    if (!teamTag) return [''];
-
-    const teamKey = String(teamTag).trim();
-    const players = playersByTeam[teamKey] || [];
-
-    return [players.join(', ')];
-  });
-
-  // -------------------------------
-  // Write Players column (Column C)
-  // -------------------------------
-  teamsSheet
-    .getRange(2, 3, output.length, 1)
-    .clearContent()
-    .setValues(output);
+  ui.alert('Success', `Generated ${numTeams} teams with ${playersPerTeam} players each using the snake system.`, ui.ButtonSet.OK);
 }
+
 
 function updateTeamStats() {
 
