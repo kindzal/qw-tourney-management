@@ -306,3 +306,9 @@ function isScheduledPair(teamNames, scheduledPairs) {
     (pa === a && pb === b) || (pa === b && pb === a)
   );
 }
+
+function checkForIssues() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("FIX-ME");
+  if (!sheet || sheet.getLastRow() < 2) return false;
+  return Boolean(sheet.getRange(2, 1).getValue());
+}

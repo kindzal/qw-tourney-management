@@ -55,16 +55,6 @@ function switchTab(sheetName) {
     SpreadsheetApp.getUi().alert("Sheet '" + sheetName + "' not found.");
   }
 }
-
-function updateStatsUI() {
-  Logger.log("Running updateStats (UPDATE_STATS handler)");
-  updatePlayerAndStandinsStats();
-  updateTeamStats();
-  SpreadsheetApp.getUi().alert(
-      `ℹ️ UpdateStats completed successfully.`
-    );
-}
-
 // Manual import function - reads URLs from DataImport sheet and enqueues them to MsgQueue
 function importDataFromWeb() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();

@@ -14,6 +14,9 @@
     const section = document.getElementById(sheetName);
 
     if (section) {
+      if (sheetName === 'FIX-ME') {
+        refreshFixMeStatus();
+      }
       section.style.display = "block";
     } else {
       document.getElementById("DefaultTitle").innerText = sheetName;
@@ -87,7 +90,16 @@
       .getActiveSheetName();
   }
 
+  function refreshFixMeStatus() {
+    google.script.run
+      .withSuccessHandler(function(hasIssues) {
+        document.getElementById('fixme-issues').style.display = hasIssues ? 'block' : 'none';
+        document.getElementById('fixme-no-issues').style.display = hasIssues ? 'none' : 'block';
+      })
+      .checkForIssues();
+  }
+
   //How responsive the admin sidebar is - experiment with values 
   setInterval(checkActiveSheet, 500);
-  checkActiveSheet();
+  checkActiveSheet();  
 </script>

@@ -384,10 +384,56 @@ function importSingleMatch(url, gamesSheet, importedGamesSheet) {
   }
 }
 
-function updateStats() {
+function generateFixMeReport() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ── Get or create FIX-ME sheet ────────────────────────────────────────
+  let fixMeSheet = ss.getSheetByName("FIX-ME") || ss.insertSheet("FIX-ME");
+  fixMeSheet.clearContents();
+  fixMeSheet.getRange(1, 1, 1, 3).setValues([["Issue", "Value", "Description"]]);
+
+  const DESCRIPTION = "Go to 'Tournament Tools' -> 'Open Control Panel' for instructions";
+  const rows = [];
+
+ // ── Read UnmatchedPlayers (col A, skip header row 1) ──────────────────
+  const playersSheet = ss.getSheetByName("UnmatchedPlayers");
+  if (playersSheet && playersSheet.getLastRow() > 1) {
+    playersSheet
+      .getRange(2, 1, playersSheet.getLastRow() - 1, 1)
+      .getValues()
+      .forEach(([tag]) => {
+        if (tag) rows.push(["Unmatched Player", tag, DESCRIPTION]);
+      });
+  }
+
+  // ── Read UnmatchedTeamTags (col A, skip header row 1) ─────────────────
+  const teamTagsSheet = ss.getSheetByName("UnmatchedTeamTags");
+  if (teamTagsSheet && teamTagsSheet.getLastRow() > 1) {
+    teamTagsSheet
+      .getRange(2, 1, teamTagsSheet.getLastRow() - 1, 1)
+      .getValues()
+      .forEach(([tag]) => {
+        if (tag) rows.push(["Unmatched Team Tag", tag, DESCRIPTION]);
+      });
+  }
+
+ // ── Write combined rows (or a clean all-clear message) ────────────────
+  if (rows.length > 0) {
+    fixMeSheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  }
+
+  Logger.log(`generateFixMeReport: ${rows.length} issue(s) written to FIX-ME`);
+  return rows.length > 0;
+}
+
+function updateStats(interactive = false) {
   Logger.log("Running updateStats (UPDATE_STATS handler)");
   updatePlayerAndStandinsStats();
   updateTeamStats();
+  generateFixMeReport();    
+  if (interactive) {
+    SpreadsheetApp.getUi().alert(`ℹ️ UpdateStats completed successfully.`);
+  }
 }
 
 function quakeNameToStandard(name) {
@@ -1276,7 +1322,33 @@ function updateTeamStats() {
     .getRange(1,1,output.length,teamGamesHeader.length)
     .setNumberFormat("@STRING@")
     .setValues(output);
+  
+    // -------------------------------------------------------
+  // UNMATCHED TEAM TAGS
+  // Collect every raw tag seen in the Games sheet, then report
+  // any that don't resolve to a known team via tagAliasMap.
+  // -------------------------------------------------------
+  const unmatchedTeamTagsSheet = ss.getSheetByName("UnmatchedTeamTags")
+    || ss.insertSheet("UnmatchedTeamTags");
 
+  // Gather unique raw tags from Games (pre-alias-normalisation)
+  const seenRawTags = new Set(
+    rows.map(r => r[teamCol]).filter(Boolean)
+  );
+
+  // A tag is unmatched if it has no entry in tagAliasMap
+  const unmatchedTags = [...seenRawTags]
+    .filter(tag => !tagAliasMap[tag])
+    .sort();
+
+  // Write header + results, clearing stale data first
+  unmatchedTeamTagsSheet.clearContents();
+  unmatchedTeamTagsSheet.getRange(1, 1).setValue("Unmatched Team Tags");
+  if (unmatchedTags.length > 0) {
+    unmatchedTeamTagsSheet
+      .getRange(2, 1, unmatchedTags.length, 1)
+      .setValues(unmatchedTags.map(t => [t]));
+  }
 }
 
 // ─────────────────────────────────────────────

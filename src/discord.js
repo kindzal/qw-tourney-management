@@ -22,14 +22,14 @@ function postToDiscord(mode = 'post') {
 
   const roundNumber = config["Round"];
   if (!roundNumber) {
-    throw new Error("Missing 'Round' in Discor config");
+    throw new Error("Missing 'Round' in Discord config");
   }
 
   const playOffTreeURL = config["Playoff tree"];
   
   const rankingURL = config["Web App deployment URL"];
   if (!rankingURL) {
-    throw new Error("Missing 'Web App deployment URL' in Discor config");
+    throw new Error("Missing 'Web App deployment URL' in Discord config");
   }
 
   const webhookUrl = config["Discord web hook"];
@@ -429,4 +429,61 @@ function sendUnscheduledGamesReminder() {
     contentType: "application/json",
     payload: JSON.stringify({ content: message })
   });
+}
+  
+function sendFixMeNotification() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ── Read webhook from Configuration ───────────────────────────────────
+  const configSheet = ss.getSheetByName("Configuration");
+  if (!configSheet) return;
+
+  const configData = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 2).getValues();
+  const config = {};
+  configData.forEach(([k, v]) => { if (k) config[String(k).trim()] = v; });
+
+  const webhook = config["Discord admin channel webhook"];
+  if (!webhook) return;
+
+  const webAppTitle = config["WebApp title"] || "Tournament";
+
+  // ── Read FIX-ME and group by Issue type ───────────────────────────────
+  const fixMeSheet = ss.getSheetByName("FIX-ME");
+  if (!fixMeSheet || fixMeSheet.getLastRow() < 2) return;
+
+  const rows = fixMeSheet
+    .getRange(2, 1, fixMeSheet.getLastRow() - 1, 2)
+    .getValues();
+
+  const counts = {};
+  rows.forEach(([issue]) => {
+    if (!issue || issue.startsWith("No issues")) return;
+    counts[issue] = (counts[issue] || 0) + 1;
+  });
+
+  if (Object.keys(counts).length === 0) return;
+
+  // ── Build message ─────────────────────────────────────────────────────
+  const sheetUrl = ss.getUrl() + "#gid=" + fixMeSheet.getSheetId();
+
+  const summary = Object.entries(counts)
+    .map(([issue, count]) => `• ${issue}: **${count}**`)
+    .join("\n");
+
+  const message = [
+    `⚠️ **[${webAppTitle}] Tournament Admin Issues Found**`,
+    "",
+    summary,
+    "",
+    `Open the [Tournament admin sheet](${sheetUrl}), navigate to FIX-ME tab and follow the instructions there.` 
+  ].join("\n");
+
+  // ── Post to Discord ───────────────────────────────────────────────────
+  UrlFetchApp.fetch(webhook, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ content: message })
+  });
+
+  Logger.log(`sendFixMeNotification: posted ${Object.values(counts).reduce((a, b) => a + b, 0)} issue(s) to Discord`);    
 }
