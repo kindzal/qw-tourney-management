@@ -303,7 +303,7 @@ function isScheduledPair(teamNames, scheduledPairs) {
   const [a, b] = teamNames;
 
   return scheduledPairs.some(([pa, pb]) =>
-    (pa === a && pb === b) || (pa === b && pb === a)
+    (pa.toLowerCase() === a.toLowerCase() && pb.toLowerCase() === b.toLowerCase()) || (pa.toLowerCase() === b.toLowerCase() && pb.toLowerCase() === a.toLowerCase())
   );
 }
 
