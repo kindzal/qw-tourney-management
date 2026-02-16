@@ -131,7 +131,7 @@ function loadScheduledTeamPairs() {
   const teamsData = teamsSheet.getDataRange().getValues();
   const teamHeaders = teamsData[0];
 
-  const tagCol = teamHeaders.indexOf("Team Tag Display");
+  const tagCol = teamHeaders.indexOf("Team Tag");
   const nameCol = teamHeaders.indexOf("Team Name");
 
   if (tagCol === -1 || nameCol === -1) {
@@ -141,7 +141,7 @@ function loadScheduledTeamPairs() {
   const nameToTag = {};
 
   teamsData.slice(1).forEach(row => {
-    const rawTag = row[tagCol];
+    const rawTag = GASdecode(row[tagCol]);
     const name = row[nameCol];
 
     if (rawTag && name) {

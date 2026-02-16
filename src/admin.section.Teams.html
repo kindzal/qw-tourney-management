@@ -2,7 +2,7 @@
   <div class="container">
     <div class="info-box">
       <p>This tab is used to record teams taking part in the tournament.</p>
-      <p>The columns you need edit / enter are <span class="inline-col">Team Tag</span>, <span class="inline-col">Team Name</span>, <span class="inline-col">Players</span> and <span class="inline-col">Team Tag Display</span>.</p>
+      <p>The columns you need edit / enter are <span class="inline-col">Team Tag</span>, <span class="inline-col">Team Name</span> and <span class="inline-col">Players</span>>.</p>
       <p>These columns are also highlighted in yellow.</p>      
     </div>
     <div class="info-box">
@@ -12,14 +12,15 @@
 
     <div class="note-box">
         <strong>⚠️ Important ⚠️</strong>
-        <p>If a team tag starts with an apostrophe (') you need to add an extra apostrophe (') to the beginning of the tag in <span class="inline-col">Team Tag Display</span> due to a slight quirk with Google Sheets.</p>        
-        <p><span class="inline-col">Team Tag</span> and <span class="inline-col">Team Tag Display</span> are used to link team names and team tags throughout this system so need to be set up correctly.</p>
-        <p>Tags should be provided upfront and used consistently by teams in their games.</span></p>                
+        <p>If a team tag starts with an apostrophe (') you need to escape it with a backslash (\) in <span class="inline-col">Team Tag</span> due to a slight quirk with Google Sheets.</p>
+        <p>It should be <strong>\'tro</strong> for a team with a tag of <strong>'tro</strong> as an example.</p>        
+        <p><span class="inline-col">Team Tag</span> is used to link team names and team tags throughout this system so needs to be set up correctly.</p>
+        <p>Tags should be provided upfront and used in games consistently.</span></p>                
     </div>
     <div class="note-box">
         <strong>⚠️ Important ⚠️</strong>
         <p>For teams who use multiple tags the system supports a special tag separator (‡).</p>                
-        <p>To use this functionality enter <span class="inline-col">Team Tag</span> and <span class="inline-col">Team Tag Display</span>as follows:</p>                
+        <p>To use this functionality enter <span class="inline-col">Team Tag</span>as follows:</p>                
         <p>tag1‡tag2‡tag3</p>
         <div class="copy-container">
           <input type="text" value="‡" id="item1" class="cb-input" readonly>

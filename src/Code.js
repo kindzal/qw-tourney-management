@@ -369,7 +369,7 @@ function importSingleMatch(url, gamesSheet, importedGamesSheet) {
     const taken = player.dmg?.taken || 0;
     const toDie = player.dmg?.["taken-to-die"] || 0;
     
-    rowData.push([url, date, map, hostname, matchtag, mapWon, frags, team, name, eff, kills, deaths, suicides, tk, given, taken, ewep, toDie, ga, ya, ra, mh, sgAccuracy, lgAttacksFlag, lgAccuracy, rlHits, lgPickups, lgKills, lgDropped, rlPickups, rlKills, rlDropped, q, p, r, self]);
+    rowData.push([url, date, map, hostname, matchtag, mapWon, frags, GASencode(team), name, eff, kills, deaths, suicides, tk, given, taken, ewep, toDie, ga, ya, ra, mh, sgAccuracy, lgAttacksFlag, lgAccuracy, rlHits, lgPickups, lgKills, lgDropped, rlPickups, rlKills, rlDropped, q, p, r, self]);
   });
   
   if (rowData.length > 0) {
@@ -854,12 +854,12 @@ function updateTeamStats() {
   const tagAliasMap = {};
   teamsData.forEach(([rawTag,name]) => {
     if(!rawTag) return;
-    const aliases = parseTagAliases(rawTag);
+    const aliases = parseTagAliases(GASdecode(rawTag));
     const canonical = aliases[0];
     // Register every alias so Games rows using any variant resolve to the team name
     // and so alias tags are normalised to the canonical tag before match grouping
     aliases.forEach(tag => {
-      teamNameLookup[tag] = name || canonical || rawTag;
+      teamNameLookup[tag] = name || canonical || GASdecode(rawTag);
       tagAliasMap[tag] = canonical;
     });
   });
@@ -912,7 +912,7 @@ function updateTeamStats() {
     const teams = {};
     mapRows.forEach(r=>{
       // Normalise any alias tag to its canonical form so match grouping is consistent
-      const tag = tagAliasMap[r[teamCol]] || r[teamCol];
+      const tag = tagAliasMap[GASdecode(r[teamCol])] || GASdecode(r[teamCol]);
       if(!teams[tag]) teams[tag]={won:false, frags:0};
       if(r[mapWonCol]==1) teams[tag].won=true;
       teams[tag].frags += Number(r[fragsCol])||0;
@@ -1337,7 +1337,7 @@ function updateTeamStats() {
 
   // Gather unique raw tags from Games (pre-alias-normalisation)
   const seenRawTags = new Set(
-    rows.map(r => r[teamCol]).filter(Boolean)
+    rows.map(r => GASdecode(r[teamCol])).filter(Boolean)
   );
 
   // A tag is unmatched if it has no entry in tagAliasMap

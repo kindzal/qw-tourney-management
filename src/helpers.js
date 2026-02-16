@@ -312,3 +312,13 @@ function checkForIssues() {
   if (!sheet || sheet.getLastRow() < 2) return false;
   return Boolean(sheet.getRange(2, 1).getValue());
 }
+
+function GASencode(value) {
+  if (typeof value !== "string" || value.length === 0) return value;
+  return value.startsWith("'") ? "\\" + value : value;
+}
+
+function GASdecode(value) {
+  if (typeof value !== "string" || value.length === 0) return value;
+  return value.startsWith("\\'") ? value.substring(1) : value;
+}
