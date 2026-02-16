@@ -23,9 +23,7 @@ function postToDiscord(mode = 'post') {
   const roundNumber = config["Round"];
   if (!roundNumber) {
     throw new Error("Missing 'Round' in Discord config");
-  }
-
-  const playOffTreeURL = config["Playoff tree"];
+  }  
   
   const rankingURL = config["Web App deployment URL"];
   if (!rankingURL) {
@@ -151,10 +149,6 @@ function postToDiscord(mode = 'post') {
 
   if (config["Team tags prompt"])
     message += `\`\`\`diff\n- ${config["Team tags prompt"]}\n\`\`\`\n`;
-
-  if (playoffs && playOffTreeURL) {    
-    message += `[Playoff tree](${playOffTreeURL})\n\n`;
-  }
   
   message += `[${config["Ranking title"]}](${rankingURL})\n\n`;
   message += `GL HF! 🎮`;
