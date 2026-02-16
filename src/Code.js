@@ -441,7 +441,11 @@ function quakeNameToStandard(name) {
   var convertedName = '';
   
   bytes.forEach(ch => {
-    if (ch >= 128) ch -= 128;
+    if (ch == 8226) {
+      ch = 28;  
+    } else {
+      if (ch >= 128) ch -= 128;
+    }
     if (ch < 16 || (ch >= 29 && ch <= 31)) {
       convertedName += '_';
     } else if (ch === 16) {
