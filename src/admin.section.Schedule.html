@@ -1,13 +1,29 @@
 <div id="Schedule" class="section">
     <div class="container">
         <div class="info-box">
-            <p>This tab is used to create and manage the tournament schedule. Use the forms below to generate and/or update it.</p>
-            <p>You can manually edit if you require a custom format.</p>
+            <p>This tab is used to create and manage the tournament schedule.</p>
+            <p>You can manually edit the schedule as required.</p>
         </div>
         <div class="note-box">
             <strong>⚠️ Important ⚠️</strong>
             <p>EXPERIMENTAL. Do not use on live tournament just yet!</p>
         </div>
+        <div class="note-box">
+            <strong>⚠️ Important ⚠️</strong>
+            <p>Configure the below before generating!</p>
+            <ol class="step-list">
+              <li>
+                  <span class="inline-tab" onclick="runTask('switchTab', 'Teams')">Teams</span>
+              </li>
+              <li>
+                  <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> -> <span class="inline-cell">Tournament start</span>
+              </li>
+              <li>
+                  <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> -> <span class="inline-cell">Tournament maps</span>
+              </li>
+          </ol>
+        </div>
+
         <!-- GROUP STAGE -->
         <div class="form-group">
         <label>Group Stage</label>
