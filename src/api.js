@@ -3,21 +3,21 @@ function handleApiRequest(e) {
 
   switch (endpoint) {
     case "standings":
-      return jsonResponse(getStandings());
+      return jsonResponse(getStandingsAPI());
     case "players":
-      return jsonResponse(getPlayers());
+      return jsonResponse(getPlayersAPI());
     case "groupGames":
-      return jsonResponse(getTeamGames('group'));
+      return jsonResponse(getTeamGamesAPI('group'));
     case "playoffGames":
-      return jsonResponse(getTeamGames('playoff'));
+      return jsonResponse(getTeamGamesAPI('playoff'));
     case "teams":
-      return jsonResponse(getTeams());        
+      return jsonResponse(getTeamsAPI());        
     case "allGames":
-      return jsonResponse(getTeamGames('all'));  
+      return jsonResponse(getTeamGamesAPI('all'));  
     case "scheduleConfig":
-      return jsonResponse(getScheduleConfig());
+      return jsonResponse(getScheduleConfigAPI());
     case "mapStats":                       
-      return jsonResponse(getMapStats());  
+      return jsonResponse(getMapStatsAPI());  
     default:
       return jsonResponse({ error: "Unknown endpoint" });
   }
@@ -29,7 +29,7 @@ function jsonResponse(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function getScheduleConfig() {  
+function getScheduleConfigAPI() {  
   const scheduleConfigSheet = SpreadsheetApp.getActive().getSheetByName('ScheduleConfig');
 
   if (!scheduleConfigSheet) {
@@ -64,7 +64,7 @@ function getScheduleConfig() {
      }));
 }
 
-function getStandings() {
+function getStandingsAPI() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Standings");
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
@@ -72,7 +72,7 @@ function getStandings() {
   return values.map(r => Object.fromEntries(headers.map((h,i) => [h, r[i]])));
 }
 
-function getPlayers() {
+function getPlayersAPI() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Players");
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
@@ -112,7 +112,7 @@ function getPlayers() {
   });
 }
 
-function getTeamGames(mode = 'group') {
+function getTeamGamesAPI(mode = 'group') {
   const ss = SpreadsheetApp.getActive();
   const gamesSheet = ss.getSheetByName("TeamGames");
   if (!gamesSheet) {
@@ -267,7 +267,7 @@ function getTeamGames(mode = 'group') {
   return result;
 }
 
-function getTeams() {
+function getTeamsAPI() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Teams");
   if (!sheet) throw new Error('Teams sheet not found');
 
@@ -289,7 +289,7 @@ function getTeams() {
   });
 }
 
-function getMapStats() {
+function getMapStatsAPI() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("MapStats");
 
   // If sheet does not exist → return empty structure
