@@ -640,6 +640,7 @@ Used for:
 | `autoImportGames` | Time-based | Polls the QuakeWorld Hub API for games matching tournament criteria and enqueues new ones to `MsgQueue` automatically (runs between 19:00–23:59 only) |
 | `sendTodayGameReminders` | Time-based | Posts Discord reminders for games scheduled to be played today |
 | `sendUnscheduledGamesReminder` | Time-based | Posts a Discord reminder listing matches that have not yet been scheduled |
+| `sendFixMeNotification` | Time-based | Posts a Discord msg to admins that they are some issues to be resolved |
 | `doPost` | Webhook | Receives game URLs from the Reports Watcher Discord bot and enqueues them to `MsgQueue` |
 
 ---
