@@ -2,13 +2,14 @@
 
 This project provides a **Google Sheets–based backend** for managing QuakeWorld tournaments, including:
 
+- Admin UI to automate mundate tasks like schedule generation
 - Automatic game imports from the QuakeWorld Hub
 - Group-stage standings calculation
 - Playoff separation
-- Discord integration
-- API-backed Web frontend
+- Discord integration (both from and to)
+- API-style backed Web frontend
 
-Google Sheets acts as the **single source of truth**, with Apps Script providing the backend logic.
+Google Sheets acts as the **single source of truth**, with Apps Script providing the backend logic, admin UI and the Web App layer.
 
 ---
 
@@ -27,14 +28,17 @@ Log in to your Google account, then create your own instance of the QuakeWorld T
 
 and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament.
 
+Then start by navigating to `Tournament Tools` -> `Open Control Panel` and following the instructions there.
+
+<img width="1858" height="916" alt="image" src="https://github.com/user-attachments/assets/f33746dd-db49-4544-804d-44f3db9e0b8a" />
+
 Populate the following tabs as the miniumum viable setup:
 
+- **Configuration**
 - **Players**
 - **Teams**
 - **Schedule**
-- **ScheduleConfig**
-- **Configuration**
-- **Discord**
+- **Discord** (if you want to use Discord integration which is recommeneded)
 
 For a quick reference guide you can take a look at the QML6 Sheet used to run that tournament here:
   👉https://docs.google.com/spreadsheets/d/1UCnB9iNdJ_zKNIt_igMlRaN1Nxw4AyvM4juJ1hKXlDA/edit?usp=sharing
@@ -43,18 +47,20 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 
 | Tab | Purpose | Additional info |
 |---|---|---|
+| **Configuration** | Main tournament configuration and its accompanied services | Backend, Discord + Web App |
 | **Players / Standins** | List of players and their stats | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match a game record to a player. `Player` column is used for display-only purposes |
 | **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2` |
-| **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
-| **DataImport** | Import queue / manual import functionality  | Only edit yellow rows if manually importing |
-| **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT** |
-| **TeamGames** | Group-stage match results | **DO NOT EDIT** |
-| **TeamGamesPlayoffs** | Playoff match results | Split using `Playoffs start date` |
-| **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
 | **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
-| **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. |
-| **Configuration** | Global config | Backend + Web App |
-| **Games** | Games database | Core dataset – **DO NOT EDIT** unless fixing import issues|
+| **ScheduleConfig** | Schedule metadata | Maps, deadlines, etc. - generated from the Schedule tab |
+| **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
+| **FIX-ME** | This tab will show any issues as a result of game data import with a guidance on how to fix them | |
+| **WOTeamGames** | WO games record | Used to record walkovers |
+| **DataImport** | Import queue / manual import functionality  | Used for importing game data by hand |
+| **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT DIRECTLY** |
+| **UnmatchedTeamTags** | Unmatched team tags | Diagnostic tab – **DO NOT EDIT DIRECTLY** |
+| **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
+| **TeamGames** | Group-stage match results | Data tab - **DO NOT EDIT** |
+| **Games** | Games database | Core game data tab – **DO NOT EDIT** unless fixing import issues|
 | **ImportedURLs** | Deduplication list | Prevents duplicate imports |
 | **PostHistory** | Discord message log | Auto-generated |
 | **TEMPLATE-\*** | Helper templates | Not used directly |
@@ -62,6 +68,10 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 > ⚠️ **IMPORTANT**  
 > The **names of ALL tabs and column headings are critical**.  
 > **DO NOT CHANGE THEM OR SHIT WILL BREAK!**
+
+> ⚠️ **IMPORTANT**  
+> Expected **date format** accross the board is: **dd/mm/YYYY**.
+> **DO NOT CHANGE IT OR SHIT WILL BREAK!**
 
 The sheet itself provides a fully feldged tournament management system with the manual data import option in case automation and integrations are not required (see below).
 
