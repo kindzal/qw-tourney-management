@@ -70,7 +70,7 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 > **DO NOT CHANGE THEM OR SHIT WILL BREAK!**
 
 > ⚠️ **IMPORTANT**  
-> Expected **date format** accross the board is: **dd/mm/YYYY**.  
+> Expected **date format** accross the board is: **dd/mm/yyyy**.  
 > **DO NOT CHANGE IT OR SHIT WILL BREAK!**
 
 The sheet itself provides a fully feldged tournament management system with the manual data import option in case automation and integrations are not required (see below).
