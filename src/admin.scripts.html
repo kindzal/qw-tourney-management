@@ -18,6 +18,8 @@
         refreshFixMeStatus();
       } else if (sheetName === 'Schedule') {
         togglePlayoffsSection();
+      } else if (sheetName === 'Configuration') {
+        initConfigurationSection();
       }
       section.style.display = "block";
     } else {
@@ -157,6 +159,153 @@
         messageBox.classList.add('error');
       })
       .confirmScheduleOverwrite();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Configuration Section - Trigger Installation
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function initConfigurationSection() {
+    google.script.run
+      .withSuccessHandler(function(status) {
+        // Show/hide trigger sections based on what needs installation
+        document.getElementById('trigger-automation').style.display = 
+          status.needsAutomation ? 'block' : 'none';
+        document.getElementById('trigger-reminders').style.display = 
+          status.needsReminders ? 'block' : 'none';
+        document.getElementById('trigger-autoimport').style.display = 
+          status.needsAutoImport ? 'block' : 'none';
+        document.getElementById('trigger-fixme').style.display = 
+          status.needsFixMe ? 'block' : 'none';
+
+        // Show warnings if required config is missing
+        if (status.needsReminders) {
+          document.getElementById('reminders-warning').style.display = 
+            status.missingRoleIds ? 'block' : 'none';
+        }
+        if (status.needsFixMe) {
+          document.getElementById('fixme-warning').style.display = 
+            status.missingAdminWebhook ? 'block' : 'none';
+        }
+
+        // Show "all installed" message if nothing needs installation
+        const anyNeeded = status.needsAutomation || status.needsReminders || 
+                         status.needsAutoImport || status.needsFixMe;
+        document.getElementById('all-triggers-installed').style.display = 
+          anyNeeded ? 'none' : 'block';
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to check trigger status:', error);
+      })
+      .checkTriggerStatus();
+  }
+
+  function installAutomationTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('automation-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .installAutomationTriggers();
+  }
+
+  function installRemindersTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('reminders-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .installRemindersTriggers();
+  }
+
+  function installAutoImportTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('autoimport-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .installAutoImportTriggers();
+  }
+
+  function installFixMeTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('fixme-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .installFixMeTriggers();
   }
   
   //How responsive the admin sidebar is - experiment with values 

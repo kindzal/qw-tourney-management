@@ -332,3 +332,170 @@ function confirmScheduleOverwrite() {
   );
   return result === ui.Button.YES;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Trigger Management Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check the status of all required triggers and config prerequisites
+ * Returns an object indicating what needs to be installed
+ */
+function checkTriggerStatus() {
+  const triggers = ScriptApp.getProjectTriggers();
+  const triggerFunctions = triggers.map(t => t.getHandlerFunction());
+
+  // Check which triggers are missing
+  const needsAutomation = !triggerFunctions.includes('processMsgQueue');
+  const needsReminders = !triggerFunctions.includes('sendTodayGameReminders') || 
+                         !triggerFunctions.includes('sendUnscheduledGamesReminder');
+  const needsAutoImport = !triggerFunctions.includes('autoImportGames');
+  const needsFixMe = !triggerFunctions.includes('sendFixMeNotification');
+
+  // Check config prerequisites
+  let missingRoleIds = false;
+  let missingAdminWebhook = false;
+
+  if (needsReminders) {
+    // Check if all teams have Discord Role IDs
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      const headers = data[0];
+      const roleCol = headers.indexOf("Discord Role ID");
+      
+      if (roleCol !== -1) {
+        for (let i = 1; i < data.length; i++) {
+          const teamName = data[i][headers.indexOf("Team Name")];
+          const roleId = data[i][roleCol];
+          if (teamName && !roleId) {
+            missingRoleIds = true;
+            break;
+          }
+        }
+      } else {
+        missingRoleIds = true;
+      }
+    }
+  }
+
+  if (needsFixMe) {
+    // Check if Discord admin webhook is configured
+    const config = getConfiguration();
+    if (!config["Discord admin channel webhook"]) {
+      missingAdminWebhook = true;
+    }
+  }
+
+  return {
+    needsAutomation,
+    needsReminders,
+    needsAutoImport,
+    needsFixMe,
+    missingRoleIds,
+    missingAdminWebhook
+  };
+}
+
+/**
+ * Install the processMsgQueue trigger (every 5 minutes)
+ */
+function installAutomationTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  // Check if trigger already exists
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'processMsgQueue') {
+      return '✅ Automation trigger already installed';
+    }
+  }
+
+  // Create the trigger
+  ScriptApp.newTrigger('processMsgQueue')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+
+  return '✅ Automation trigger installed successfully';
+}
+
+/**
+ * Install reminder triggers (daily between 10-11am)
+ */
+function installRemindersTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  const existing = triggers.map(t => t.getHandlerFunction());
+
+  let installed = [];
+
+  // Install sendTodayGameReminders if missing
+  if (!existing.includes('sendTodayGameReminders')) {
+    ScriptApp.newTrigger('sendTodayGameReminders')
+      .timeBased()
+      .atHour(10)
+      .everyDays(1)
+      .create();
+    installed.push('sendTodayGameReminders');
+  }
+
+  // Install sendUnscheduledGamesReminder if missing
+  if (!existing.includes('sendUnscheduledGamesReminder')) {
+    ScriptApp.newTrigger('sendUnscheduledGamesReminder')
+      .timeBased()
+      .atHour(10)
+      .everyDays(1)
+      .create();
+    installed.push('sendUnscheduledGamesReminder');
+  }
+
+  if (installed.length === 0) {
+    return '✅ Game reminder triggers already installed';
+  }
+
+  return `✅ Installed: ${installed.join(', ')}`;
+}
+
+/**
+ * Install autoImportGames trigger (every 30 minutes)
+ */
+function installAutoImportTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  // Check if trigger already exists
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'autoImportGames') {
+      return '✅ Auto import trigger already installed';
+    }
+  }
+
+  // Create the trigger
+  ScriptApp.newTrigger('autoImportGames')
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+
+  return '✅ Auto import trigger installed successfully';
+}
+
+/**
+ * Install sendFixMeNotification trigger (daily between 10-11am)
+ */
+function installFixMeTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  // Check if trigger already exists
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'sendFixMeNotification') {
+      return '✅ Fix-Me notification trigger already installed';
+    }
+  }
+
+  // Create the trigger
+  ScriptApp.newTrigger('sendFixMeNotification')
+    .timeBased()
+    .atHour(10)
+    .everyDays(1)
+    .create();
+
+  return '✅ Fix-Me notification trigger installed successfully';
+}

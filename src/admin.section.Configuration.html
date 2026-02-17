@@ -1,0 +1,76 @@
+<div id="Configuration" class="section">
+  <div class="container">
+    <div class="info-box">
+      <p>This tab allows you to install automation triggers for the tournament management system.</p>
+      <p>Each trigger only needs to be installed once per tournament.</p>
+    </div>
+
+    <!-- Trigger 1: Automation -->
+    <div id="trigger-automation" style="display: none;">
+      <h3>Automation Triggers</h3>
+      <div class="note-box">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>Install automation triggers. This only needs to be done once per tournament.</p>
+        <p>This is required for the tournament to function properly.</p>
+      </div>
+      <div class="info-box">
+        <p>This trigger processes the message queue, importing games and updating stats automatically.</p>
+      </div>
+      <button onclick="installAutomationTrigger()">Install Automation</button>
+      <div id="automation-message" class="form-message"></div>
+    </div>
+
+    <!-- Trigger 2: Game Reminders -->
+    <div id="trigger-reminders" style="display: none;">
+      <h3>Automatic Game Reminders</h3>
+      <div id="reminders-warning" class="note-box" style="display: none;">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>These reminders will not work without Discord Role IDs being set up for all teams in the <span class="inline-tab" onclick="runTask('switchTab', 'Teams')">Teams</span> tab.</p>
+      </div>
+      <div class="info-box">
+        <p>Enables automatic game reminders on the day of scheduled matches and chasers to prompt players to schedule their games.</p>
+        <p>Chasers are sent from mid-week (Wednesday) until the deadline for the current round or until the game has been scheduled.</p>
+      </div>
+      <button onclick="installRemindersTrigger()">Install Automatic Game Reminders</button>
+      <div id="reminders-message" class="form-message"></div>
+    </div>
+
+    <!-- Trigger 3: Auto Import -->
+    <div id="trigger-autoimport" style="display: none;">
+      <h3>Automatic Game Imports</h3>
+      <div class="info-box">
+        <p>Enables automatic game importing from the QuakeWorld Hub.</p>
+        <p>The auto import runs between 19:00 and 23:59 every 30 minutes and imports games that match the following criteria:</p>
+        <ul>
+          <li>have a Match Tag configured for the tournament</li>
+          <li>their Match Tag does not contain keywords configured in Match Tag exclusions</li>
+          <li>are dated between tournament start and end date</li>
+          <li>are present in the tournament <span class="inline-tab" onclick="runTask('switchTab', 'Schedule')">Schedule</span></li>
+        </ul>
+      </div>
+      <button onclick="installAutoImportTrigger()">Install Automatic Game Imports</button>
+      <div id="autoimport-message" class="form-message"></div>
+    </div>
+
+    <!-- Trigger 4: Fix-Me Notifications -->
+    <div id="trigger-fixme" style="display: none;">
+      <h3>Automatic "Fix Me" Notifications</h3>
+      <div id="fixme-warning" class="note-box" style="display: none;">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>These notifications will not work without the "Discord admin channel webhook" being set up in the <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> tab.</p>
+      </div>
+      <div class="info-box">
+        <p>Enables automatic notifications sent to the Discord #admin channel about issues found relating to imported games.</p>
+      </div>
+      <button onclick="installFixMeTrigger()">Install Automatic "Fix Me" Notifications</button>
+      <div id="fixme-message" class="form-message"></div>
+    </div>
+
+    <div id="all-triggers-installed" style="display: none;">
+      <div class="info-box">
+        <p>✅ All triggers are installed and active.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
