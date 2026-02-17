@@ -59,7 +59,7 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 | **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT DIRECTLY** |
 | **UnmatchedTeamTags** | Unmatched team tags | Diagnostic tab – **DO NOT EDIT DIRECTLY** |
 | **Standings** | Group-stage standings | **DO NOT EDIT** – generated automatically |
-| **TeamGames** | Group-stage match results | Data tab - **DO NOT EDIT** |
+| **TeamGames** | All match results (group stage and playoffs) | Data tab - **DO NOT EDIT** |
 | **Games** | Games database | Core game data tab – **DO NOT EDIT** unless fixing import issues|
 | **ImportedURLs** | Deduplication list | Prevents duplicate imports |
 | **PostHistory** | Discord message log | Auto-generated |
@@ -118,7 +118,7 @@ To enable it follow the steps below:
 - on the `New deployment` screen look for `Web app` section and click `Copy`. This URL you are copying schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
 - navigate to the `Discord` tab and paste the URL in `Web App deployment URL` configuration option (see above). From now on the link to the web app will be posted as part of the Discord msg
 
-## How to use this - advanced (using Automation)
+## How to use this - advanced (using Automation via clasp)
 
 Configure automation and integrations for a complete self-managing system:
 
@@ -133,8 +133,6 @@ Match reports are posted on Discord by the players. The Reports Watcher Discord 
 Successful processing is indicated by **bot reactions** on Discord messages.
 
 See 👉 https://github.com/kindzal/qw-reports-watcher for deployment instructions.
-
----
 
 
 ---
@@ -152,11 +150,9 @@ flowchart LR
   GamesSheet --> UpdateTeams
   UpdateStats --> Ranking[Players Ranking]
   UpdateTeams --> Standings
-  UpdateTeams --> TeamGames[Group Games]
-  UpdateTeams --> TeamGamesPlayoffs[Playoff bracket]
+  UpdateTeams --> TeamGames[Group & Playoff Games]
   Standings --> WebApp
   TeamGames --> WebApp
-  TeamGamesPlayoffs --> WebApp
   Ranking --> WebApp
 ```
 
@@ -180,9 +176,34 @@ flowchart TD
   Match --> TeamsStatsCalc
   Ranking --> PlayerStatsCalc
   TeamsStatsCalc --> Standings
-  TeamsStatsCalc --> TeamGames
-  TeamsStatsCalc --> TeamGamesPlayoffs
+  TeamsStatsCalc --> TeamGames[TeamGames]
   PlayerStatsCalc --> Rank[Players / Standins]
+```
+
+### autoImportGames flow
+
+```mermaid
+flowchart TD
+  Trigger[Time-based Trigger] --> autoImportGames
+  autoImportGames --> TimeCheck{19:00–23:59?}
+  TimeCheck -- No --> Exit[Exit early]
+  TimeCheck -- Yes --> LoadConfig[Load config / tournament window]
+  LoadConfig --> LoadImported[Load ImportedURLs]
+  LoadImported --> LoadSchedule[Load scheduled team pairs + alias map]
+  LoadSchedule --> FetchHub[Fetch games from Hub API]
+  FetchHub --> ForEach[For each game]
+  ForEach --> AlreadyImported{Already imported?}
+  AlreadyImported -- Yes --> Skip[Skip]
+  AlreadyImported -- No --> ExcludedKeyword{Excluded keyword\nin matchtag?}
+  ExcludedKeyword -- Yes --> Skip
+  ExcludedKeyword -- No --> TournamentWindow{Within tournament\nwindow?}
+  TournamentWindow -- No --> Skip
+  TournamentWindow -- Yes --> ScheduledPair{Team pair in\nschedule?}
+  ScheduledPair -- No --> Skip
+  ScheduledPair -- Yes --> Enqueue[Enqueue MATCH_REPORT\nto MsgQueue]
+  Enqueue --> ForEach
+  Enqueue --> EnqueueStats[Enqueue UPDATE_STATS]
+  EnqueueStats --> processMsgQueue[processMsgQueue trigger\nprocesses MsgQueue]
 ```
 
 ## Apps Script + Web App Deployment
@@ -214,10 +235,38 @@ app-root/
 │   └── delete-deployments.ps1
 │
 ├── src/
-│   ├── api.js
 │   ├── Code.js
+│   ├── admin.js
+│   ├── admin.scripts.html
+│   ├── admin.sidebar.html
+│   ├── admin.styles.html
+│   ├── admin.section.DataImport.html
+│   ├── admin.section.Default.html
+│   ├── admin.section.Discord.html
+│   ├── admin.section.FIX-ME.html
+│   ├── admin.section.Games.html
+│   ├── admin.section.MapStats.html
+│   ├── admin.section.MsgQueue.html
+│   ├── admin.section.Players.html
+│   ├── admin.section.READ-ME.html
+│   ├── admin.section.Schedule.html
+│   ├── admin.section.ScheduleConfig.html
+│   ├── admin.section.Standings.html
+│   ├── admin.section.Standins.html
+│   ├── admin.section.TeamGames.html
+│   ├── admin.section.Teams.html
+│   ├── admin.section.UnmatchedPlayers.html
+│   ├── admin.section.UnmatchedTeamTags.html
+│   ├── admin.section.WOTeamGames.html
+│   ├── api.js
 │   ├── config.js
 │   ├── discord.js
+│   ├── fetchers.js
+│   ├── getters.js
+│   ├── globals.js
+│   ├── helpers.js
+│   ├── msgBus.js
+│   ├── tests.js
 │   ├── web.js
 │   ├── index.html
 │   ├── styles.html
@@ -227,16 +276,37 @@ app-root/
 └── .env
 ```
 
+#### Admin UI layout and approach
+
+The admin UI is a **Google Sheets sidebar** built as a single-page panel. It is composed of:
+
+- **`admin.sidebar.html`** — the sidebar shell. Includes styles, scripts, and all section partials via Apps Script `<?!= include(...) ?>` templating. Renders the navigation and the loader overlay.
+- **`admin.styles.html`** — all CSS for the sidebar UI.
+- **`admin.scripts.html`** — all client-side JavaScript for the sidebar: tab switching, form submission, `google.script.run` calls, and general interactivity.
+- **`admin.section.*.html`** — one file per sidebar tab/section (e.g. `admin.section.Schedule.html`, `admin.section.Teams.html`). Each contains the HTML markup for that panel only. The active section is shown/hidden via JavaScript — all sections are rendered into the DOM at load time.
+- **`admin.js`** — server-side Apps Script functions called by the sidebar. Handles opening the sidebar (`openSidebar`), sheet switching, schedule generation, and any other admin-triggered backend operations.
+
 ---
 
 ### Source Files (`src/`)
 
 | File | Purpose |
 |-----|--------|
+| `Code.js` | Core backend logic: game import pipeline, stats calculation, standings, match grouping, auto-import |
+| `admin.js` | Server-side functions for the admin sidebar: schedule generation, sheet switching, overwrite confirmation |
+| `admin.scripts.html` | Client-side JavaScript for the admin sidebar |
+| `admin.sidebar.html` | Sidebar shell — includes all section partials, styles, and scripts |
+| `admin.styles.html` | CSS for the admin sidebar UI |
+| `admin.section.*.html` | One file per sidebar section/tab (e.g. Schedule, Teams, FIX-ME) |
 | `api.js` | Backend API / request handling logic |
-| `Code.js` | Main Apps Script entry point and orchestration |
 | `config.js` | Centralised configuration values |
-| `discord.js` | Discord integration logic |
+| `discord.js` | Discord integration logic, including game reminders and unscheduled game alerts |
+| `fetchers.js` | Hub API fetching logic used by the auto-import pipeline |
+| `getters.js` | Sheet data accessor helpers |
+| `globals.js` | Shared constants and global values |
+| `helpers.js` | General utility / helper functions |
+| `msgBus.js` | Message queue processor (`processMsgQueue`) — handles `MATCH_REPORT` and `UPDATE_STATS` messages |
+| `tests.js` | Manual test / diagnostic functions |
 | `web.js` | Web app routing / handlers |
 | `index.html` | Main HTML UI for the web app |
 | `styles.html` | NOT IN USE |
@@ -419,24 +489,41 @@ Key identifying attributes:
 ---
 
 #### Match
-A **match** is a collection of games that share all of the following:
 
+A **match** is a collection of games grouped by the system to represent a single head-to-head encounter between two teams.
+
+Matches are derived automatically from the **Games** tab during stats calculation. Each match is identified by:
+
+- **The two teams involved** (resolved from team tags via the alias map)
 - **Date** (day part only)
-- **Server**
-- **Match Tag**
 
-These three fields are used to group multiple maps into a single match.
+Maps are grouped into a match when they share above attributes and fall within a configurable time window of each other (**240 minutes currently**).
 
-Limitation:
-If any of these values differ between games (e.g. server change, match tag change, match crosses midnight), the system will treat them as separate matches.
+Each match is written as a single row in the **TeamGames** tab with the following columns:
+
+| Column | Description |
+|---|---|
+| `#` | Row number |
+| `Stage` | `Group` or `Playoff` (determined by comparison against `Playoffs start date` in Configuration) |
+| `Round` | Round label from the **Schedule** tab (e.g. `1`, `2`, `Quarterfinals`) |
+| `TeamA` | Full team name |
+| `MapsWonA` | Number of maps won by Team A |
+| `Score` | Match score in `A-B` format |
+| `TeamB` | Full team name |
+| `MapsWonB` | Number of maps won by Team B |
+| `AllMapsJSON` | JSON array of individual map results (see below) |
+| `Date` | Match date |
+
+Both group stage and playoff matches are stored in the single **TeamGames** tab, differentiated by the `Stage` column.
 
 ---
 
 ### Game import pipeline
 
 1. Game URLs are received from:
-   - Discord (via Reports Watcher bot)
+   - Discord (via Reports Watcher bot → `doPost` webhook)
    - Manual entry in **DataImport**
+   - Automatic polling of the Hub API via the `autoImportGames` time-based trigger, which filters games against tournament criteria (date window, scheduled team pairs, excluded keywords) and enqueues matching games without any manual intervention
 
 2. Game data is fetched from the Hub and written to:
    - **Games** tab (one row per player per map)
@@ -504,16 +591,20 @@ If no head-to-head result exists, ordering remains stable.
 
 ---
 
-### TeamGames and TeamGamesPlayoffs
+### TeamGames
 
 Each row represents **one match**, not one map.
+
+All matches — both group stage and playoff — are stored in the single **TeamGames** tab, differentiated by the `Stage` column (`Group` or `Playoff`).
 
 Includes:
 - Teams
 - Maps won
 - Match score
+- Stage (`Group` / `Playoff`)
 - Round (from Schedule)
 - AllMapsJSON
+- Date
 
 ---
 
@@ -527,7 +618,8 @@ Each match row contains a JSON array:
     "mapName": "dm2",
     "teamAFrags": 134,
     "teamBFrags": 121,
-    "gameUrl": "https://hub.quakeworld.nu/..."
+    "gameUrl": "https://hub.quakeworld.nu/...",
+    "mapDate": "2025-01-12T20:34:00.000Z"
   }
 ]
 ```
@@ -541,18 +633,19 @@ Used for:
 
 ### Automation and triggers
 
-- Time-based trigger: processes pending imports (`processPendingReports` backend function)
-- Webhook trigger: receives Discord bot payloads
-- Manual execution: admin-triggered import / recalculation
+| Trigger function | Type | Purpose |
+|---|---|---|
+| `processMsgQueue` | Time-based | Processes pending messages from the `MsgQueue` tab — handles `MATCH_REPORT` (game import) and `UPDATE_STATS` (stats recalculation) messages |
+| `autoImportGames` | Time-based | Polls the QuakeWorld Hub API for games matching tournament criteria and enqueues new ones to `MsgQueue` automatically (runs between 19:00–23:59 only) |
+| `sendTodayGameReminders` | Time-based | Posts Discord reminders for games scheduled to be played today |
+| `sendUnscheduledGamesReminder` | Time-based | Posts a Discord reminder listing matches that have not yet been scheduled |
+| `doPost` | Webhook | Receives game URLs from the Reports Watcher Discord bot and enqueues them to `MsgQueue` |
 
 ---
 
 ### Known limitations
 
-- Relies on consistent team tags
-- Matches crossing midnight require manual correction
-- Server changes mid-match cause match splitting
-- Multi-team tie resolution beyond head-to-head is not implemented
+None currently known.
 
 ---
 
@@ -569,95 +662,9 @@ Core data in the **Games** tab should remain immutable whenever possible.
 
 ## Troubleshooting
 
-This section lists common issues, their likely causes, and how to resolve them.
+The primary troubleshooting tool is the **Admin UI** sidebar (`Tournament Tools` → `Open Control Panel`).
 
----
-
-### Backend / Apps Script issues
-
-| Symptom | Likely issue | Solution |
-|------|------------|---------|
-| **Exception: The number of rows in the range must be at least 1** | No stand-in records exist | Add a dummy record to the **Standins** tab (e.g. `standin, standin, standin`) |
-| **Stats not updating after imports** | Trigger not running | Check time-based trigger is configured to run `processPendingReports()` |
-| **Games appear but standings are empty** | All games treated as playoffs | Check **Playoffs start date** in `Configuration` (format must be `DD/MM/YYYY`) |
-| **Playoff games appear in Standings** | Date parsing failed | Ensure `Games → Date` column contains valid dates or ISO-style timestamps |
-| **Group-stage games appear in Playoffs sheet** | Incorrect cutoff date | Verify `Configuration → Playoffs start date` |
-
----
-
-### Player / team matching issues
-
-| Symptom | Likely issue | Solution |
-|------|------------|---------|
-| **UnmatchedPlayers tab not empty** | Game nick not mapped | Add missing nick to **Players / Standins → Game Nicks** |
-| **Player stats incorrect** | Nick mismatch or typo | Fix nick and re-run `DataImport → Update Stats` |
-| **Team shown as tag instead of name** | Team Tag mismatch | Ensure `Teams → Team Tag` matches `Games → Team` |
-| **Same team appears under multiple names** | Inconsistent tags used | Normalize tags in the `Games` tab |
-
----
-
-### Match grouping issues
-
-| Symptom | Likely issue | Solution |
-|------|------------|---------|
-| **Single match split into multiple entries** | Server, match tag, or date differs | Normalize these fields in the `Games` tab |
-| **Maps in wrong order** | Incorrect or inconsistent dates | Ensure `Games → Date` is consistent |
-| **Head-to-head ordering incorrect** | Drawn match or missing data | Verify both teams played a group-stage match |
-
-A match is defined strictly by:
-- Date (day only)
-- Server
-- Match Tag
-
----
-
-### Discord / importing issues
-
-| Symptom | Likely issue | Solution |
-|------|------------|---------|
-| **URLs stuck in DataImport** | Import not running | Check trigger and Reports Watcher bot |
-| **Discord bot reacts with error** | Invalid or duplicate URL | Verify Hub link |
-| **Bot reacts but no import occurs** | Endpoint error | Check Apps Script Web App deployment |
-
----
-
-### Web App issues
-
-| Symptom | Likely issue | Solution |
-|------|------------|---------|
-| **Incorrect standings on Web UI** | Backend not updated | Trigger stats update |
-| **Match duplicated** | Grouping issue | Normalize server/tag/date |
-| **Missing maps** | Incomplete import | Re-import Hub URLs |
-
----
-
-### Data repair guidance
-
-Safe to edit:
-- `DataImport` (yellow rows only when triggering a manual import)
-- `Players / Standins`
-- `Teams`
-- `Schedule`
-- `ScheduleConfig`
-- `Configuration`
-- `Discord` (column B only) to configure Web App url and webhook and/or to customise the message )
-
-Avoid editing unless fixing broken imports:
-- `Games`
-- `ImportedURLs`
-
-Always re-run `DataImport → Update Stats` after manual fixes.
-
----
-
-### Logging & debugging tips
-
-- Check **Apps Script → Executions**
-- Use `Logger.log()` for debugging
-- Monitor `UnmatchedPlayers`
-- Verify `Playoffs start date` after sheet copies
-
----
+The **FIX-ME** tab within the Admin UI surfaces any data issues detected during game import — such as unmatched players or team tags — along with guidance on how to resolve them. Always check this tab first when something looks wrong.
 
 ## Related repositories
 
