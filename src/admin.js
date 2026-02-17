@@ -231,7 +231,10 @@ function generateSchedule(data) {
         currentDeadline
       ]);
 
-      currentDeadline = addDays(currentDeadline, 7);
+      // Only advance the deadline when moving to a new week
+      if (round.advanceWeek) {
+        currentDeadline = addDays(currentDeadline, 7);
+      }
     });
   }
 
@@ -244,24 +247,27 @@ function generateSchedule(data) {
 
 function generatePlayoffsStructure(type) {
 
+  // advanceWeek: true  → advance currentDeadline AFTER writing this round's config row
+  // advanceWeek: false → share the same deadline as the previous round
+
   if (type === "Single Elimination") {
     return [
-      { name: "Quarterfinals", matches: Array(4) },
-      { name: "Semifinals", matches: Array(2) },
-      { name: "Final", matches: Array(1) },
-      { name: "Bronze", matches: Array(1) }
+      { name: "Quarterfinals", matches: Array(4).fill(null), advanceWeek: true  },
+      { name: "Semifinals",    matches: Array(2).fill(null), advanceWeek: true  },
+      { name: "Final",         matches: Array(1).fill(null), advanceWeek: false },
+      { name: "Bronze",        matches: Array(1).fill(null), advanceWeek: false }
     ];
   }
 
   if (type === "AB Playoffs") {
     return [
-      { name: "Quarterfinals", matches: Array(4) },
-      { name: "Semifinals", matches: Array(2) },
-      { name: "Semifinals B", matches: Array(2) },
-      { name: "Final", matches: Array(1) },
-      { name: "Final B", matches: Array(1) },
-      { name: "Bronze", matches: Array(1) },
-      { name: "Bronze B", matches: Array(1) }
+      { name: "Quarterfinals", matches: Array(4).fill(null), advanceWeek: true  },
+      { name: "Semifinals",    matches: Array(2).fill(null), advanceWeek: false },
+      { name: "Semifinals B",  matches: Array(2).fill(null), advanceWeek: true  },
+      { name: "Final",         matches: Array(1).fill(null), advanceWeek: false },
+      { name: "Final B",       matches: Array(1).fill(null), advanceWeek: false },
+      { name: "Bronze",        matches: Array(1).fill(null), advanceWeek: false },
+      { name: "Bronze B",      matches: Array(1).fill(null), advanceWeek: false }
     ];
   }
 
@@ -309,7 +315,6 @@ function writeSchedule(sheet, rows) {
   sheet.getRange(2, 5, rows.length).setDataValidation(reminderValidation);
 }
 
-
 function writeScheduleConfig(sheet, rows) {
   sheet.getRange(2, 1, sheet.getLastRow(), 3).clearContent();
 
@@ -318,4 +323,12 @@ function writeScheduleConfig(sheet, rows) {
   sheet.getRange(2, 1, rows.length, 3).setValues(rows);
 }
 
-
+function confirmScheduleOverwrite() {
+  const ui = SpreadsheetApp.getUi();
+  const result = ui.alert(
+    'Confirm Schedule Generation',
+    'If Schedule or ScheduleConfig contains data, it will be overwritten. Continue?',
+    ui.ButtonSet.YES_NO
+  );
+  return result === ui.Button.YES;
+}

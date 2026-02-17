@@ -124,32 +124,39 @@
     messageBox.innerText = '';
     messageBox.className = 'form-message';
 
-    // Overwrite confirmation
-    const confirmOverwrite = confirm(
-      "If Schedule or ScheduleConfig contains data, it will be overwritten. Continue?"
-    );
-
-    if (!confirmOverwrite) return;
-
     btn.disabled = true;
     loader.style.display = 'flex';
 
     google.script.run
-      .withSuccessHandler(function(response) {
-        loader.style.display = 'none';
-        btn.disabled = false;
+      .withSuccessHandler(function(confirmed) {
+        if (!confirmed) {
+          loader.style.display = 'none';
+          btn.disabled = false;
+          return;
+        }
 
-        messageBox.innerText = response;
-        messageBox.classList.add('success');
+        google.script.run
+          .withSuccessHandler(function(response) {
+            loader.style.display = 'none';
+            btn.disabled = false;
+            messageBox.innerText = response;
+            messageBox.classList.add('success');
+          })
+          .withFailureHandler(function(error) {
+            loader.style.display = 'none';
+            btn.disabled = false;
+            messageBox.innerText = 'Error: ' + error.message;
+            messageBox.classList.add('error');
+          })
+          .generateSchedule(data);
       })
       .withFailureHandler(function(error) {
         loader.style.display = 'none';
         btn.disabled = false;
-
         messageBox.innerText = 'Error: ' + error.message;
         messageBox.classList.add('error');
       })
-      .generateSchedule(data);
+      .confirmScheduleOverwrite();
   }
   
   //How responsive the admin sidebar is - experiment with values 
