@@ -1,3 +1,64 @@
 <div id="Schedule" class="section">
-<p>TO DO. Watch this space!</p>
+    <div class="container">
+        <div class="info-box">
+            <p>This tab is used to create and manage the tournament schedule. Use the forms below to generate and/or update it.</p>
+            <p>You can manually edit if you require a custom format.</p>
+        </div>
+        <div class="note-box">
+            <strong>⚠️ Important ⚠️</strong>
+            <p>EXPERIMENTAL. Do not use on live tournament just yet!</p>
+        </div>
+        <!-- GROUP STAGE -->
+        <div class="form-group">
+        <label>Group Stage</label>
+        <select id="groupStage">
+            <option value="Single Round Robin" selected>Single Round Robin</option>
+            <option value="Double Round Robin">Double Round Robin</option>
+        </select>
+        </div>
+
+        <div class="form-group">
+        <label>Group Stage Mode</label>
+        <select id="groupStageMode">
+            <option value="GO3" selected>GO3</option>
+            <option value="BO5">BO5</option>
+        </select>
+        </div>
+
+        <!-- PLAYOFFS REQUIRED -->
+        <div class="form-group">
+        <label>Playoffs Required</label>
+        <select id="playoffsRequired" onchange="togglePlayoffsSection()">
+            <option value="Yes" selected>Yes</option>
+            <option value="No">No</option>
+        </select>
+        </div>
+
+        <!-- PLAYOFFS OPTIONS -->
+        <div id="playoffsSection">
+
+        <div class="form-group">
+            <label>Playoffs Type</label>
+            <select id="playoffsType">
+            <option value="Single Elimination" selected>Single Elimination</option>
+            <option value="AB Playoffs">AB Playoffs</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Playoffs Mode</label>
+            <select id="playoffsMode">
+            <option value="BO5" selected>BO5</option>
+            <option value="BO7">BO7</option>
+            </select>
+        </div>
+
+        </div>
+
+        <button id="generateScheduleBtn" onclick="submitScheduleForm()">
+        Generate Schedule
+        </button>
+
+        <div id="scheduleMessage" class="form-message"></div>
+    </div>
 </div>

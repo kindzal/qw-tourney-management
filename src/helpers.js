@@ -322,3 +322,31 @@ function GASdecode(value) {
   if (typeof value !== "string" || value.length === 0) return value;
   return value.startsWith("\\'") ? value.substring(1) : value;
 }
+
+function formatMaps(mapString) {
+  return mapString
+    .split(",")
+    .map(m => m.trim())
+    .join(" • ");
+}
+
+function getFirstSundayAfter(dateString) {
+  const parts = dateString.split("/");
+  const date = new Date(parts[2], parts[1] - 1, parts[0]);
+
+  const day = date.getDay();
+  const daysUntilSunday = (7 - day) % 7 || 7;
+
+  return addDays(date, daysUntilSunday);
+}
+
+function addDays(date, days) {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() + days);
+  return newDate;
+}
+
+function hasExistingData(sheet) {
+  if (!sheet) return false;
+  return sheet.getLastRow() > 1;
+}

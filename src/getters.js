@@ -179,3 +179,20 @@ function loadScheduledTeamPairs() {
     })
     .filter(pair => pair !== null);
 }
+
+function getConfiguration() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Configuration");
+  const data = sheet.getDataRange().getValues();
+
+  const config = {};
+  for (let i = 1; i < data.length; i++) {
+    config[data[i][0]] = data[i][1];
+  }
+
+  return config;
+}
+function getTeams() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Teams");
+  const data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
+  return data.flat().filter(name => name);
+}

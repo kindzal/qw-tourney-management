@@ -16,6 +16,8 @@
     if (section) {
       if (sheetName === 'FIX-ME') {
         refreshFixMeStatus();
+      } else if (sheetName === 'Schedule') {
+        togglePlayoffsSection();
       }
       section.style.display = "block";
     } else {
@@ -99,7 +101,58 @@
       .checkForIssues();
   }
 
+  function togglePlayoffsSection() {
+    const required = document.getElementById('playoffsRequired').value;
+    const section = document.getElementById('playoffsSection');
+    section.style.display = required === 'Yes' ? 'block' : 'none';
+  }
+
+  function submitScheduleForm() {
+
+    const data = {
+      groupStage: document.getElementById('groupStage').value,
+      groupStageMode: document.getElementById('groupStageMode').value,
+      playoffsRequired: document.getElementById('playoffsRequired').value,
+      playoffsType: document.getElementById('playoffsType').value,
+      playoffsMode: document.getElementById('playoffsMode').value
+    };
+
+    const btn = document.getElementById('generateScheduleBtn');
+    const messageBox = document.getElementById('scheduleMessage');
+    const loader = document.getElementById('loader-overlay');
+
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+
+    // Overwrite confirmation
+    const confirmOverwrite = confirm(
+      "If Schedule or ScheduleConfig contains data, it will be overwritten. Continue?"
+    );
+
+    if (!confirmOverwrite) return;
+
+    btn.disabled = true;
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .generateSchedule(data);
+  }
+  
   //How responsive the admin sidebar is - experiment with values 
   setInterval(checkActiveSheet, 500);
   checkActiveSheet();  
-</script>
+ </script>
