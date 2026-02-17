@@ -350,3 +350,24 @@ function hasExistingData(sheet) {
   if (!sheet) return false;
   return sheet.getLastRow() > 1;
 }
+
+function ensureExcludedGamesTab() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("ExcludedGames");
+
+  if (!sheet) {
+    sheet = ss.insertSheet("ExcludedGames");
+    sheet.getRange(1, 1).setValue("Hub URL");
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return new Set();
+
+  return new Set(
+    sheet.getRange(2, 1, lastRow - 1, 1)
+      .getValues()
+      .flat()
+      .map(v => String(v).trim())
+      .filter(Boolean)
+  );
+}

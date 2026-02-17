@@ -466,11 +466,12 @@ function quakeNameToStandard(name) {
 
 function updatePlayerAndStandinsStats() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
-  updatePlayerStats(sheet.getSheetByName('Players'), sheet.getSheetByName('Games'), sheet.getSheetByName('UnmatchedPlayers'), sheet.getSheetByName('Standins'));
-  updatePlayerStats(sheet.getSheetByName('Standins'), sheet.getSheetByName('Games'));
+  var excludedUrls = ensureExcludedGamesTab();
+  updatePlayerStats(sheet.getSheetByName('Players'), sheet.getSheetByName('Games'), sheet.getSheetByName('UnmatchedPlayers'), sheet.getSheetByName('Standins'), excludedUrls);
+  updatePlayerStats(sheet.getSheetByName('Standins'), sheet.getSheetByName('Games'), null, null, excludedUrls);
 }
 
-function updatePlayerStats(p, g, u, x) {  
+function updatePlayerStats(p, g, u, x, excludedUrls = new Set()) {  
   var winRateWeight = 0.05;
   var avgFragsWeight = 0.75;
 
@@ -528,8 +529,9 @@ function updatePlayerStats(p, g, u, x) {
     
     // Calculate stats based on games played
     for (var j = 1; j < gamesData.length; j++) {
-      var gameNick = String(gamesData[j][8]).toLowerCase(); // Convert to lowercase for case-insensitive comparison
-      //var gameNicksLower = gameNicks.map(nick => nick.toLowerCase()); // Convert all game nicks to lowercase      
+      if (excludedUrls.has(String(gamesData[j][0]).trim())) continue;   // ← skip excluded
+
+      var gameNick = String(gamesData[j][8]).toLowerCase();
 
       if (gameNicksLower.includes(gameNick)) {
         playerStats[player].totalFrags += gamesData[j][6];
@@ -846,6 +848,9 @@ function updateTeamStats() {
   const mapNameCol = headers.indexOf("Map");
   const fragsCol = headers.indexOf("Frags");
 
+  // Excluded game URLs — sourced from ExcludeGames tab
+  const excludedUrls = ensureExcludedGamesTab();
+
   // -------------------------------------------------------
   // Team lookup
   // -------------------------------------------------------
@@ -886,6 +891,7 @@ function updateTeamStats() {
   const mapGroups = {};
   rows.forEach(r=>{
     const url = r[urlCol];
+    if (excludedUrls.has(String(url).trim())) return;   // ← skip excluded
     if(!mapGroups[url]) mapGroups[url]=[];
     mapGroups[url].push(r);
   });
