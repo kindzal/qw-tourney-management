@@ -557,3 +557,183 @@ function uninstallFixMeTriggers() {
 
   return '✅ Fix-Me notification trigger already uninstalled';
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIX-ME Issue Fixing Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get the currently selected issue from the FIX-ME sheet
+ * Returns an object with issue details and list of Players/Teams to choose from
+ */
+function getSelectedFixMeIssue() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = ss.getActiveSheet();
+  
+  // Check if FIX-ME sheet is active
+  if (activeSheet.getName() !== "FIX-ME") {
+    return { canFix: false, message: "Please select the FIX-ME sheet" };
+  }
+  
+  const selection = activeSheet.getActiveRange();
+  if (!selection) {
+    return { canFix: false, message: "No row selected" };
+  }
+  
+  const row = selection.getRow();
+  
+  // Check if header row or no data row
+  if (row < 2) {
+    return { canFix: false, message: "Please select a data row (not the header)" };
+  }
+  
+  // Get the issue data from the selected row
+  const rowData = activeSheet.getRange(row, 1, 1, 2).getValues()[0];
+  const issueType = rowData[0];
+  const value = rowData[1];
+  
+  if (!issueType || !value) {
+    return { canFix: false, message: "Selected row is empty" };
+  }
+  
+  // Validate issue type
+  if (issueType !== "Unmatched Player" && issueType !== "Unmatched Team Tag") {
+    return { canFix: false, message: "Unknown issue type" };
+  }
+  
+  // Get list of Players or Teams
+  const targets = [];
+  
+  if (issueType === "Unmatched Player") {
+    // Get Players
+    const playersSheet = ss.getSheetByName("Players");
+    if (playersSheet && playersSheet.getLastRow() > 1) {
+      const playersData = playersSheet.getRange(2, 3, playersSheet.getLastRow() - 1, 1).getValues();
+      playersData.forEach((row, index) => {
+        if (row[0]) {
+          targets.push({
+            name: row[0],
+            row: index + 2,
+            sheet: "Players"
+          });
+        }
+      });
+    }
+    
+    // Get Standins
+    const standinsSheet = ss.getSheetByName("Standins");
+    if (standinsSheet && standinsSheet.getLastRow() > 1) {
+      const standinsData = standinsSheet.getRange(2, 3, standinsSheet.getLastRow() - 1, 1).getValues();
+      standinsData.forEach((row, index) => {
+        if (row[0]) {
+          targets.push({
+            name: row[0] + " (Standin)",
+            row: index + 2,
+            sheet: "Standins"
+          });
+        }
+      });
+    }
+    
+  } else if (issueType === "Unmatched Team Tag") {
+    // Get Teams
+    const teamsSheet = ss.getSheetByName("Teams");
+    if (teamsSheet && teamsSheet.getLastRow() > 1) {
+      const teamsData = teamsSheet.getRange(2, 2, teamsSheet.getLastRow() - 1, 1).getValues();
+      teamsData.forEach((row, index) => {
+        if (row[0]) {
+          targets.push({
+            name: row[0],
+            row: index + 2,
+            sheet: "Teams"
+          });
+        }
+      });
+    }
+  }
+  
+  if (targets.length === 0) {
+    return { 
+      canFix: false, 
+      message: issueType === "Unmatched Player" ? 
+        "No players or standins found" : 
+        "No teams found" 
+    };
+  }
+  
+  return {
+    canFix: true,
+    issueType: issueType,
+    value: String(value).trim(),
+    row: row,
+    targets: targets
+  };
+}
+
+/**
+ * Fix the currently selected issue by adding the tag to the selected Player/Team
+ * @param {number} targetRow - The row number in the Players/Standins/Teams sheet to update
+ */
+function fixSelectedFixMeIssue(targetRow) {
+  const issue = getSelectedFixMeIssue();
+  
+  if (!issue.canFix) {
+    throw new Error(issue.message);
+  }
+  
+  // Find the selected target
+  const target = issue.targets.find(t => t.row === targetRow);
+  if (!target) {
+    throw new Error("Invalid target selected");
+  }
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(target.sheet);
+  
+  if (!sheet) {
+    throw new Error(`${target.sheet} sheet not found`);
+  }
+  
+  if (issue.issueType === "Unmatched Player") {
+    // Update Game Nicks column (column B, index 2)
+    const currentNicks = sheet.getRange(targetRow, 2).getValue();
+    let newNicks = issue.value;
+    
+    if (currentNicks) {
+      // Check if nick already exists
+      const nicksArray = String(currentNicks).toLowerCase().split(',').map(n => n.trim());
+      if (nicksArray.includes(issue.value.toLowerCase())) {
+        throw new Error(`Game nick "${issue.value}" already exists for ${target.name}`);
+      }
+      newNicks = currentNicks + ',' + issue.value;
+    }
+    
+    sheet.getRange(targetRow, 2).setValue(newNicks);
+    
+    // Update stats and return
+    updateStats(true);
+    return `✅ Added "${issue.value}" to ${target.name}'s Game Nicks. Stats updated.`;
+    
+  } else if (issue.issueType === "Unmatched Team Tag") {
+    // Update Team Tag column (column A, index 1)
+    const currentTags = sheet.getRange(targetRow, 1).getValue();
+    let newTags = issue.value;
+    
+    if (currentTags) {
+      // Check if tag already exists
+      const tagsArray = String(currentTags).split('‡').map(t => t.trim());
+      if (tagsArray.includes(issue.value)) {
+        throw new Error(`Team tag "${issue.value}" already exists for ${target.name}`);
+      }
+      newTags = currentTags + '‡' + issue.value;
+    }
+    
+    sheet.getRange(targetRow, 1).setValue(newTags);
+    
+    // Update stats and return
+    updateStats(true);
+    return `✅ Added "${issue.value}" to ${target.name}'s Team Tags. Stats updated.`;
+  }
+  
+  throw new Error("Unknown issue type");
+}

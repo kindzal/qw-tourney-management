@@ -2,17 +2,42 @@
   <div class="container">
 
     <div id="fixme-issues" style="display:none">
-      <div class="note-box">
-        <strong>⚠️ Important ⚠️</strong>
-        <p>For every <span class="inline-col">Unmatched Player</span> on the left, navigate to <span class="inline-tab" onclick="runTask('switchTab', 'Players')">Players</span> and/or <span class="inline-tab" onclick="runTask('switchTab', 'Standins')">Standins</span> and update <span class="inline-col">Game Nicks</span> columns with the missing nicks (comma (,) separated).</p>
+      <div class="info-box">
+        <p><strong>Quick Fix Instructions:</strong></p>
+        <ol class="step-list">
+          <li>Click on a row in the <span class="inline-tab" onclick="runTask('switchTab', 'FIX-ME')">FIX-ME</span> sheet to select it</li>
+          <li>Select the Player or Team from the dropdown below</li>
+          <li>Click "Fix Selected Issue" to add the missing tag</li>
+          <li>Stats will be automatically updated after fixing</li>
+        </ol>
+        <p><strong>Note:</strong> Select one row at a time. If multiple rows are selected, only the first row will be processed.</p>
       </div>
-      <div class="note-box">
-        <strong>⚠️ Important ⚠️</strong>
-        <p>For every <span class="inline-col">Unmatched Team Tag</span> on the left, navigate to <span class="inline-tab" onclick="runTask('switchTab', 'Teams')">Teams</span> and update <span class="inline-col">Team Tag</span> with the missing nicks ('‡' character separated).</p>
+
+      <div style="margin: 20px 0;">
+        <div id="fix-button-status" style="margin-bottom: 10px; font-weight: bold; color: #666;">
+          No row selected
+        </div>
+        
+        <div id="fix-dropdown-container" style="display: none; margin-bottom: 10px;">
+          <label for="fix-target-select" id="fix-dropdown-label" style="display: block; margin-bottom: 5px; font-weight: bold;">
+            Select Player:
+          </label>
+          <select id="fix-target-select" style="width: 100%; max-width: 400px; padding: 5px;">
+            <option value="">-- Select --</option>
+          </select>
+        </div>
+        
+        <button id="fix-selected-btn" onclick="fixSelectedIssue()" disabled style="opacity: 0.5; cursor: not-allowed;">
+          Fix Selected Issue
+        </button>
+        <div id="fix-message" class="form-message"></div>
       </div>
+
       <div class="note-box">
-        <strong>⚠️ Important ⚠️</strong>
-        <p>Once all above have been addressed, click <span class="inline-btn">Run Update Stats</span> on the <span class="inline-tab" onclick="runTask('switchTab', 'Dataimport')">DataImport</span> tab then check here again for any remaining issues.</p>
+        <strong>⚠️ Manual Fix Instructions (if needed) ⚠️</strong>
+        <p>For every <span class="inline-col">Unmatched Player</span>, navigate to <span class="inline-tab" onclick="runTask('switchTab', 'Players')">Players</span> and/or <span class="inline-tab" onclick="runTask('switchTab', 'Standins')">Standins</span> and update <span class="inline-col">Game Nicks</span> column with the missing nicks (comma (,) separated).</p>
+        <p>For every <span class="inline-col">Unmatched Team Tag</span>, navigate to <span class="inline-tab" onclick="runTask('switchTab', 'Teams')">Teams</span> and update <span class="inline-col">Team Tag</span> with the missing tags ('‡' character separated).</p>
+        <p>Once all issues have been addressed manually, click <span class="inline-btn">Run Update Stats</span> on the <span class="inline-tab" onclick="runTask('switchTab', 'DataImport')">DataImport</span> tab.</p>
       </div>
     </div>
 

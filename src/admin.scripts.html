@@ -16,6 +16,7 @@
     if (section) {
       if (sheetName === 'FIX-ME') {
         refreshFixMeStatus();
+        startFixMeMonitoring();
       } else if (sheetName === 'Schedule') {
         togglePlayoffsSection();
       } else if (sheetName === 'Configuration') {
@@ -411,6 +412,146 @@
         messageBox.classList.add('error');
       })
       .uninstallFixMeTriggers();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FIX-ME Section - Interactive Issue Fixing
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  let fixMeMonitoringInterval = null;
+  let currentIssueData = null;
+
+  function startFixMeMonitoring() {
+    // Clear any existing interval
+    if (fixMeMonitoringInterval) {
+      clearInterval(fixMeMonitoringInterval);
+    }
+
+    // Check selection every 500ms
+    fixMeMonitoringInterval = setInterval(checkFixMeSelection, 500);
+    
+    // Initial check
+    checkFixMeSelection();
+  }
+
+  function checkFixMeSelection() {
+    google.script.run
+      .withSuccessHandler(function(result) {
+        const button = document.getElementById('fix-selected-btn');
+        const status = document.getElementById('fix-button-status');
+        const dropdownContainer = document.getElementById('fix-dropdown-container');
+        const dropdownLabel = document.getElementById('fix-dropdown-label');
+        const dropdown = document.getElementById('fix-target-select');
+        
+        if (result && result.canFix) {
+          // Store current issue data
+          currentIssueData = result;
+          
+          // Update status
+          status.style.color = '#2d8f2d';
+          status.innerHTML = `<strong>Selected:</strong> ${result.issueType} - "${result.value}"`;
+          
+          // Show and populate dropdown
+          dropdownContainer.style.display = 'block';
+          
+          // Update label based on issue type
+          if (result.issueType === 'Unmatched Player') {
+            dropdownLabel.textContent = 'Select Player to add this Game Nick to:';
+          } else {
+            dropdownLabel.textContent = 'Select Team to add this Team Tag to:';
+          }
+          
+          // Populate dropdown with options
+          dropdown.innerHTML = '<option value="">-- Select --</option>';
+          result.targets.forEach(function(target) {
+            const option = document.createElement('option');
+            option.value = target.row;
+            option.textContent = target.name;
+            dropdown.appendChild(option);
+          });
+          
+          // Enable button only if dropdown has a selection
+          dropdown.onchange = function() {
+            if (dropdown.value) {
+              button.disabled = false;
+              button.style.opacity = '1';
+              button.style.cursor = 'pointer';
+            } else {
+              button.disabled = true;
+              button.style.opacity = '0.5';
+              button.style.cursor = 'not-allowed';
+            }
+          };
+          
+          // Reset button state
+          button.disabled = true;
+          button.style.opacity = '0.5';
+          button.style.cursor = 'not-allowed';
+          
+        } else {
+          // Hide dropdown and disable button
+          currentIssueData = null;
+          dropdownContainer.style.display = 'none';
+          button.disabled = true;
+          button.style.opacity = '0.5';
+          button.style.cursor = 'not-allowed';
+          
+          // Update status
+          status.style.color = '#666';
+          status.textContent = result ? result.message : 'No row selected';
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to check selection:', error);
+      })
+      .getSelectedFixMeIssue();
+  }
+
+  function fixSelectedIssue() {
+    if (!currentIssueData) {
+      return;
+    }
+    
+    const dropdown = document.getElementById('fix-target-select');
+    const targetRow = parseInt(dropdown.value);
+    
+    if (!targetRow) {
+      alert('Please select a Player or Team from the dropdown');
+      return;
+    }
+    
+    const button = document.getElementById('fix-selected-btn');
+    const messageBox = document.getElementById('fix-message');
+    const loader = document.getElementById('loader-overlay');
+
+    button.disabled = true;
+    button.style.opacity = '0.5';
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        
+        // Refresh the FIX-ME status after 2 seconds
+        setTimeout(() => {
+          messageBox.innerText = '';
+          messageBox.className = 'form-message';
+          refreshFixMeStatus();
+          checkFixMeSelection();
+        }, 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        button.disabled = false;
+        button.style.opacity = '1';
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .fixSelectedFixMeIssue(targetRow);
   }
   
   //How responsive the admin sidebar is - experiment with values 
