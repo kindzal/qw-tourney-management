@@ -31,7 +31,14 @@
         <p>Enables automatic game reminders on the day of scheduled matches and chasers to prompt players to schedule their games.</p>
         <p>Chasers are sent from mid-week (Wednesday) until the deadline for the current round or until the game has been scheduled.</p>
       </div>
-      <button onclick="installRemindersTrigger()">Install Automatic Game Reminders</button>
+      <div id="reminders-status-disabled" style="display: none; color: #c93a3a; margin-bottom: 10px;">
+        <strong>✗ Status: Disabled</strong>
+      </div>
+      <div id="reminders-status-enabled" style="display: none; color: #2d8f2d; margin-bottom: 10px;">
+        <strong>✓ Status: Enabled</strong>
+      </div>
+      <button id="install-reminders-btn" onclick="installRemindersTrigger()" style="display: none;">Install Automatic Game Reminders</button>
+      <button id="disable-reminders-btn" onclick="disableRemindersTrigger()" style="display: none;">Disable Automatic Game Reminders</button>
       <div id="reminders-message" class="form-message"></div>
     </div>
 
@@ -48,7 +55,14 @@
           <li>are present in the tournament <span class="inline-tab" onclick="runTask('switchTab', 'Schedule')">Schedule</span></li>
         </ul>
       </div>
-      <button onclick="installAutoImportTrigger()">Install Automatic Game Imports</button>
+      <div id="autoimport-status-disabled" style="display: none; color: #c93a3a; margin-bottom: 10px;">
+        <strong>✗ Status: Disabled</strong>
+      </div>
+      <div id="autoimport-status-enabled" style="display: none; color: #2d8f2d; margin-bottom: 10px;">
+        <strong>✓ Status: Enabled</strong>
+      </div>
+      <button id="install-autoimport-btn" onclick="installAutoImportTrigger()" style="display: none;">Install Automatic Game Imports</button>
+      <button id="disable-autoimport-btn" onclick="disableAutoImportTrigger()" style="display: none;">Disable Automatic Game Imports</button>
       <div id="autoimport-message" class="form-message"></div>
     </div>
 
@@ -62,7 +76,14 @@
       <div class="info-box">
         <p>Enables automatic notifications sent to the Discord #admin channel about issues found relating to imported games.</p>
       </div>
-      <button onclick="installFixMeTrigger()">Install Automatic "Fix Me" Notifications</button>
+      <div id="fixme-status-disabled" style="display: none; color: #c93a3a; margin-bottom: 10px;">
+        <strong>✗ Status: Disabled</strong>
+      </div>
+      <div id="fixme-status-enabled" style="display: none; color: #2d8f2d; margin-bottom: 10px;">
+        <strong>✓ Status: Enabled</strong>
+      </div>
+      <button id="install-fixme-btn" onclick="installFixMeTrigger()" style="display: none;">Install Automatic "Fix Me" Notifications</button>
+      <button id="disable-fixme-btn" onclick="disableFixMeTrigger()" style="display: none;">Disable Automatic "Fix Me" Notifications</button>
       <div id="fixme-message" class="form-message"></div>
     </div>
 

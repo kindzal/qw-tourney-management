@@ -168,31 +168,55 @@
   function initConfigurationSection() {
     google.script.run
       .withSuccessHandler(function(status) {
-        // Show/hide trigger sections based on what needs installation
+        // Trigger 1: Automation - hide entire section if installed (critical)
         document.getElementById('trigger-automation').style.display = 
           status.needsAutomation ? 'block' : 'none';
-        document.getElementById('trigger-reminders').style.display = 
+
+        // Trigger 2: Reminders - show section, toggle button and status
+        const remindersSection = document.getElementById('trigger-reminders');
+        remindersSection.style.display = 'block';
+        document.getElementById('install-reminders-btn').style.display = 
+          status.needsReminders ? 'inline-block' : 'none';
+        document.getElementById('disable-reminders-btn').style.display = 
+          status.hasReminders ? 'inline-block' : 'none';
+        document.getElementById('reminders-status-disabled').style.display = 
           status.needsReminders ? 'block' : 'none';
-        document.getElementById('trigger-autoimport').style.display = 
+        document.getElementById('reminders-status-enabled').style.display = 
+          status.hasReminders ? 'block' : 'none';
+        document.getElementById('reminders-warning').style.display = 
+          status.missingRoleIds ? 'block' : 'none';
+
+        // Trigger 3: Auto Import - show section, toggle button and status
+        const autoImportSection = document.getElementById('trigger-autoimport');
+        autoImportSection.style.display = 'block';
+        document.getElementById('install-autoimport-btn').style.display = 
+          status.needsAutoImport ? 'inline-block' : 'none';
+        document.getElementById('disable-autoimport-btn').style.display = 
+          status.hasAutoImport ? 'inline-block' : 'none';
+        document.getElementById('autoimport-status-disabled').style.display = 
           status.needsAutoImport ? 'block' : 'none';
-        document.getElementById('trigger-fixme').style.display = 
+        document.getElementById('autoimport-status-enabled').style.display = 
+          status.hasAutoImport ? 'block' : 'none';
+
+        // Trigger 4: Fix-Me - show section, toggle button and status
+        const fixMeSection = document.getElementById('trigger-fixme');
+        fixMeSection.style.display = 'block';
+        document.getElementById('install-fixme-btn').style.display = 
+          status.needsFixMe ? 'inline-block' : 'none';
+        document.getElementById('disable-fixme-btn').style.display = 
+          status.hasFixMe ? 'inline-block' : 'none';
+        document.getElementById('fixme-status-disabled').style.display = 
           status.needsFixMe ? 'block' : 'none';
+        document.getElementById('fixme-status-enabled').style.display = 
+          status.hasFixMe ? 'block' : 'none';
+        document.getElementById('fixme-warning').style.display = 
+          status.missingAdminWebhook ? 'block' : 'none';
 
-        // Show warnings if required config is missing
-        if (status.needsReminders) {
-          document.getElementById('reminders-warning').style.display = 
-            status.missingRoleIds ? 'block' : 'none';
-        }
-        if (status.needsFixMe) {
-          document.getElementById('fixme-warning').style.display = 
-            status.missingAdminWebhook ? 'block' : 'none';
-        }
-
-        // Show "all installed" message if nothing needs installation
-        const anyNeeded = status.needsAutomation || status.needsReminders || 
-                         status.needsAutoImport || status.needsFixMe;
+        // Show "all installed" message only if everything is installed
+        const allInstalled = status.hasAutomation && status.hasReminders && 
+                            status.hasAutoImport && status.hasFixMe;
         document.getElementById('all-triggers-installed').style.display = 
-          anyNeeded ? 'none' : 'block';
+          allInstalled ? 'block' : 'none';
       })
       .withFailureHandler(function(error) {
         console.error('Failed to check trigger status:', error);
@@ -306,6 +330,87 @@
         messageBox.classList.add('error');
       })
       .installFixMeTriggers();
+  }
+
+  function disableRemindersTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('reminders-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .uninstallRemindersTriggers();
+  }
+
+  function disableAutoImportTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('autoimport-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .uninstallAutoImportTriggers();
+  }
+
+  function disableFixMeTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('fixme-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .uninstallFixMeTriggers();
   }
   
   //How responsive the admin sidebar is - experiment with values 

@@ -345,53 +345,57 @@ function checkTriggerStatus() {
   const triggers = ScriptApp.getProjectTriggers();
   const triggerFunctions = triggers.map(t => t.getHandlerFunction());
 
-  // Check which triggers are missing
-  const needsAutomation = !triggerFunctions.includes('processMsgQueue');
-  const needsReminders = !triggerFunctions.includes('sendTodayGameReminders') || 
-                         !triggerFunctions.includes('sendUnscheduledGamesReminder');
-  const needsAutoImport = !triggerFunctions.includes('autoImportGames');
-  const needsFixMe = !triggerFunctions.includes('sendFixMeNotification');
+  // Check which triggers exist
+  const hasAutomation = triggerFunctions.includes('processMsgQueue');
+  const hasReminders = triggerFunctions.includes('sendTodayGameReminders') && 
+                       triggerFunctions.includes('sendUnscheduledGamesReminder');
+  const hasAutoImport = triggerFunctions.includes('autoImportGames');
+  const hasFixMe = triggerFunctions.includes('sendFixMeNotification');
 
   // Check config prerequisites
   let missingRoleIds = false;
   let missingAdminWebhook = false;
 
-  if (needsReminders) {
-    // Check if all teams have Discord Role IDs
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
-    if (sheet) {
-      const data = sheet.getDataRange().getValues();
-      const headers = data[0];
-      const roleCol = headers.indexOf("Discord Role ID");
-      
-      if (roleCol !== -1) {
-        for (let i = 1; i < data.length; i++) {
-          const teamName = data[i][headers.indexOf("Team Name")];
-          const roleId = data[i][roleCol];
-          if (teamName && !roleId) {
-            missingRoleIds = true;
-            break;
-          }
+  // Check if all teams have Discord Role IDs
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+  if (sheet) {
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const roleCol = headers.indexOf("Discord Role ID");
+    const nameCol = headers.indexOf("Team Name");
+    
+    if (roleCol !== -1 && nameCol !== -1) {
+      for (let i = 1; i < data.length; i++) {
+        const teamName = data[i][nameCol];
+        const roleId = data[i][roleCol];
+        if (teamName && !roleId) {
+          missingRoleIds = true;
+          break;
         }
-      } else {
-        missingRoleIds = true;
       }
+    } else {
+      missingRoleIds = true;
     }
   }
 
-  if (needsFixMe) {
-    // Check if Discord admin webhook is configured
-    const config = getConfiguration();
-    if (!config["Discord admin channel webhook"]) {
-      missingAdminWebhook = true;
-    }
+  // Check if Discord admin webhook is configured
+  const config = getConfiguration();
+  if (!config["Discord admin channel webhook"]) {
+    missingAdminWebhook = true;
   }
 
   return {
-    needsAutomation,
-    needsReminders,
-    needsAutoImport,
-    needsFixMe,
+    // What needs installation
+    needsAutomation: !hasAutomation,
+    needsReminders: !hasReminders,
+    needsAutoImport: !hasAutoImport,
+    needsFixMe: !hasFixMe,
+    // What is installed
+    hasAutomation,
+    hasReminders,
+    hasAutoImport,
+    hasFixMe,
+    // Config issues
     missingRoleIds,
     missingAdminWebhook
   };
@@ -498,4 +502,58 @@ function installFixMeTriggers() {
     .create();
 
   return '✅ Fix-Me notification trigger installed successfully';
+}
+
+/**
+ * Uninstall reminder triggers
+ */
+function uninstallRemindersTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let removed = [];
+
+  for (const trigger of triggers) {
+    const funcName = trigger.getHandlerFunction();
+    if (funcName === 'sendTodayGameReminders' || funcName === 'sendUnscheduledGamesReminder') {
+      ScriptApp.deleteTrigger(trigger);
+      removed.push(funcName);
+    }
+  }
+
+  if (removed.length === 0) {
+    return '✅ Game reminder triggers already uninstalled';
+  }
+
+  return `✅ Uninstalled: ${removed.join(', ')}`;
+}
+
+/**
+ * Uninstall autoImportGames trigger
+ */
+function uninstallAutoImportTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'autoImportGames') {
+      ScriptApp.deleteTrigger(trigger);
+      return '✅ Auto import trigger uninstalled successfully';
+    }
+  }
+
+  return '✅ Auto import trigger already uninstalled';
+}
+
+/**
+ * Uninstall sendFixMeNotification trigger
+ */
+function uninstallFixMeTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'sendFixMeNotification') {
+      ScriptApp.deleteTrigger(trigger);
+      return '✅ Fix-Me notification trigger uninstalled successfully';
+    }
+  }
+
+  return '✅ Fix-Me notification trigger already uninstalled';
 }

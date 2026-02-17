@@ -47,7 +47,7 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 
 | Tab | Purpose | Additional info |
 |---|---|---|
-| **Configuration** | Main tournament configuration and its accompanied services | Backend, Discord + Web App |
+| **Configuration** | Main tournament configuration and its accompanied services | Backend, Discord + Web App and automation triggers maintenance |
 | **Players / Standins** | List of players and their stats | `Game Nicks` is a comma-separated list of in-game `/name`(s) used to match a game record to a player. `Player` column is used for display-only purposes |
 | **Teams** | List of teams | `Team Tag` must match the in-game `/team`. `Team Name` must match Schedule `Team1`/ `Team2` |
 | **Schedule** | Tournament schedule | Used by backend, Discord tab, and Web App |
