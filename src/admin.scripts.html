@@ -444,6 +444,12 @@
         const dropdown = document.getElementById('fix-target-select');
         
         if (result && result.canFix) {
+          // Check if the issue data has actually changed
+          const dataChanged = !currentIssueData || 
+                              currentIssueData.issueType !== result.issueType ||
+                              currentIssueData.value !== result.value ||
+                              JSON.stringify(currentIssueData.targets) !== JSON.stringify(result.targets);
+          
           // Store current issue data
           currentIssueData = result;
           
@@ -461,32 +467,54 @@
             dropdownLabel.textContent = 'Select Team to add this Team Tag to:';
           }
           
-          // Populate dropdown with options
-          dropdown.innerHTML = '<option value="">-- Select --</option>';
-          result.targets.forEach(function(target) {
-            const option = document.createElement('option');
-            option.value = target.row;
-            option.textContent = target.name;
-            dropdown.appendChild(option);
-          });
-          
-          // Enable button only if dropdown has a selection
-          dropdown.onchange = function() {
-            if (dropdown.value) {
-              button.disabled = false;
-              button.style.opacity = '1';
-              button.style.cursor = 'pointer';
-            } else {
-              button.disabled = true;
-              button.style.opacity = '0.5';
-              button.style.cursor = 'not-allowed';
+          // Only repopulate dropdown if data has changed
+          if (dataChanged) {
+            // Save current selection
+            const currentSelection = dropdown.value;
+            
+            // Populate dropdown with options
+            dropdown.innerHTML = '<option value="">-- Select --</option>';
+            result.targets.forEach(function(target) {
+              const option = document.createElement('option');
+              option.value = target.row;
+              option.textContent = target.name;
+              dropdown.appendChild(option);
+            });
+            
+            // Restore selection if it still exists in the new options
+            if (currentSelection) {
+              const optionExists = Array.from(dropdown.options).some(opt => opt.value === currentSelection);
+              if (optionExists) {
+                dropdown.value = currentSelection;
+              }
             }
-          };
+          }
           
-          // Reset button state
-          button.disabled = true;
-          button.style.opacity = '0.5';
-          button.style.cursor = 'not-allowed';
+          // Set up onchange handler (only if not already set)
+          if (!dropdown.onchange) {
+            dropdown.onchange = function() {
+              if (dropdown.value) {
+                button.disabled = false;
+                button.style.opacity = '1';
+                button.style.cursor = 'pointer';
+              } else {
+                button.disabled = true;
+                button.style.opacity = '0.5';
+                button.style.cursor = 'not-allowed';
+              }
+            };
+          }
+          
+          // Update button state based on current dropdown value
+          if (dropdown.value) {
+            button.disabled = false;
+            button.style.opacity = '1';
+            button.style.cursor = 'pointer';
+          } else {
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+          }
           
         } else {
           // Hide dropdown and disable button
