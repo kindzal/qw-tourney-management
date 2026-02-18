@@ -1,4 +1,4 @@
-# 🏆 QuakeWorld Tournament Management (Google Sheets–Driven)
+# 🏆 QWadmin - QuakeWorld Tournament Management Tool (Google Sheets–Driven)
 
 This project provides a **Google Sheets–based backend** for managing QuakeWorld tournaments, including:
 
