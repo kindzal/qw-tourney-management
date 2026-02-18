@@ -25,9 +25,14 @@ function postToDiscord(mode = 'post') {
     throw new Error("Missing 'Round' in Discord config");
   }  
   
-  const rankingURL = config["Web App deployment URL"];
+  // Use Discord tab URL, fall back to Configuration tab URL if blank
+  let rankingURL = config["Web App deployment URL"];
   if (!rankingURL) {
-    throw new Error("Missing 'Web App deployment URL' in Discord config");
+    const globalConfig = getConfiguration();
+    rankingURL = globalConfig["Web App Deployment URL"];
+  }
+  if (!rankingURL) {
+    throw new Error("Missing 'Web App deployment URL' in Discord config and Configuration tab");
   }
 
   const webhookUrl = config["Discord web hook"];
@@ -469,7 +474,7 @@ function sendFixMeNotification() {
     "",
     summary,
     "",
-    `Open the [Tournament admin sheet](${sheetUrl}), navigate to FIX-ME tab and follow the instructions there.` 
+    `Open [QWadmin](${sheetUrl}), navigate to FIX-ME tab and follow the instructions there.` 
   ].join("\n");
 
   // ── Post to Discord ───────────────────────────────────────────────────

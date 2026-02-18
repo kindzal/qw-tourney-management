@@ -1441,6 +1441,9 @@ function getFixMeIssueForRow(row) {
     }
   }
 
+  // Sort targets alphabetically by name
+  targets.sort((a, b) => a.name.localeCompare(b.name));
+
   if (targets.length === 0) {
     return { 
       canFix: false,
