@@ -114,10 +114,11 @@ To enable it follow the steps below:
 - open your instance of QWadmin Google Sheet and navigate to `Extensions`->`Apps Script`
 - on the `Apps Script` page click the blue `Deploy` button in the top right of the screen and select `New deployment`
 - in `Select type` choose `Web app`. `Description` could be left blank. Leave `Execute as` on default. In `Who has access` - select `Anyone`. Then click `Deploy`
-- on the next screen you will have to authorise the web app to access and modify your Google Sheets spreadsheet data (this spreadsheet only). Click `Authorise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to 4on4-League (unsafe)`
-- in the `4on4-League wants access to your Google Account` prompt tick `Select all` then click continue at the bottom. You'll receive a `Security alert` email from Google
-- on the `New deployment` screen look for `Web app` section and click `Copy`. This URL you are copying schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
-- navigate to the `Discord` tab and paste the URL in `Web App deployment URL` configuration option (see above). From now on the link to the web app will be posted as part of the Discord msg
+- on the next screen you will have to authorise the web app to access and modify your Google Sheets spreadsheet data (this spreadsheet only). Click `Authorise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to QWadmin (unsafe)`
+- in the `QWadmin wants access to your Google Account` prompt tick `Select all` then click continue at the bottom. You'll receive a `Security alert` email from Google
+- within your QWadmin Google Sheet open the control panel by selecting `Tournament Tools` -> `Open Control Panel` from the Google Sheets main menu, then navigate to the `Configuration` tab and click `Update Deployment URL` button
+
+From now the link to the Web App will be posted as part of the weekly Discord schedule post.
 
 ## How to use this - advanced (using Automation via clasp)
 
