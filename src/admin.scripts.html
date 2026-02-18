@@ -229,6 +229,38 @@
   // ═══════════════════════════════════════════════════════════════════════════
 
   function initConfigurationSection() {
+    // Check Web App deployment status
+    google.script.run
+      .withSuccessHandler(function(deploymentStatus) {
+        // Show warning if web app is not deployed
+        document.getElementById('webapp-not-deployed-warning').style.display = 
+          !deploymentStatus.isDeployed ? 'block' : 'none';
+        
+        // Show button section if web app is deployed but URL needs update (missing or outdated)
+        const needsUpdate = deploymentStatus.needsUpdate;
+        document.getElementById('webapp-url-not-configured').style.display = 
+          needsUpdate ? 'block' : 'none';
+        
+        // Update message based on whether URL is missing or just outdated
+        if (needsUpdate) {
+          const messageEl = document.getElementById('webapp-url-message');
+          if (!deploymentStatus.hasConfiguredUrl) {
+            messageEl.textContent = 'Your Web App is deployed, but the deployment URL is not saved in the Configuration sheet.';
+          } else {
+            messageEl.textContent = 'Your Web App deployment URL has changed and needs to be updated in the Configuration sheet.';
+          }
+        }
+        
+        // Show entire section if either warning or button should be shown
+        document.getElementById('webapp-deployment').style.display = 
+          (!deploymentStatus.isDeployed || needsUpdate) ? 'block' : 'none';
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to check Web App deployment:', error);
+      })
+      .checkWebAppDeployment();
+
+    // Check trigger status
     google.script.run
       .withSuccessHandler(function(status) {
         // Trigger 1: Automation - hide entire section if installed (critical)
@@ -474,6 +506,35 @@
         messageBox.classList.add('error');
       })
       .uninstallFixMeTriggers();
+  }
+
+  function updateDeploymentUrlFromUI() {
+    const btn = event.target;
+    const messageBox = document.getElementById('webapp-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response.message;
+        messageBox.classList.add(response.success ? 'success' : 'error');
+        if (response.success) {
+          setTimeout(() => initConfigurationSection(), 2000);
+        }
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .updateDeploymentUrl();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

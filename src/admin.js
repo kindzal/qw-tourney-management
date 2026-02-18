@@ -1252,6 +1252,97 @@ function uninstallFixMeTriggers() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Web App Deployment Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check if Web App is deployed and if deployment URL is configured
+ * Returns an object with deployment status
+ */
+function checkWebAppDeployment() {
+  const config = getConfiguration();
+  const configuredUrl = config["Web App Deployment URL"];
+  
+  // Check if web app is actually deployed
+  let actualUrl = null;
+  try {
+    actualUrl = ScriptApp.getService().getUrl();
+  } catch (e) {
+    // Web app not deployed or error getting URL
+  }
+  
+  const isDeployed = !!(actualUrl && actualUrl.trim() !== "");
+  const hasConfiguredUrl = !!(configuredUrl && configuredUrl.trim() !== "");
+  const urlsMatch = isDeployed && hasConfiguredUrl && (actualUrl === configuredUrl);
+  
+  return {
+    isDeployed: isDeployed,
+    hasConfiguredUrl: hasConfiguredUrl,
+    urlsMatch: urlsMatch,
+    needsUpdate: isDeployed && (!hasConfiguredUrl || !urlsMatch),
+    actualUrl: actualUrl || null,
+    configuredUrl: configuredUrl || null,
+    readmeUrl: "https://github.com/vikpe/qw-dojo/tree/main/qml7#web-app-simplified-deployment-method",
+    readmeSection: "Web App (simplified deployment method)"
+  };
+}
+
+/**
+ * Get the current deployment URL and update Configuration sheet
+ * Creates the configuration key if it doesn't exist
+ */
+function updateDeploymentUrl() {
+  try {
+    const url = ScriptApp.getService().getUrl();
+    
+    if (!url) {
+      throw new Error("This script is not deployed as a web app. Please deploy it first.");
+    }
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName("Configuration");
+    
+    if (!configSheet) {
+      throw new Error("Configuration sheet not found");
+    }
+    
+    const data = configSheet.getDataRange().getValues();
+    let foundRow = -1;
+    
+    // Look for existing "Web App Deployment URL" key
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === "Web App Deployment URL") {
+        foundRow = i;
+        break;
+      }
+    }
+    
+    if (foundRow !== -1) {
+      // Update existing row
+      configSheet.getRange(foundRow + 1, 2).setValue(url);
+    } else {
+      // Add new row
+      const lastRow = configSheet.getLastRow();
+      configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment URL");
+      configSheet.getRange(lastRow + 1, 2).setValue(url);
+    }
+    
+    return {
+      success: true,
+      url: url,
+      message: "✅ Configuration updated with deployment URL"
+    };
+    
+  } catch (e) {
+    return {
+      success: false,
+      url: null,
+      message: "❌ " + e.message
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FIX-ME Issue Fixing Functions
 // ═══════════════════════════════════════════════════════════════════════════
 
