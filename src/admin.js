@@ -1380,6 +1380,39 @@ function getSelectedFixMeIssue() {
   return prop ? JSON.parse(prop) : 
     { canFix: false, message: "No row selected" };
 }
+
+/**
+ * Refresh the current FIX-ME selection
+ * Checks the currently selected row and updates the property
+ */
+function refreshCurrentFixMeSelection() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = ss.getActiveSheet();
+  
+  // Only refresh if FIX-ME sheet is active
+  if (!activeSheet || activeSheet.getName() !== "FIX-ME") {
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    return;
+  }
+  
+  const activeRange = activeSheet.getActiveRange();
+  if (!activeRange) {
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    return;
+  }
+  
+  const row = activeRange.getRow();
+  const issueData = getFixMeIssueForRow(row);
+  
+  PropertiesService.getDocumentProperties()
+    .setProperty(
+      "CURRENT_FIXME_SELECTION",
+      JSON.stringify(issueData)
+    );
+}
+
 /**
  * Fix the currently selected issue by adding the tag to the selected Player/Team
  * @param {number} targetRow - The row number in the Players/Standins/Teams sheet to update
@@ -1423,9 +1456,8 @@ function fixSelectedFixMeIssue(targetRow) {
     // Update stats and return
     updateStats(true);
     
-    // Clear the selection property so UI refreshes properly
-    PropertiesService.getDocumentProperties()
-      .deleteProperty("CURRENT_FIXME_SELECTION");
+    // Refresh the selection for the currently active row
+    refreshCurrentFixMeSelection();
     
     return `✅ Added "${issue.value}" to ${target.name}'s Game Nicks. Stats updated.`;
     
@@ -1448,9 +1480,8 @@ function fixSelectedFixMeIssue(targetRow) {
     // Update stats and return
     updateStats(true);
     
-    // Clear the selection property so UI refreshes properly
-    PropertiesService.getDocumentProperties()
-      .deleteProperty("CURRENT_FIXME_SELECTION");
+    // Refresh the selection for the currently active row
+    refreshCurrentFixMeSelection();
     
     return `✅ Added "${issue.value}" to ${target.name}'s Team Tags. Stats updated.`;
   }
