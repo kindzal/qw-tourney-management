@@ -206,7 +206,8 @@ function generateSchedule(data) {
     configRows.push([
       roundLabel,
       mapsFormatted + " (" + data.groupStageMode + ")",
-      currentDeadline
+      currentDeadline,
+      "No"  // Schedule Info Sent
     ]);
 
     currentDeadline = addDays(currentDeadline, 7);
@@ -232,7 +233,8 @@ function generateSchedule(data) {
       configRows.push([
         round.name,
         mapsFormatted + " (" + data.playoffsMode + ")",
-        currentDeadline
+        currentDeadline,
+        "No"  // Schedule Info Sent
       ]);
 
       // Only advance the deadline when moving to a new week
@@ -320,11 +322,29 @@ function writeSchedule(sheet, rows) {
 }
 
 function writeScheduleConfig(sheet, rows) {
-  sheet.getRange(2, 1, sheet.getLastRow(), 3).clearContent();
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
+    sheet.getRange(2, 1, lastRow - 1, 4).clearDataValidations();
+  }
 
   if (!rows.length) return;
 
-  sheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  // Ensure header exists for Schedule Info Sent column
+  const headers = sheet.getRange(1, 1, 1, 4).getValues()[0];
+  if (headers[3] !== "Schedule Info Sent") {
+    sheet.getRange(1, 4).setValue("Schedule Info Sent");
+  }
+
+  sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+
+  // Add Yes/No dropdown validation to Schedule Info Sent column
+  const sentValidation = SpreadsheetApp.newDataValidation()
+    .requireValueInList(["No", "Yes"], true)
+    .setAllowInvalid(false)
+    .build();
+
+  sheet.getRange(2, 4, rows.length).setDataValidation(sentValidation);
 }
 
 function confirmScheduleOverwrite() {
@@ -512,8 +532,10 @@ function checkGroupStageComplete(scheduleSheet, teamGamesSheet) {
     }
   }
   
+  // Only complete if there are expected games AND all have been played
+  // If expected is 0, group stage hasn't been generated yet
   return {
-    complete: played >= expected,
+    complete: expected > 0 && played >= expected,
     expected: expected,
     played: played
   };
