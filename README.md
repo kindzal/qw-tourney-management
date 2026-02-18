@@ -23,7 +23,7 @@ The only requirements are:
   
 ### Initial setup
 
-Log in to your Google account, then create your own instance of the QuakeWorld Tournament Management Google Sheet for the tournament you want to manage by navigating here:
+Log in to your Google account, then create your own instance of QWadmin Google Sheet for the tournament you want to manage by navigating here:
   👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
 
 and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament.
@@ -103,7 +103,7 @@ The sheet itself allows manual data imports from the QuakeWorld hub. In order to
 
 ### Web App (simplified deployment method)
 
-Each copy of the QuakeWorld Tournament Management Google Sheet comes with a simple display layer for the players.
+Each instance of the QWadmin comes with a simple display layer for the players.
 
 ![web-app-example](https://github.com/user-attachments/assets/a667da7e-061c-473b-97ab-d1782f2b64f3)
 
@@ -111,7 +111,7 @@ You can check out the template example here: 👉 https://qw-app.short.gy/tHWsP7
 
 To enable it follow the steps below:
 
-- open your instance of the QuakeWorld Tournament Management Google Sheet and navigate to `Extensions`->`Apps Script`
+- open your instance of QWadmin Google Sheet and navigate to `Extensions`->`Apps Script`
 - on the `Apps Script` page click the blue `Deploy` button in the top right of the screen and select `New deployment`
 - in `Select type` choose `Web app`. `Description` could be left blank. Leave `Execute as` on default. In `Who has access` - select `Anyone`. Then click `Deploy`
 - on the next screen you will have to authorise the web app to access and modify your Google Sheets spreadsheet data (this spreadsheet only). Click `Authorise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to 4on4-League (unsafe)`
