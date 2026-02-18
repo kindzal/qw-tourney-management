@@ -20,9 +20,13 @@ function getActiveSheetName() {
 }
 
 function openSidebar() {
-  /*const html = HtmlService
-    .createHtmlOutputFromFile('admin-sidebar')
-    .setTitle('Tournament Control Panel');*/
+  // Run any pending migrations silently
+  try {
+    runMigration();
+  } catch (e) {
+    // Ignore migration errors - don't block sidebar
+    Logger.log("Migration error: " + e.message);
+  }
 
   const template = HtmlService.createTemplateFromFile('admin.sidebar');
   const html = template.evaluate()

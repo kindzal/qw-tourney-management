@@ -200,8 +200,12 @@ function handleScheduleGameReport(payload) {
   );
 }
 
-function postPreview() {
-  postToDiscord('preview');
+function postPreview(roundNumber) {
+  postToDiscord('preview', roundNumber);
+}
+
+function postScheduleToDiscord(roundNumber) {
+  postToDiscord('post', roundNumber);
 }
 
 // --- Function to Log Post History ---

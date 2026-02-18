@@ -44,6 +44,7 @@ function getScheduleConfigAPI() {
   const roundIdx = headers.indexOf("Round");
   const mapsIdx = headers.indexOf("Maps");
   const deadlineIdx = headers.indexOf("Deadline");
+  const scheduleInfoSentIdx = headers.indexOf("Schedule Info Sent");
 
   if (roundIdx === -1 || deadlineIdx === -1) {
     throw new Error("ScheduleConfig must contain Round and Deadline columns");
@@ -60,7 +61,8 @@ function getScheduleConfigAPI() {
           Session.getScriptTimeZone(),
           "dd/MM/yyyy"
         )
-      : r[deadlineIdx]
+      : r[deadlineIdx],
+      scheduleInfoSent: scheduleInfoSentIdx !== -1 ? String(r[scheduleInfoSentIdx] || "No").trim() : "No"
      }));
 }
 

@@ -1,12 +1,19 @@
 <div id="Discord" class="section">
-  <button onclick="runTask('postPreview')">Preview post</button>
-  <button onclick="runTask('postToDiscord')">Post weekly schedule to Discord</button>
+  <div class="form-group">
+    <label for="discordRoundSelect">Select Round:</label>
+    <select id="discordRoundSelect" class="form-control">
+      <option value="">Loading...</option>
+    </select>
+  </div>
+  
+  <button onclick="runDiscordTask('postPreview')">Preview post</button>
+  <button onclick="runDiscordTask('postScheduleToDiscord')">Post weekly schedule to Discord</button>
 
   <div class="container">
       <div class="info-box">
           <p>On this tab you can configure the layout of the weekly schedule message posted to Discord.</p>
-          <p>Select the <span class="inline-cell">Round</span> for which you want to post the schedule to Discord by selecting relevant round from the drop-down menu.</p>
-          <p>You can use <span class="inline-btn">Preview post</span> to valdiate the info before posting.</p>
+          <p>Select the <span class="inline-cell">Round</span> for which you want to post the schedule to Discord using the dropdown above.</p>
+          <p>You can use <span class="inline-btn">Preview post</span> to validate the info before posting.</p>
           <p>Once happy click <span class="inline-btn">Post weekly schedule to Discord</span> button to post the schedule to Discord.</p>
 
       </div>

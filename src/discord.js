@@ -1,4 +1,4 @@
-function postToDiscord(mode = 'post') {
+function postToDiscord(mode = 'post', roundNumber = null) {
   const ui = SpreadsheetApp.getUi();
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -20,24 +20,22 @@ function postToDiscord(mode = 'post') {
     if (key) config[String(key).trim()] = value;
   });
 
-  const roundNumber = config["Round"];
+  // Round is now passed as parameter (from sidebar dropdown)
   if (!roundNumber) {
-    throw new Error("Missing 'Round' in Discord config");
+    throw new Error("Round not specified. Please select a round from the dropdown.");
   }  
   
-  // Use Discord tab URL, fall back to Configuration tab URL if blank
-  let rankingURL = config["Web App deployment URL"];
+  // Read URL and webhook from Configuration tab
+  const globalConfig = getConfiguration();
+  
+  const rankingURL = globalConfig["Discord Web App URL"] || globalConfig["Web App Deployment URL"];
   if (!rankingURL) {
-    const globalConfig = getConfiguration();
-    rankingURL = globalConfig["Web App Deployment URL"];
-  }
-  if (!rankingURL) {
-    throw new Error("Missing 'Web App deployment URL' in Discord config and Configuration tab");
+    throw new Error("Missing 'Discord Web App URL' or 'Web App Deployment URL' in Configuration tab");
   }
 
-  const webhookUrl = config["Discord web hook"];
+  const webhookUrl = globalConfig["Discord Schedule Channel Webhook"];
   if (!webhookUrl) {
-    throw new Error("Missing 'Discord web hook' in Discord config");
+    throw new Error("Missing 'Discord Schedule Channel Webhook' in Configuration tab");
   }
   
   // --- Fetch Maps and Deadline from Schedule Config ---
@@ -191,9 +189,37 @@ function postToDiscord(mode = 'post') {
 
     ui.alert('Message successfully posted to Discord! ✅');
     logPostHistory(message, 'Success');
+    
+    // Mark this round's Schedule Info as Sent
+    markScheduleInfoSent(roundNumber);
   } catch (e) {
     ui.alert('❌ Failed to post to Discord: ' + e.message);
     logPostHistory(message, 'Failed');
+  }
+}
+
+/**
+ * Mark a round's 'Schedule Info Sent' column as 'Yes' in ScheduleConfig
+ */
+function markScheduleInfoSent(roundNumber) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("ScheduleConfig");
+  
+  if (!sheet) return;
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const roundIdx = headers.indexOf("Round");
+  const sentIdx = headers.indexOf("Schedule Info Sent");
+  
+  if (roundIdx === -1 || sentIdx === -1) return;
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][roundIdx]).trim() === String(roundNumber).trim()) {
+      sheet.getRange(i + 1, sentIdx + 1).setValue("Yes");
+      break;
+    }
   }
 }
 
@@ -262,17 +288,14 @@ function _postToDiscord(webhookUrl, payload) {
 }
 
 function getDiscordWebhookUrl() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Discord");
-  if (!sheet) throw new Error("Discord sheet not found");
-
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === "Discord web hook") {
-      return data[i][1];
-    }
+  const config = getConfiguration();
+  const webhookUrl = config["Discord Schedule Channel Webhook"];
+  
+  if (!webhookUrl) {
+    throw new Error("Missing 'Discord Schedule Channel Webhook' in Configuration tab");
   }
-
-  throw new Error("Discord webhook not configured");
+  
+  return webhookUrl;
 }
 
 function sendTodayGameReminders() {

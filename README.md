@@ -83,8 +83,6 @@ The tab contains a fully customisable message template and a few configuration o
 
 - Round - which round of the tournament it is - scheduling data is pulled from the `Schedule` tab based on the `Round` selected
 - Playoff tree - link to a playoff bracket if not using the Web App otherwise left blank
-- Discord web hook - **REQUIRED** - see 👉 https://www.google.com/search?q=how+to+setup+discord+hooks&ie=UTF-8 for instructions
-- Web App deployment URL - your Web App deployment URL when using the Web App or simply this sheet's Google Sheet share link URL
 - Everyone spam - whether to tag the Discord msg with @everyone or not
 - Playoff msg - Playoff msg heading text
 - Group stage msg - Group stage msg heading text
@@ -95,7 +93,11 @@ The tab contains a fully customisable message template and a few configuration o
 - Reporting prompt - Reporting prompt text (leave blank if not required)
 - Team tags prompt - Team tags prompt text (leave blank if not required)
 - Scheduling prompt - Scheduling prompt text (leave blank if not required)
-- Ranking title - title for the `Web App deployment URL` link
+- Ranking title - title for the `Discord Web App URL` link
+
+> ℹ️ **Note:** Discord webhook URL and Web App deployment URL are now configured in the **Configuration** tab:
+> - `Discord Schedule Channel Webhook` - **REQUIRED** - see 👉 https://www.google.com/search?q=how+to+setup+discord+hooks&ie=UTF-8 for instructions
+> - `Discord Web App URL` - your Web App deployment URL when using the Web App
 
 ### Manual data import
 
@@ -117,7 +119,7 @@ To enable it follow the steps below:
 - on the next screen you will have to authorise the web app to access and modify your Google Sheets spreadsheet data (this spreadsheet only). Click `Authorise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to QWadmin (unsafe)`
 - in the `QWadmin wants access to your Google Account` prompt tick `Select all` then click continue at the bottom. You'll receive a `Security alert` email from Google
 - on the `New deployment` screen look for `Web app` section and click `Copy`. This URL schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
-- within your QWadmin Google Sheet open the control panel by selecting `Tournament Tools` -> `Open Control Panel` from the Google Sheets main menu, then navigate to the `Configuration` tab paste the URL in `Web App deployment URL` configuration option. 
+- within your QWadmin Google Sheet open the control panel by selecting `Tournament Tools` -> `Open Control Panel` from the Google Sheets main menu, then navigate to the `Configuration` tab and paste the URL in the `Discord Web App URL` configuration option. 
 
 
 From now the link to the Web App will be posted as part of the weekly Discord schedule post.
@@ -128,7 +130,7 @@ Configure automation and integrations for a complete self-managing system:
 
 - Deploy the **Apps Script code / Web frontend / API** using clasp (if not deployed using the Google Apps Script `Deploy` UI already - see above)
 
-Web App exposes standings & schedule details, playoff bracket, played matches and player stats using `Web App deployment URL` configured & posted via `Discord` tab. 
+Web App exposes standings & schedule details, playoff bracket, played matches and player stats using `Discord Web App URL` configured in the `Configuration` tab. 
 Read below for deployment instructions using `clasp`.
 
 - Deploy the **Reports Watcher Discord bot**  

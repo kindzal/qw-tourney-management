@@ -22,6 +22,8 @@
         checkPlayoffsStatus();
       } else if (sheetName === 'Configuration') {
         initConfigurationSection();
+      } else if (sheetName === 'Discord') {
+        initDiscordSection();
       }
       section.style.display = "block";
     } else {
@@ -706,6 +708,116 @@
       .fixSelectedFixMeIssue(targetRow);
   }
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Discord Section - Round Selection
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function initDiscordSection() {
+    const select = document.getElementById('discordRoundSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Loading...</option>';
+    
+    google.script.run
+      .withSuccessHandler(function(scheduleConfig) {
+        populateDiscordRoundDropdown(scheduleConfig);
+      })
+      .withFailureHandler(function(error) {
+        select.innerHTML = '<option value="">Error loading rounds</option>';
+        console.error('Failed to load schedule config:', error);
+      })
+      .getScheduleConfigAPI();
+  }
+
+  function populateDiscordRoundDropdown(scheduleConfig) {
+    const select = document.getElementById('discordRoundSelect');
+    if (!select || !scheduleConfig || scheduleConfig.length === 0) {
+      select.innerHTML = '<option value="">No rounds found</option>';
+      return;
+    }
+    
+    // Clear and populate options
+    select.innerHTML = '';
+    scheduleConfig.forEach(function(config) {
+      const option = document.createElement('option');
+      option.value = config.round;
+      option.textContent = config.round + ' - Deadline: ' + config.deadline;
+      if (config.scheduleInfoSent === 'Yes') {
+        option.textContent += ' ✓';
+      }
+      select.appendChild(option);
+    });
+    
+    // Smart default selection
+    const defaultRound = getSmartDefaultRound(scheduleConfig);
+    if (defaultRound) {
+      select.value = defaultRound;
+    }
+  }
+
+  function getSmartDefaultRound(scheduleConfig) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Parse deadline string (dd/mm/yyyy) to Date
+    function parseDeadline(deadlineStr) {
+      if (!deadlineStr) return null;
+      const parts = String(deadlineStr).split('/');
+      if (parts.length !== 3) return null;
+      // dd/mm/yyyy -> new Date(yyyy, mm-1, dd)
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+    
+    // Find current round (first deadline >= today)
+    let currentRoundIndex = -1;
+    for (let i = 0; i < scheduleConfig.length; i++) {
+      const deadline = parseDeadline(scheduleConfig[i].deadline);
+      if (deadline && deadline >= today) {
+        currentRoundIndex = i;
+        break;
+      }
+    }
+    
+    // If no future deadline found, use last round
+    if (currentRoundIndex === -1) {
+      return scheduleConfig[scheduleConfig.length - 1].round;
+    }
+    
+    const currentRound = scheduleConfig[currentRoundIndex];
+    
+    // If current round's Schedule Info Sent is 'Yes', use next round if available
+    if (currentRound.scheduleInfoSent === 'Yes') {
+      if (currentRoundIndex + 1 < scheduleConfig.length) {
+        return scheduleConfig[currentRoundIndex + 1].round;
+      }
+    }
+    
+    return currentRound.round;
+  }
+
+  function runDiscordTask(functionName) {
+    const select = document.getElementById('discordRoundSelect');
+    const round = select ? select.value : null;
+    
+    if (!round) {
+      alert('Please select a round first.');
+      return;
+    }
+    
+    const loader = document.getElementById('loader-overlay');
+    loader.style.display = 'flex';
+    
+    google.script.run
+      .withSuccessHandler(function() {
+        loader.style.display = 'none';
+      })
+      .withFailureHandler(function(msg) {
+        loader.style.display = 'none';
+        alert('Error: ' + msg);
+      })
+      [functionName](round);
+  }
+
   //How responsive the admin sidebar is - experiment with values 
   setInterval(checkActiveSheet, 500);
   checkActiveSheet();  

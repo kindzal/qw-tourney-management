@@ -371,3 +371,877 @@ function ensureExcludedGamesTab() {
       .filter(Boolean)
   );
 }
+
+// ============================================================================
+// FUZZY SEARCH / LEVENSHTEIN DISTANCE
+// ============================================================================
+
+/**
+ * Calculates the Levenshtein distance between two strings.
+ * This is the minimum number of single-character edits (insertions, deletions,
+ * or substitutions) required to change one string into the other.
+ * 
+ * @param {string} a - First string
+ * @param {string} b - Second string
+ * @returns {number} - The edit distance between the two strings
+ */
+function levenshteinDistance(a, b) {
+  const aLower = String(a).toLowerCase();
+  const bLower = String(b).toLowerCase();
+  
+  const aLen = aLower.length;
+  const bLen = bLower.length;
+  
+  // Edge cases
+  if (aLen === 0) return bLen;
+  if (bLen === 0) return aLen;
+  if (aLower === bLower) return 0;
+  
+  // Create distance matrix
+  const matrix = [];
+  
+  // Initialize first column
+  for (let i = 0; i <= aLen; i++) {
+    matrix[i] = [i];
+  }
+  
+  // Initialize first row
+  for (let j = 0; j <= bLen; j++) {
+    matrix[0][j] = j;
+  }
+  
+  // Fill in the rest of the matrix
+  for (let i = 1; i <= aLen; i++) {
+    for (let j = 1; j <= bLen; j++) {
+      const cost = aLower[i - 1] === bLower[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,      // deletion
+        matrix[i][j - 1] + 1,      // insertion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+  
+  return matrix[aLen][bLen];
+}
+
+/**
+ * Calculates similarity percentage between two strings using Levenshtein distance.
+ * 
+ * @param {string} a - First string
+ * @param {string} b - Second string
+ * @returns {number} - Similarity percentage (0-100)
+ */
+function levenshteinSimilarity(a, b) {
+  const aStr = String(a);
+  const bStr = String(b);
+  const maxLen = Math.max(aStr.length, bStr.length);
+  
+  if (maxLen === 0) return 100; // Both empty strings are identical
+  
+  const distance = levenshteinDistance(aStr, bStr);
+  return ((maxLen - distance) / maxLen) * 100;
+}
+
+/**
+ * Performs fuzzy search to find the best match for a candidate string
+ * from a list of possible matches.
+ * 
+ * @param {string} candidate - The string to search for
+ * @param {string[]} list - Array of strings to match against
+ * @param {number} threshold - Minimum similarity percentage (0-100) to consider a match
+ * @returns {Object|null} - Best match object { match, similarity, index } or null if no match meets threshold
+ */
+function fuzzySearch(candidate, list, threshold) {
+  if (!candidate || !list || !Array.isArray(list) || list.length === 0) {
+    return null;
+  }
+  
+  threshold = threshold ?? 90; // Default threshold of 90%
+  
+  let bestMatch = null;
+  let bestSimilarity = 0;
+  let bestIndex = -1;
+  
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (item == null) continue;
+    
+    const similarity = levenshteinSimilarity(candidate, item);
+    
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestMatch = item;
+      bestIndex = i;
+    }
+  }
+  
+  if (bestSimilarity >= threshold) {
+    return {
+      match: bestMatch,
+      similarity: Math.round(bestSimilarity * 100) / 100,
+      index: bestIndex
+    };
+  }
+  
+  return null;
+}
+
+/**
+ * Finds all matches above a given threshold, sorted by similarity (descending).
+ * 
+ * @param {string} candidate - The string to search for
+ * @param {string[]} list - Array of strings to match against
+ * @param {number} threshold - Minimum similarity percentage (0-100) to include
+ * @returns {Array} - Array of match objects { match, similarity, index } sorted by similarity
+ */
+function fuzzySearchAll(candidate, list, threshold) {
+  if (!candidate || !list || !Array.isArray(list) || list.length === 0) {
+    return [];
+  }
+  
+  threshold = threshold ?? 90; // Default threshold of 90%
+  
+  const matches = [];
+  
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (item == null) continue;
+    
+    const similarity = levenshteinSimilarity(candidate, item);
+    
+    if (similarity >= threshold) {
+      matches.push({
+        match: item,
+        similarity: Math.round(similarity * 100) / 100,
+        index: i
+      });
+    }
+  }
+  
+  // Sort by similarity descending
+  matches.sort((a, b) => b.similarity - a.similarity);
+  
+  return matches;
+}
+
+/**
+ * Cleans a game nick by removing reconnect suffixes like "(1)", "(2)", etc.
+ * Common in QW when players rejoin after dropping.
+ * 
+ * @param {string} nick - The game nick to clean
+ * @returns {string} - The cleaned nick
+ */
+function cleanGameNick(nick) {
+  if (!nick) return "";
+  return String(nick)
+    .replace(/\s*\(\d+\)\s*$/, "")  // Remove trailing (1), (2), etc.
+    .trim();
+}
+
+/**
+ * Fuzzy matches a game nick against a list of players.
+ * Searches both player names and their registered game nicks.
+ * 
+ * @param {string} gameNick - The game nick to match (will be cleaned of reconnect suffixes)
+ * @param {Array} players - Array of player objects: { name: string, nicks: string[] }
+ * @param {number} threshold - Minimum similarity percentage (0-100), default 65
+ * @returns {Object|null} - Best match { player: string, matchedOn: string, similarity: number } or null
+ */
+function fuzzyMatchPlayer(gameNick, players, threshold) {
+  if (!gameNick || !players || !Array.isArray(players) || players.length === 0) {
+    return null;
+  }
+  
+  threshold = threshold ?? 65;
+  const cleanedNick = cleanGameNick(gameNick);
+  
+  let bestMatch = null;
+  let bestSimilarity = 0;
+  let matchedOn = null;
+  
+  for (const player of players) {
+    if (!player || !player.name) continue;
+    
+    // Check against player name
+    const nameSimilarity = levenshteinSimilarity(cleanedNick, player.name);
+    if (nameSimilarity > bestSimilarity) {
+      bestSimilarity = nameSimilarity;
+      bestMatch = player.name;
+      matchedOn = player.name;
+    }
+    
+    // Check against each registered game nick
+    if (player.nicks && Array.isArray(player.nicks)) {
+      for (const nick of player.nicks) {
+        if (!nick) continue;
+        const nickSimilarity = levenshteinSimilarity(cleanedNick, nick);
+        if (nickSimilarity > bestSimilarity) {
+          bestSimilarity = nickSimilarity;
+          bestMatch = player.name;
+          matchedOn = nick;
+        }
+      }
+    }
+  }
+  
+  if (bestSimilarity >= threshold) {
+    return {
+      player: bestMatch,
+      matchedOn: matchedOn,
+      similarity: Math.round(bestSimilarity * 100) / 100
+    };
+  }
+  
+  return null;
+}
+
+/**
+ * Builds a player list from spreadsheet data for use with fuzzyMatchPlayer.
+ * Expects data from Players sheet with columns: [Team, GameNicks, Player, ...]
+ * 
+ * @param {Array[]} playersData - 2D array from Players sheet (including header row)
+ * @returns {Array} - Array of { name, nicks } objects
+ */
+function buildPlayerList(playersData) {
+  if (!playersData || playersData.length < 2) return [];
+  
+  return playersData.slice(1).map(row => ({
+    name: String(row[2] || "").trim(),
+    nicks: String(row[1] || "").split(",").map(n => n.trim()).filter(Boolean)
+  })).filter(p => p.name);
+}
+
+/**
+ * Attempts to fix a missing player nick by fuzzy matching it to an existing player.
+ * If a match is found (>= threshold), adds the nick to that player's Game Nicks.
+ * 
+ * @param {string} gameNick - The unmatched game nick to fix
+ * @param {number} threshold - Minimum similarity percentage (0-100), default 65
+ * @returns {Object} - Result: { success, player?, addedNick?, similarity?, message }
+ */
+function fixMissingPlayerNick(gameNick, threshold) {
+  if (!gameNick) {
+    return { success: false, message: "No game nick provided" };
+  }
+  
+  threshold = threshold ?? 65;
+  const cleanedNick = cleanGameNick(gameNick);
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const playersSheet = ss.getSheetByName("Players");
+  
+  if (!playersSheet) {
+    return { success: false, message: "Players sheet not found" };
+  }
+  
+  const playersData = playersSheet.getDataRange().getValues();
+  const players = buildPlayerList(playersData);
+  
+  // Check if nick already exists (exact match)
+  for (const player of players) {
+    const nicksLower = player.nicks.map(n => n.toLowerCase());
+    if (nicksLower.includes(cleanedNick.toLowerCase())) {
+      return { 
+        success: false, 
+        message: `Nick "${cleanedNick}" already assigned to ${player.name}` 
+      };
+    }
+  }
+  
+  // Try fuzzy match
+  const match = fuzzyMatchPlayer(cleanedNick, players, threshold);
+  
+  if (!match) {
+    return { 
+      success: false, 
+      message: `No match found for "${cleanedNick}" at ${threshold}% threshold` 
+    };
+  }
+  
+  // Find the row for this player and update their Game Nicks
+  for (let i = 1; i < playersData.length; i++) {
+    const playerName = String(playersData[i][2] || "").trim();
+    
+    if (playerName === match.player) {
+      const rowIndex = i + 1; // 1-based row index
+      const currentNicks = playersSheet.getRange(rowIndex, 2).getValue();
+      
+      let newNicks = cleanedNick;
+      if (currentNicks) {
+        newNicks = currentNicks + "," + cleanedNick;
+      }
+      
+      playersSheet.getRange(rowIndex, 2).setValue(newNicks);
+      
+      return {
+        success: true,
+        player: match.player,
+        addedNick: cleanedNick,
+        matchedOn: match.matchedOn,
+        similarity: match.similarity,
+        message: `Added "${cleanedNick}" to ${match.player}'s Game Nicks (matched "${match.matchedOn}" at ${match.similarity}%)`
+      };
+    }
+  }
+  
+  return { success: false, message: `Could not find row for player "${match.player}"` };
+}
+
+/**
+ * Attempts to fix multiple missing player nicks in batch.
+ * 
+ * @param {string[]} gameNicks - Array of unmatched game nicks to fix
+ * @param {number} threshold - Minimum similarity percentage (0-100), default 65
+ * @returns {Object} - Result: { fixed: [], failed: [], summary }
+ */
+function fixMissingPlayerNicksBatch(gameNicks, threshold) {
+  if (!gameNicks || !Array.isArray(gameNicks) || gameNicks.length === 0) {
+    return { fixed: [], failed: [], summary: "No game nicks provided" };
+  }
+  
+  threshold = threshold ?? 65;
+  const fixed = [];
+  const failed = [];
+  
+  for (const nick of gameNicks) {
+    const result = fixMissingPlayerNick(nick, threshold);
+    
+    if (result.success) {
+      fixed.push(result);
+    } else {
+      failed.push({ nick, reason: result.message });
+    }
+  }
+  
+  return {
+    fixed,
+    failed,
+    summary: `Fixed ${fixed.length}/${gameNicks.length} nicks`
+  };
+}
+
+// ============================================================================
+// TEAM TAG FUZZY MATCHING
+// ============================================================================
+
+/**
+ * Builds a team list from spreadsheet data for use with fuzzyMatchTeam.
+ * Expects data from Teams sheet with columns: [Team Tag, Team Name, ...]
+ * 
+ * @param {Array[]} teamsData - 2D array from Teams sheet (including header row)
+ * @returns {Array} - Array of { name, tags } objects
+ */
+function buildTeamList(teamsData) {
+  if (!teamsData || teamsData.length < 2) return [];
+  
+  return teamsData.slice(1).map(row => ({
+    name: String(row[1] || "").trim(),
+    tags: String(row[0] || "").split("‡").map(t => t.trim()).filter(Boolean)
+  })).filter(t => t.name);
+}
+
+/**
+ * Fuzzy matches a team tag against a list of teams.
+ * Searches both team names and their registered tags.
+ * 
+ * @param {string} teamTag - The team tag to match
+ * @param {Array} teams - Array of team objects: { name: string, tags: string[] }
+ * @param {number} threshold - Minimum similarity percentage (0-100), default 65
+ * @returns {Object|null} - Best match { team: string, matchedOn: string, similarity: number } or null
+ */
+function fuzzyMatchTeam(teamTag, teams, threshold) {
+  if (!teamTag || !teams || !Array.isArray(teams) || teams.length === 0) {
+    return null;
+  }
+  
+  threshold = threshold ?? 65;
+  const cleanedTag = String(teamTag).trim();
+  
+  let bestMatch = null;
+  let bestSimilarity = 0;
+  let matchedOn = null;
+  
+  for (const team of teams) {
+    if (!team || !team.name) continue;
+    
+    // Check against team name
+    const nameSimilarity = levenshteinSimilarity(cleanedTag, team.name);
+    if (nameSimilarity > bestSimilarity) {
+      bestSimilarity = nameSimilarity;
+      bestMatch = team.name;
+      matchedOn = team.name;
+    }
+    
+    // Check against each registered tag
+    if (team.tags && Array.isArray(team.tags)) {
+      for (const tag of team.tags) {
+        if (!tag) continue;
+        const tagSimilarity = levenshteinSimilarity(cleanedTag, tag);
+        if (tagSimilarity > bestSimilarity) {
+          bestSimilarity = tagSimilarity;
+          bestMatch = team.name;
+          matchedOn = tag;
+        }
+      }
+    }
+  }
+  
+  if (bestSimilarity >= threshold) {
+    return {
+      team: bestMatch,
+      matchedOn: matchedOn,
+      similarity: Math.round(bestSimilarity * 100) / 100
+    };
+  }
+  
+  return null;
+}
+
+/**
+ * Attempts to fix a missing team tag by fuzzy matching it to an existing team.
+ * If a match is found (>= threshold), adds the tag to that team's Team Tag column.
+ * Team tags are separated by ‡ (dagger symbol).
+ * 
+ * @param {string} teamTag - The unmatched team tag to fix
+ * @param {number} threshold - Minimum similarity percentage (0-100), default 65
+ * @returns {Object} - Result: { success, team?, addedTag?, similarity?, message }
+ */
+function fixMissingTeamTag(teamTag, threshold) {
+  if (!teamTag) {
+    return { success: false, message: "No team tag provided" };
+  }
+  
+  threshold = threshold ?? 65;
+  const cleanedTag = String(teamTag).trim();
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const teamsSheet = ss.getSheetByName("Teams");
+  
+  if (!teamsSheet) {
+    return { success: false, message: "Teams sheet not found" };
+  }
+  
+  const teamsData = teamsSheet.getDataRange().getValues();
+  const teams = buildTeamList(teamsData);
+  
+  // Check if tag already exists (exact match, case-insensitive)
+  for (const team of teams) {
+    const tagsLower = team.tags.map(t => t.toLowerCase());
+    if (tagsLower.includes(cleanedTag.toLowerCase())) {
+      return { 
+        success: false, 
+        message: `Tag "${cleanedTag}" already assigned to ${team.name}` 
+      };
+    }
+  }
+  
+  // Try fuzzy match
+  const match = fuzzyMatchTeam(cleanedTag, teams, threshold);
+  
+  if (!match) {
+    return { 
+      success: false, 
+      message: `No match found for "${cleanedTag}" at ${threshold}% threshold` 
+    };
+  }
+  
+  // Find the row for this team and update their Team Tag
+  for (let i = 1; i < teamsData.length; i++) {
+    const teamName = String(teamsData[i][1] || "").trim();
+    
+    if (teamName === match.team) {
+      const rowIndex = i + 1; // 1-based row index
+      const currentTags = teamsSheet.getRange(rowIndex, 1).getValue();
+      
+      let newTags = cleanedTag;
+      if (currentTags) {
+        newTags = currentTags + "‡" + cleanedTag;
+      }
+      
+      teamsSheet.getRange(rowIndex, 1).setValue(newTags);
+      
+      return {
+        success: true,
+        team: match.team,
+        addedTag: cleanedTag,
+        matchedOn: match.matchedOn,
+        similarity: match.similarity,
+        message: `Added "${cleanedTag}" to ${match.team}'s Team Tags (matched "${match.matchedOn}" at ${match.similarity}%)`
+      };
+    }
+  }
+  
+  return { success: false, message: `Could not find row for team "${match.team}"` };
+}
+
+/**
+ * Attempts to fix multiple missing team tags in batch.
+ * 
+ * @param {string[]} teamTags - Array of unmatched team tags to fix
+ * @param {number} threshold - Minimum similarity percentage (0-100), default 65
+ * @returns {Object} - Result: { fixed: [], failed: [], summary }
+ */
+function fixMissingTeamTagsBatch(teamTags, threshold) {
+  if (!teamTags || !Array.isArray(teamTags) || teamTags.length === 0) {
+    return { fixed: [], failed: [], summary: "No team tags provided" };
+  }
+  
+  threshold = threshold ?? 65;
+  const fixed = [];
+  const failed = [];
+  
+  for (const tag of teamTags) {
+    const result = fixMissingTeamTag(tag, threshold);
+    
+    if (result.success) {
+      fixed.push(result);
+    } else {
+      failed.push({ tag, reason: result.message });
+    }
+  }
+  
+  return {
+    fixed,
+    failed,
+    summary: `Fixed ${fixed.length}/${teamTags.length} tags`
+  };
+}
+
+// ============================================================================
+// MIGRATIONS
+// ============================================================================
+
+/**
+ * Runs all pending migrations to update sheet structure.
+ * Safe to run multiple times - each migration checks if it's already been applied.
+ * 
+ * @returns {Object} - Result: { migrations: [], summary }
+ */
+function runMigration() {
+  const results = [];
+  
+  // Migration 1: Move 'Web App deployment URL' from Discord to Configuration
+  results.push(migrateDiscordWebAppUrl());
+  
+  // Migration 2: Move 'Discord web hook' from Discord to Configuration
+  results.push(migrateDiscordWebhook());
+  
+  // Migration 3: Remove 'Round' from Discord tab (now handled by sidebar)
+  results.push(migrateDiscordRound());
+  
+  // Migration 4: Add 'Schedule Info Sent' column to ScheduleConfig
+  results.push(migrateScheduleInfoSent());
+  
+  // Migration 5: Remove 'Notes' column from Discord tab
+  results.push(migrateDiscordNotesColumn());
+  
+  const applied = results.filter(r => r.applied).length;
+  const skipped = results.filter(r => !r.applied).length;
+  
+  return {
+    migrations: results,
+    summary: `Migrations complete: ${applied} applied, ${skipped} skipped`
+  };
+}
+
+/**
+ * Migration 1: Move 'Web App deployment URL' from Discord tab to Configuration tab as 'Discord Web App URL'
+ */
+function migrateDiscordWebAppUrl() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const discordSheet = ss.getSheetByName("Discord");
+  const configSheet = ss.getSheetByName("Configuration");
+  
+  if (!discordSheet || !configSheet) {
+    return { 
+      name: "migrateDiscordWebAppUrl", 
+      applied: false, 
+      message: "Discord or Configuration sheet not found" 
+    };
+  }
+  
+  // Find the key in Discord sheet
+  const discordData = discordSheet.getDataRange().getValues();
+  let discordRowIndex = -1;
+  let value = null;
+  
+  for (let i = 1; i < discordData.length; i++) {
+    if (String(discordData[i][0]).trim() === "Web App deployment URL") {
+      discordRowIndex = i + 1; // 1-based row index
+      value = discordData[i][1];
+      break;
+    }
+  }
+  
+  if (discordRowIndex === -1) {
+    return { 
+      name: "migrateDiscordWebAppUrl", 
+      applied: false, 
+      message: "Key 'Web App deployment URL' not found in Discord tab (already migrated or never existed)" 
+    };
+  }
+  
+  // Check if it already exists in Configuration
+  const configData = configSheet.getDataRange().getValues();
+  let configRowIndex = -1;
+  
+  for (let i = 1; i < configData.length; i++) {
+    if (String(configData[i][0]).trim() === "Discord Web App URL") {
+      configRowIndex = i + 1;
+      break;
+    }
+  }
+  
+  // Add to Configuration if it doesn't exist
+  if (configRowIndex === -1) {
+    const newRow = configSheet.getLastRow() + 1;
+    configSheet.getRange(newRow, 1).setValue("Discord Web App URL");
+    configSheet.getRange(newRow, 2).setValue(value);
+  } else {
+    // Update existing value
+    configSheet.getRange(configRowIndex, 2).setValue(value);
+  }
+  
+  // Remove from Discord sheet
+  discordSheet.deleteRow(discordRowIndex);
+  
+  return { 
+    name: "migrateDiscordWebAppUrl", 
+    applied: true, 
+    message: `Moved 'Web App deployment URL' to Configuration as 'Discord Web App URL'` 
+  };
+}
+
+/**
+ * Migration 2: Move 'Discord web hook' from Discord tab to Configuration tab as 'Discord Schedule Channel Webhook'
+ */
+function migrateDiscordWebhook() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const discordSheet = ss.getSheetByName("Discord");
+  const configSheet = ss.getSheetByName("Configuration");
+  
+  if (!discordSheet || !configSheet) {
+    return { 
+      name: "migrateDiscordWebhook", 
+      applied: false, 
+      message: "Discord or Configuration sheet not found" 
+    };
+  }
+  
+  // Find the key in Discord sheet
+  const discordData = discordSheet.getDataRange().getValues();
+  let discordRowIndex = -1;
+  let value = null;
+  
+  for (let i = 1; i < discordData.length; i++) {
+    if (String(discordData[i][0]).trim() === "Discord web hook") {
+      discordRowIndex = i + 1; // 1-based row index
+      value = discordData[i][1];
+      break;
+    }
+  }
+  
+  if (discordRowIndex === -1) {
+    return { 
+      name: "migrateDiscordWebhook", 
+      applied: false, 
+      message: "Key 'Discord web hook' not found in Discord tab (already migrated or never existed)" 
+    };
+  }
+  
+  // Check if it already exists in Configuration
+  const configData = configSheet.getDataRange().getValues();
+  let configRowIndex = -1;
+  
+  for (let i = 1; i < configData.length; i++) {
+    if (String(configData[i][0]).trim() === "Discord Schedule Channel Webhook") {
+      configRowIndex = i + 1;
+      break;
+    }
+  }
+  
+  // Add to Configuration if it doesn't exist
+  if (configRowIndex === -1) {
+    const newRow = configSheet.getLastRow() + 1;
+    configSheet.getRange(newRow, 1).setValue("Discord Schedule Channel Webhook");
+    configSheet.getRange(newRow, 2).setValue(value);
+  } else {
+    // Update existing value
+    configSheet.getRange(configRowIndex, 2).setValue(value);
+  }
+  
+  // Remove from Discord sheet
+  discordSheet.deleteRow(discordRowIndex);
+  
+  return { 
+    name: "migrateDiscordWebhook", 
+    applied: true, 
+    message: `Moved 'Discord web hook' to Configuration as 'Discord Schedule Channel Webhook'` 
+  };
+}
+
+/**
+ * Migration 3: Remove 'Round' from Discord tab (now handled by sidebar dropdown)
+ */
+function migrateDiscordRound() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const discordSheet = ss.getSheetByName("Discord");
+  
+  if (!discordSheet) {
+    return { 
+      name: "migrateDiscordRound", 
+      applied: false, 
+      message: "Discord sheet not found" 
+    };
+  }
+  
+  // Find the 'Round' key in Discord sheet
+  const discordData = discordSheet.getDataRange().getValues();
+  let discordRowIndex = -1;
+  
+  for (let i = 1; i < discordData.length; i++) {
+    if (String(discordData[i][0]).trim() === "Round") {
+      discordRowIndex = i + 1; // 1-based row index
+      break;
+    }
+  }
+  
+  if (discordRowIndex === -1) {
+    return { 
+      name: "migrateDiscordRound", 
+      applied: false, 
+      message: "Key 'Round' not found in Discord tab (already migrated or never existed)" 
+    };
+  }
+  
+  // Remove from Discord sheet
+  discordSheet.deleteRow(discordRowIndex);
+  
+  return { 
+    name: "migrateDiscordRound", 
+    applied: true, 
+    message: "Removed 'Round' from Discord tab (now controlled via sidebar)" 
+  };
+}
+
+/**
+ * Migration 4: Add 'Schedule Info Sent' column to ScheduleConfig tab
+ * Creates a dropdown with 'No'/'Yes' values for each row with a Round value
+ */
+function migrateScheduleInfoSent() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scheduleConfigSheet = ss.getSheetByName("ScheduleConfig");
+  
+  if (!scheduleConfigSheet) {
+    return { 
+      name: "migrateScheduleInfoSent", 
+      applied: false, 
+      message: "ScheduleConfig sheet not found" 
+    };
+  }
+  
+  const data = scheduleConfigSheet.getDataRange().getValues();
+  if (data.length < 1) {
+    return { 
+      name: "migrateScheduleInfoSent", 
+      applied: false, 
+      message: "ScheduleConfig sheet is empty" 
+    };
+  }
+  
+  const headers = data[0];
+  const existingColIndex = headers.indexOf("Schedule Info Sent");
+  
+  // If column already exists, skip
+  if (existingColIndex !== -1) {
+    return { 
+      name: "migrateScheduleInfoSent", 
+      applied: false, 
+      message: "'Schedule Info Sent' column already exists" 
+    };
+  }
+  
+  // Find the Round column to check which rows have data
+  const roundColIndex = headers.indexOf("Round");
+  if (roundColIndex === -1) {
+    return { 
+      name: "migrateScheduleInfoSent", 
+      applied: false, 
+      message: "'Round' column not found in ScheduleConfig" 
+    };
+  }
+  
+  // Add the new header
+  const newColIndex = headers.length + 1; // 1-based column index
+  scheduleConfigSheet.getRange(1, newColIndex).setValue("Schedule Info Sent");
+  
+  // Find rows with Round values and set default to 'No'
+  const lastRow = scheduleConfigSheet.getLastRow();
+  
+  for (let i = 2; i <= lastRow; i++) {
+    const roundValue = data[i - 1][roundColIndex]; // data is 0-based
+    if (roundValue !== "" && roundValue != null) {
+      const cell = scheduleConfigSheet.getRange(i, newColIndex);
+      cell.setValue("No");
+      
+      // Create dropdown validation
+      const rule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["No", "Yes"], true)
+        .setAllowInvalid(false)
+        .build();
+      cell.setDataValidation(rule);
+    }
+  }
+  
+  return { 
+    name: "migrateScheduleInfoSent", 
+    applied: true, 
+    message: `Added 'Schedule Info Sent' column with dropdown to ScheduleConfig` 
+  };
+}
+
+/**
+ * Migration 5: Remove 'Notes' column (column C) from Discord tab
+ */
+function migrateDiscordNotesColumn() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const discordSheet = ss.getSheetByName("Discord");
+  
+  if (!discordSheet) {
+    return { 
+      name: "migrateDiscordNotesColumn", 
+      applied: false, 
+      message: "Discord sheet not found" 
+    };
+  }
+  
+  // Check if there are at least 3 columns
+  const lastCol = discordSheet.getLastColumn();
+  if (lastCol < 3) {
+    return { 
+      name: "migrateDiscordNotesColumn", 
+      applied: false, 
+      message: "Discord sheet has fewer than 3 columns (Notes column already removed or never existed)" 
+    };
+  }
+  
+  // Check if column 3 header is "Notes"
+  const header = discordSheet.getRange(1, 3).getValue();
+  if (String(header).trim() !== "Notes") {
+    return { 
+      name: "migrateDiscordNotesColumn", 
+      applied: false, 
+      message: `Column C header is '${header}', not 'Notes' (already migrated or different structure)` 
+    };
+  }
+  
+  // Delete the entire column C
+  discordSheet.deleteColumn(3);
+  
+  return { 
+    name: "migrateDiscordNotesColumn", 
+    applied: true, 
+    message: "Removed 'Notes' column from Discord tab" 
+  };
+}
