@@ -1290,6 +1290,7 @@ function checkWebAppDeployment() {
 /**
  * Get the current deployment URL and update Configuration sheet
  * Creates the configuration key if it doesn't exist
+ * Also extracts and stores the Deployment ID from the URL
  */
 function updateDeploymentUrl() {
   try {
@@ -1297,6 +1298,13 @@ function updateDeploymentUrl() {
     
     if (!url) {
       throw new Error("This script is not deployed as a web app. Please deploy it first.");
+    }
+    
+    // Extract deployment ID from URL (format: https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec)
+    let deploymentId = null;
+    const match = url.match(/\/macros\/s\/([^\/]+)\/exec/);
+    if (match && match[1]) {
+      deploymentId = match[1];
     }
     
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1307,36 +1315,51 @@ function updateDeploymentUrl() {
     }
     
     const data = configSheet.getDataRange().getValues();
-    let foundRow = -1;
+    let urlRow = -1;
+    let idRow = -1;
     
-    // Look for existing "Web App Deployment URL" key
+    // Look for existing keys
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === "Web App Deployment URL") {
-        foundRow = i;
-        break;
+        urlRow = i;
+      }
+      if (data[i][0] === "Web App Deployment ID") {
+        idRow = i;
       }
     }
     
-    if (foundRow !== -1) {
-      // Update existing row
-      configSheet.getRange(foundRow + 1, 2).setValue(url);
+    // Update or add URL
+    if (urlRow !== -1) {
+      configSheet.getRange(urlRow + 1, 2).setValue(url);
     } else {
-      // Add new row
       const lastRow = configSheet.getLastRow();
       configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment URL");
       configSheet.getRange(lastRow + 1, 2).setValue(url);
     }
     
+    // Update or add Deployment ID
+    if (deploymentId) {
+      if (idRow !== -1) {
+        configSheet.getRange(idRow + 1, 2).setValue(deploymentId);
+      } else {
+        const lastRow = configSheet.getLastRow();
+        configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment ID");
+        configSheet.getRange(lastRow + 1, 2).setValue(deploymentId);
+      }
+    }
+    
     return {
       success: true,
       url: url,
-      message: "✅ Configuration updated with deployment URL"
+      deploymentId: deploymentId,
+      message: "✅ Configuration updated with deployment URL" + (deploymentId ? " and ID" : "")
     };
     
   } catch (e) {
     return {
       success: false,
       url: null,
+      deploymentId: null,
       message: "❌ " + e.message
     };
   }
