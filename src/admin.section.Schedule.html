@@ -4,6 +4,8 @@
             <p>This tab is used to create and manage the tournament schedule.</p>
             <p>You can manually edit the schedule as required.</p>
         </div>
+        
+        <div id="scheduleGenerationSection">
         <div class="note-box">
             <strong>⚠️ Important ⚠️</strong>
             <p>Configure the below before generating!</p>
@@ -72,5 +74,27 @@
         </button>
 
         <div id="scheduleMessage" class="form-message"></div>
+        </div>
+
+        <!-- POPULATE PLAYOFFS -->
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #e0e0e0;">
+        
+        <div class="info-box">
+            <p><strong>Populate Playoffs</strong></p>
+            <p>Use this to automatically populate playoff matchups based on standings and game results.</p>
+        </div>
+
+        <div id="playoffsWarning" style="display:none;">
+            <div class="note-box">
+                <strong>⚠️ Warning ⚠️</strong>
+                <p id="playoffsWarningMessage"></p>
+            </div>
+        </div>
+
+        <button id="populatePlayoffsBtn" onclick="populatePlayoffs()">
+            Populate Playoffs
+        </button>
+
+        <div id="playoffsMessage" class="form-message"></div>
     </div>
 </div>

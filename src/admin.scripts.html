@@ -19,6 +19,7 @@
         startFixMeMonitoring();
       } else if (sheetName === 'Schedule') {
         togglePlayoffsSection();
+        checkPlayoffsStatus();
       } else if (sheetName === 'Configuration') {
         initConfigurationSection();
       }
@@ -110,6 +111,33 @@
     section.style.display = required === 'Yes' ? 'block' : 'none';
   }
 
+  function checkPlayoffsStatus() {
+    google.script.run
+      .withSuccessHandler(function(status) {
+        const warningBox = document.getElementById('playoffsWarning');
+        const warningMsg = document.getElementById('playoffsWarningMessage');
+        const generationSection = document.getElementById('scheduleGenerationSection');
+        
+        if (status.warning) {
+          warningBox.style.display = 'block';
+          warningMsg.innerText = status.warning;
+        } else {
+          warningBox.style.display = 'none';
+        }
+        
+        // Hide schedule generation section if group stage is complete
+        if (status.complete && generationSection) {
+          generationSection.style.display = 'none';
+        } else if (generationSection) {
+          generationSection.style.display = 'block';
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to check playoffs status:', error);
+      })
+      .checkGroupStageStatus();
+  }
+
   function submitScheduleForm() {
 
     const data = {
@@ -160,6 +188,40 @@
         messageBox.classList.add('error');
       })
       .confirmScheduleOverwrite();
+  }
+
+  function populatePlayoffs() {
+    const btn = document.getElementById('populatePlayoffsBtn');
+    const messageBox = document.getElementById('playoffsMessage');
+    const warningBox = document.getElementById('playoffsWarning');
+    const warningMsg = document.getElementById('playoffsWarningMessage');
+    const loader = document.getElementById('loader-overlay');
+
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    warningBox.style.display = 'none';
+
+    btn.disabled = true;
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        
+        messageBox.innerText = result.message;
+        messageBox.classList.add(result.success ? 'success' : 'error');
+        
+        // Refresh status after population
+        checkPlayoffsStatus();
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .populatePlayoffsMatchups();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

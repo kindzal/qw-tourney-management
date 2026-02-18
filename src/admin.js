@@ -334,6 +334,699 @@ function confirmScheduleOverwrite() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Playoff Population Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check group stage completion status for display in UI
+ */
+function checkGroupStageStatus() {
+  const ss = SpreadsheetApp.getActive();
+  const scheduleSheet = ss.getSheetByName("Schedule");
+  const teamGamesSheet = ss.getSheetByName("TeamGames");
+  
+  if (!scheduleSheet || !teamGamesSheet) {
+    return { complete: true, warning: null };
+  }
+  
+  const status = checkGroupStageComplete(scheduleSheet, teamGamesSheet);
+  
+  if (!status.complete) {
+    return {
+      complete: false,
+      warning: `Group stage is not complete. ${status.played} of ${status.expected} games played. Proceed with caution!`
+    };
+  }
+  
+  return { complete: true, warning: null };
+}
+
+/**
+ * Populates playoff matchups in the Schedule sheet based on standings and game results
+ */
+function populatePlayoffsMatchups() {
+  const ss = SpreadsheetApp.getActive();
+  const scheduleSheet = ss.getSheetByName("Schedule");
+  const standingsSheet = ss.getSheetByName("Standings");
+  const teamGamesSheet = ss.getSheetByName("TeamGames");
+  const teamsSheet = ss.getSheetByName("Teams");
+  
+  if (!scheduleSheet || !standingsSheet || !teamGamesSheet || !teamsSheet) {
+    return { success: false, message: "Required sheets not found" };
+  }
+
+  // Get playoff type from schedule configuration
+  const playoffType = getPlayoffType(scheduleSheet);
+  
+  // Get number of teams
+  const numTeams = teamsSheet.getLastRow() - 1;
+  
+  // Get seeded teams from standings
+  const seeds = getSeededTeams(standingsSheet);
+  
+  if (seeds.length < 4) {
+    return { success: false, message: "Not enough teams in standings (minimum 4 required)" };
+  }
+  
+  // Get all team games for determining winners
+  const teamGames = getTeamGamesData(teamGamesSheet);
+  
+  // Populate each playoff stage progressively
+  let populated = [];
+  
+  // 1. Quarterfinals
+  const qfResult = populateQuarterfinals(scheduleSheet, seeds, numTeams);
+  if (qfResult.populated) {
+    populated.push("Quarterfinals");
+  }
+  
+  // 2. Check if all QFs are played before populating semifinals
+  const qfRequired = numTeams >= 8 ? 4 : 2;
+  const qfGames = teamGames.filter(g => g.round === "Quarterfinals");
+  
+  if (qfGames.length >= qfRequired) {
+    // 3. Semifinals
+    const sfResult = populateSemifinals(scheduleSheet, teamGames, seeds, numTeams);
+    if (sfResult.populated) {
+      populated.push("Semifinals");
+    }
+    
+    // 4. AB Playoffs: Semifinals B
+    if (playoffType === "AB Playoffs") {
+      const sfbResult = populateSemifinalsB(scheduleSheet, teamGames, seeds, numTeams);
+      if (sfbResult.populated) {
+        populated.push("Semifinals B");
+      }
+    }
+    
+    // 5. Check if all SFs are played before populating finals
+    const sfGames = teamGames.filter(g => g.round === "Semifinals");
+    
+    if (sfGames.length >= 2) {
+      // 6. Final and Bronze
+      const finalResult = populateFinal(scheduleSheet, teamGames);
+      if (finalResult.populated) {
+        populated.push("Final");
+      }
+      
+      const bronzeResult = populateBronze(scheduleSheet, teamGames);
+      if (bronzeResult.populated) {
+        populated.push("Bronze");
+      }
+      
+      // 7. AB Playoffs: Final B and Bronze B
+      if (playoffType === "AB Playoffs") {
+        const sfbGames = teamGames.filter(g => g.round === "Semifinals B");
+        
+        if (sfbGames.length >= 2) {
+          const finalbResult = populateFinalB(scheduleSheet, teamGames);
+          if (finalbResult.populated) {
+            populated.push("Final B");
+          }
+          
+          const bronzebResult = populateBronzeB(scheduleSheet, teamGames);
+          if (bronzebResult.populated) {
+            populated.push("Bronze B");
+          }
+        }
+      }
+    }
+  }
+  
+  if (populated.length === 0) {
+    return {
+      success: true,
+      message: "All playoff stages are already populated or cannot be generated yet."
+    };
+  }
+  
+  return {
+    success: true,
+    message: `Successfully populated: ${populated.join(", ")}`
+  };
+}
+
+/**
+ * Get playoff type from schedule
+ */
+function getPlayoffType(scheduleSheet) {
+  const data = scheduleSheet.getDataRange().getValues();
+  
+  // Check if AB Playoffs rounds exist
+  for (let i = 1; i < data.length; i++) {
+    const round = data[i][0];
+    if (round === "Semifinals B" || round === "Final B" || round === "Bronze B") {
+      return "AB Playoffs";
+    }
+  }
+  
+  return "Single Elimination";
+}
+
+/**
+ * Check if group stage is complete
+ */
+function checkGroupStageComplete(scheduleSheet, teamGamesSheet) {
+  const scheduleData = scheduleSheet.getDataRange().getValues();
+  const teamGamesData = teamGamesSheet.getDataRange().getValues();
+  
+  // Count expected group stage games (numeric rounds)
+  let expected = 0;
+  for (let i = 1; i < scheduleData.length; i++) {
+    const round = String(scheduleData[i][0]);
+    if (!isNaN(round) && round.trim() !== "") {
+      expected++;
+    }
+  }
+  
+  // Count played group stage games
+  let played = 0;
+  for (let i = 1; i < teamGamesData.length; i++) {
+    const round = String(teamGamesData[i][2]);
+    if (!isNaN(round) && round.trim() !== "") {
+      played++;
+    }
+  }
+  
+  return {
+    complete: played >= expected,
+    expected: expected,
+    played: played
+  };
+}
+
+/**
+ * Get seeded teams from standings
+ */
+function getSeededTeams(standingsSheet) {
+  const data = standingsSheet.getDataRange().getValues();
+  const seeds = [];
+  
+  // Skip header row, get teams in order
+  for (let i = 1; i < data.length; i++) {
+    const seed = data[i][0]; // Column A: #
+    const team = data[i][1]; // Column B: Team
+    
+    if (team && team !== "") {
+      seeds.push({ seed: seed, team: team });
+    }
+  }
+  
+  return seeds;
+}
+
+/**
+ * Get all team games data
+ */
+function getTeamGamesData(teamGamesSheet) {
+  const data = teamGamesSheet.getDataRange().getValues();
+  const games = [];
+  
+  // Skip header
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    games.push({
+      round: row[2],      // Column C: Round
+      teamA: row[3],      // Column D: TeamA
+      mapsWonA: row[4],   // Column E: MapsWonA
+      teamB: row[6],      // Column G: TeamB
+      mapsWonB: row[7]    // Column H: MapsWonB
+    });
+  }
+  
+  return games;
+}
+
+/**
+ * Populate Quarterfinals
+ */
+function populateQuarterfinals(scheduleSheet, seeds, numTeams) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Quarterfinals rows
+  const qfRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Quarterfinals") {
+      qfRows.push(i);
+    }
+  }
+  
+  if (qfRows.length < 4) {
+    return { populated: false };
+  }
+  
+  // Define matchups based on number of teams
+  let matchups = [];
+  
+  if (numTeams >= 8) {
+    // 8 teams: 1v8, 4v5, 2v7, 3v6
+    matchups = [
+      [seeds[0].team, seeds[7].team],
+      [seeds[3].team, seeds[4].team],
+      [seeds[1].team, seeds[6].team],
+      [seeds[2].team, seeds[5].team]
+    ];
+  } else if (numTeams >= 6) {
+    // 6 teams with byes: 1v-, 3v6, 4v5, -v2
+    matchups = [
+      [seeds[0].team, "-"],
+      [seeds[2].team, seeds[5].team],
+      [seeds[3].team, seeds[4].team],
+      ["-", seeds[1].team]
+    ];
+  } else {
+    return { populated: false };
+  }
+  
+  // Populate if not already filled
+  for (let i = 0; i < 4 && i < qfRows.length; i++) {
+    const rowIndex = qfRows[i];
+    const team1 = data[rowIndex][1];
+    const team2 = data[rowIndex][2];
+    
+    // Only populate if both teams are blank or "-"
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(rowIndex + 1, 2).setValue(matchups[i][0]);
+      scheduleSheet.getRange(rowIndex + 1, 3).setValue(matchups[i][1]);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+/**
+ * Get winner of a match
+ */
+function getWinner(teamGames, round, team1, team2) {
+  const game = teamGames.find(g => 
+    g.round === round && 
+    ((g.teamA === team1 && g.teamB === team2) || (g.teamA === team2 && g.teamB === team1))
+  );
+  
+  if (!game) return null;
+  
+  if (game.mapsWonA > game.mapsWonB) {
+    return game.teamA;
+  } else if (game.mapsWonB > game.mapsWonA) {
+    return game.teamB;
+  }
+  
+  return null; // Draw or incomplete
+}
+
+/**
+ * Populate Semifinals
+ */
+function populateSemifinals(scheduleSheet, teamGames, seeds, numTeams) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Semifinals rows
+  const sfRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Semifinals") {
+      sfRows.push(i);
+    }
+  }
+  
+  if (sfRows.length < 2) {
+    return { populated: false };
+  }
+  
+  // Get QF matchups from schedule
+  const qfRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Quarterfinals") {
+      qfRows.push({ team1: data[i][1], team2: data[i][2] });
+    }
+  }
+  
+  if (qfRows.length < 4) {
+    return { populated: false };
+  }
+  
+  // Determine SF matchups
+  let sf1Team1, sf1Team2, sf2Team1, sf2Team2;
+  
+  if (numTeams >= 8) {
+    // SF1: Winner of QF1 vs Winner of QF2
+    sf1Team1 = getWinner(teamGames, "Quarterfinals", qfRows[0].team1, qfRows[0].team2);
+    sf1Team2 = getWinner(teamGames, "Quarterfinals", qfRows[1].team1, qfRows[1].team2);
+    
+    // SF2: Winner of QF3 vs Winner of QF4
+    sf2Team1 = getWinner(teamGames, "Quarterfinals", qfRows[2].team1, qfRows[2].team2);
+    sf2Team2 = getWinner(teamGames, "Quarterfinals", qfRows[3].team1, qfRows[3].team2);
+  } else {
+    // 6 teams: Seed1 vs Winner of QF2, Winner of QF3 vs Seed2
+    sf1Team1 = seeds[0].team;
+    sf1Team2 = getWinner(teamGames, "Quarterfinals", qfRows[1].team1, qfRows[1].team2);
+    
+    sf2Team1 = getWinner(teamGames, "Quarterfinals", qfRows[2].team1, qfRows[2].team2);
+    sf2Team2 = seeds[1].team;
+  }
+  
+  // Populate if all teams determined and not already filled
+  if (sf1Team1 && sf1Team2) {
+    const team1 = data[sfRows[0]][1];
+    const team2 = data[sfRows[0]][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(sfRows[0] + 1, 2).setValue(sf1Team1);
+      scheduleSheet.getRange(sfRows[0] + 1, 3).setValue(sf1Team2);
+      populated = true;
+    }
+  }
+  
+  if (sf2Team1 && sf2Team2) {
+    const team1 = data[sfRows[1]][1];
+    const team2 = data[sfRows[1]][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(sfRows[1] + 1, 2).setValue(sf2Team1);
+      scheduleSheet.getRange(sfRows[1] + 1, 3).setValue(sf2Team2);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+/**
+ * Populate Semifinals B (for AB Playoffs)
+ */
+function populateSemifinalsB(scheduleSheet, teamGames, seeds, numTeams) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Semifinals B rows
+  const sfbRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Semifinals B") {
+      sfbRows.push(i);
+    }
+  }
+  
+  if (sfbRows.length < 2) {
+    return { populated: false };
+  }
+  
+  // Get QF matchups and losers
+  const qfRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Quarterfinals") {
+      qfRows.push({ team1: data[i][1], team2: data[i][2] });
+    }
+  }
+  
+  if (qfRows.length < 4) {
+    return { populated: false };
+  }
+  
+  // Get losers of QFs
+  function getLoser(round, team1, team2) {
+    const winner = getWinner(teamGames, round, team1, team2);
+    if (!winner) return null;
+    if (winner === team1) return team2;
+    if (winner === team2) return team1;
+    return null;
+  }
+  
+  let sfb1Team1, sfb1Team2, sfb2Team1, sfb2Team2;
+  
+  if (numTeams >= 8) {
+    // SFB1: Loser of QF1 vs Loser of QF2
+    sfb1Team1 = getLoser("Quarterfinals", qfRows[0].team1, qfRows[0].team2);
+    sfb1Team2 = getLoser("Quarterfinals", qfRows[1].team1, qfRows[1].team2);
+    
+    // SFB2: Loser of QF3 vs Loser of QF4
+    sfb2Team1 = getLoser("Quarterfinals", qfRows[2].team1, qfRows[2].team2);
+    sfb2Team2 = getLoser("Quarterfinals", qfRows[3].team1, qfRows[3].team2);
+  } else {
+    // 6 teams: Loser of QF2, Loser of QF3
+    sfb1Team1 = getLoser("Quarterfinals", qfRows[1].team1, qfRows[1].team2);
+    sfb1Team2 = getLoser("Quarterfinals", qfRows[2].team1, qfRows[2].team2);
+    
+    // For 6 teams we might need different logic - skip for now
+    sfb2Team1 = null;
+    sfb2Team2 = null;
+  }
+  
+  // Populate if all teams determined
+  if (sfb1Team1 && sfb1Team2) {
+    const team1 = data[sfbRows[0]][1];
+    const team2 = data[sfbRows[0]][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(sfbRows[0] + 1, 2).setValue(sfb1Team1);
+      scheduleSheet.getRange(sfbRows[0] + 1, 3).setValue(sfb1Team2);
+      populated = true;
+    }
+  }
+  
+  if (sfb2Team1 && sfb2Team2 && sfbRows.length > 1) {
+    const team1 = data[sfbRows[1]][1];
+    const team2 = data[sfbRows[1]][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(sfbRows[1] + 1, 2).setValue(sfb2Team1);
+      scheduleSheet.getRange(sfbRows[1] + 1, 3).setValue(sfb2Team2);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+/**
+ * Populate Final
+ */
+function populateFinal(scheduleSheet, teamGames) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Final row
+  let finalRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Final") {
+      finalRow = i;
+      break;
+    }
+  }
+  
+  if (finalRow === -1) {
+    return { populated: false };
+  }
+  
+  // Get SF matchups
+  const sfRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Semifinals") {
+      sfRows.push({ team1: data[i][1], team2: data[i][2] });
+    }
+  }
+  
+  if (sfRows.length < 2) {
+    return { populated: false };
+  }
+  
+  // Winner of SF1 vs Winner of SF2
+  const finalTeam1 = getWinner(teamGames, "Semifinals", sfRows[0].team1, sfRows[0].team2);
+  const finalTeam2 = getWinner(teamGames, "Semifinals", sfRows[1].team1, sfRows[1].team2);
+  
+  if (finalTeam1 && finalTeam2) {
+    const team1 = data[finalRow][1];
+    const team2 = data[finalRow][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(finalRow + 1, 2).setValue(finalTeam1);
+      scheduleSheet.getRange(finalRow + 1, 3).setValue(finalTeam2);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+/**
+ * Populate Bronze
+ */
+function populateBronze(scheduleSheet, teamGames) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Bronze row
+  let bronzeRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Bronze") {
+      bronzeRow = i;
+      break;
+    }
+  }
+  
+  if (bronzeRow === -1) {
+    return { populated: false };
+  }
+  
+  // Get SF matchups
+  const sfRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Semifinals") {
+      sfRows.push({ team1: data[i][1], team2: data[i][2] });
+    }
+  }
+  
+  if (sfRows.length < 2) {
+    return { populated: false };
+  }
+  
+  // Get losers
+  function getLoser(round, team1, team2) {
+    const winner = getWinner(teamGames, round, team1, team2);
+    if (!winner) return null;
+    if (winner === team1) return team2;
+    if (winner === team2) return team1;
+    return null;
+  }
+  
+  // Loser of SF1 vs Loser of SF2
+  const bronzeTeam1 = getLoser("Semifinals", sfRows[0].team1, sfRows[0].team2);
+  const bronzeTeam2 = getLoser("Semifinals", sfRows[1].team1, sfRows[1].team2);
+  
+  if (bronzeTeam1 && bronzeTeam2) {
+    const team1 = data[bronzeRow][1];
+    const team2 = data[bronzeRow][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(bronzeRow + 1, 2).setValue(bronzeTeam1);
+      scheduleSheet.getRange(bronzeRow + 1, 3).setValue(bronzeTeam2);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+/**
+ * Populate Final B (for AB Playoffs)
+ */
+function populateFinalB(scheduleSheet, teamGames) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Final B row
+  let finalbRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Final B") {
+      finalbRow = i;
+      break;
+    }
+  }
+  
+  if (finalbRow === -1) {
+    return { populated: false };
+  }
+  
+  // Get SFB matchups
+  const sfbRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Semifinals B") {
+      sfbRows.push({ team1: data[i][1], team2: data[i][2] });
+    }
+  }
+  
+  if (sfbRows.length < 2) {
+    return { populated: false };
+  }
+  
+  // Winner of SFB1 vs Winner of SFB2
+  const finalbTeam1 = getWinner(teamGames, "Semifinals B", sfbRows[0].team1, sfbRows[0].team2);
+  const finalbTeam2 = getWinner(teamGames, "Semifinals B", sfbRows[1].team1, sfbRows[1].team2);
+  
+  if (finalbTeam1 && finalbTeam2) {
+    const team1 = data[finalbRow][1];
+    const team2 = data[finalbRow][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(finalbRow + 1, 2).setValue(finalbTeam1);
+      scheduleSheet.getRange(finalbRow + 1, 3).setValue(finalbTeam2);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+/**
+ * Populate Bronze B (for AB Playoffs)
+ */
+function populateBronzeB(scheduleSheet, teamGames) {
+  const data = scheduleSheet.getDataRange().getValues();
+  let populated = false;
+  
+  // Find Bronze B row
+  let bronzebRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Bronze B") {
+      bronzebRow = i;
+      break;
+    }
+  }
+  
+  if (bronzebRow === -1) {
+    return { populated: false };
+  }
+  
+  // Get SFB matchups
+  const sfbRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === "Semifinals B") {
+      sfbRows.push({ team1: data[i][1], team2: data[i][2] });
+    }
+  }
+  
+  if (sfbRows.length < 2) {
+    return { populated: false };
+  }
+  
+  // Get losers
+  function getLoser(round, team1, team2) {
+    const winner = getWinner(teamGames, round, team1, team2);
+    if (!winner) return null;
+    if (winner === team1) return team2;
+    if (winner === team2) return team1;
+    return null;
+  }
+  
+  // Loser of SFB1 vs Loser of SFB2
+  const bronzebTeam1 = getLoser("Semifinals B", sfbRows[0].team1, sfbRows[0].team2);
+  const bronzebTeam2 = getLoser("Semifinals B", sfbRows[1].team1, sfbRows[1].team2);
+  
+  if (bronzebTeam1 && bronzebTeam2) {
+    const team1 = data[bronzebRow][1];
+    const team2 = data[bronzebRow][2];
+    
+    if ((!team1 || team1 === "" || team1 === "-") && 
+        (!team2 || team2 === "" || team2 === "-")) {
+      scheduleSheet.getRange(bronzebRow + 1, 2).setValue(bronzebTeam1);
+      scheduleSheet.getRange(bronzebRow + 1, 3).setValue(bronzebTeam2);
+      populated = true;
+    }
+  }
+  
+  return { populated: populated };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Trigger Management Functions
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -562,114 +1255,131 @@ function uninstallFixMeTriggers() {
 // FIX-ME Issue Fixing Functions
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Get the currently selected issue from the FIX-ME sheet
- * Returns an object with issue details and list of Players/Teams to choose from
- */
-function getSelectedFixMeIssue() {
+function onSelectionChange(e) {
+  const sheet = e.range.getSheet();
+  
+  if (sheet.getName() !== "FIX-ME") {
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    return;
+  }
+
+  const row = e.range.getRow();
+  const issueData = getFixMeIssueForRow(row);
+
+  PropertiesService.getDocumentProperties()
+    .setProperty(
+      "CURRENT_FIXME_SELECTION",
+      JSON.stringify(issueData)
+    );
+}
+
+function getFixMeIssueForRow(row) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const activeSheet = ss.getActiveSheet();
+  const activeSheet = ss.getSheetByName("FIX-ME");
   
-  // Check if FIX-ME sheet is active
-  if (activeSheet.getName() !== "FIX-ME") {
-    return { canFix: false, message: "Please select the FIX-ME sheet" };
-  }
-  
-  const selection = activeSheet.getActiveRange();
-  if (!selection) {
-    return { canFix: false, message: "No row selected" };
-  }
-  
-  const row = selection.getRow();
-  
-  // Check if header row or no data row
-  if (row < 2) {
+  if (!activeSheet || row < 2) {
     return { canFix: false, message: "Please select a data row (not the header)" };
   }
-  
-  // Get the issue data from the selected row
+
   const rowData = activeSheet.getRange(row, 1, 1, 2).getValues()[0];
   const issueType = rowData[0];
   const value = rowData[1];
-  
+
   if (!issueType || !value) {
     return { canFix: false, message: "Selected row is empty" };
   }
-  
-  // Validate issue type
+
   if (issueType !== "Unmatched Player" && issueType !== "Unmatched Team Tag") {
     return { canFix: false, message: "Unknown issue type" };
   }
-  
-  // Get list of Players or Teams
+
   const targets = [];
-  
+
   if (issueType === "Unmatched Player") {
-    // Get Players
     const playersSheet = ss.getSheetByName("Players");
     if (playersSheet && playersSheet.getLastRow() > 1) {
-      const playersData = playersSheet.getRange(2, 3, playersSheet.getLastRow() - 1, 1).getValues();
-      playersData.forEach((row, index) => {
-        if (row[0]) {
+      const playersData = playersSheet
+        .getRange(2, 3, playersSheet.getLastRow() - 1, 1)
+        .getValues();
+
+      playersData.forEach((r, i) => {
+        if (r[0]) {
           targets.push({
-            name: row[0],
-            row: index + 2,
+            name: r[0],
+            row: i + 2,
             sheet: "Players"
           });
         }
       });
     }
-    
-    // Get Standins
+
     const standinsSheet = ss.getSheetByName("Standins");
     if (standinsSheet && standinsSheet.getLastRow() > 1) {
-      const standinsData = standinsSheet.getRange(2, 3, standinsSheet.getLastRow() - 1, 1).getValues();
-      standinsData.forEach((row, index) => {
-        if (row[0]) {
+      const standinsData = standinsSheet
+        .getRange(2, 3, standinsSheet.getLastRow() - 1, 1)
+        .getValues();
+
+      standinsData.forEach((r, i) => {
+        if (r[0]) {
           targets.push({
-            name: row[0] + " (Standin)",
-            row: index + 2,
+            name: r[0] + " (Standin)",
+            row: i + 2,
             sheet: "Standins"
           });
         }
       });
     }
-    
-  } else if (issueType === "Unmatched Team Tag") {
-    // Get Teams
+
+  } else {
     const teamsSheet = ss.getSheetByName("Teams");
     if (teamsSheet && teamsSheet.getLastRow() > 1) {
-      const teamsData = teamsSheet.getRange(2, 2, teamsSheet.getLastRow() - 1, 1).getValues();
-      teamsData.forEach((row, index) => {
-        if (row[0]) {
+      const teamsData = teamsSheet
+        .getRange(2, 2, teamsSheet.getLastRow() - 1, 1)
+        .getValues();
+
+      teamsData.forEach((r, i) => {
+        if (r[0]) {
           targets.push({
-            name: row[0],
-            row: index + 2,
+            name: r[0],
+            row: i + 2,
             sheet: "Teams"
           });
         }
       });
     }
   }
-  
+
   if (targets.length === 0) {
     return { 
-      canFix: false, 
-      message: issueType === "Unmatched Player" ? 
-        "No players or standins found" : 
-        "No teams found" 
+      canFix: false,
+      message: issueType === "Unmatched Player"
+        ? "No players or standins found"
+        : "No teams found"
     };
   }
-  
+
   return {
     canFix: true,
-    issueType: issueType,
+    issueType,
     value: String(value).trim(),
-    row: row,
-    targets: targets
+    row,
+    targets
   };
 }
 
+/**
+ * Get the currently selected issue from the FIX-ME sheet
+ * Returns an object with issue details and list of Players/Teams to choose from
+ */
+function getSelectedFixMeIssue() {
+  const prop = PropertiesService
+    .getDocumentProperties()
+    .getProperty("CURRENT_FIXME_SELECTION");
+
+  return prop ? JSON.parse(prop) : 
+    { canFix: false, message: "No row selected" };
+}
 /**
  * Fix the currently selected issue by adding the tag to the selected Player/Team
  * @param {number} targetRow - The row number in the Players/Standins/Teams sheet to update
@@ -712,6 +1422,11 @@ function fixSelectedFixMeIssue(targetRow) {
     
     // Update stats and return
     updateStats(true);
+    
+    // Clear the selection property so UI refreshes properly
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    
     return `✅ Added "${issue.value}" to ${target.name}'s Game Nicks. Stats updated.`;
     
   } else if (issue.issueType === "Unmatched Team Tag") {
@@ -732,6 +1447,11 @@ function fixSelectedFixMeIssue(targetRow) {
     
     // Update stats and return
     updateStats(true);
+    
+    // Clear the selection property so UI refreshes properly
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    
     return `✅ Added "${issue.value}" to ${target.name}'s Team Tags. Stats updated.`;
   }
   
