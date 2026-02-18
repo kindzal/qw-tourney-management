@@ -8,17 +8,13 @@
     <!-- Web App Deployment -->
     <div id="webapp-deployment" style="display: none;">
       <h3>Web App Deployment</h3>
-      <div id="webapp-not-deployed-warning" class="note-box" style="display: none;">
-        <strong>⚠️ Web App Not Deployed ⚠️</strong>
-        <p>The Web App is not deployed yet.</p>
-        <p>To deploy the Web App, follow the instructions <a href="https://github.com/kindzal/qw-tourney-management?tab=readme-ov-file#web-app-simplified-deployment-method" target="_blank">here</a>.</p>
-      </div>
       <div id="webapp-url-not-configured" style="display: none;">
         <div class="info-box">
-          <p id="webapp-url-message">Your Web App is deployed, but the deployment URL is not saved in the Configuration sheet.</p>
-          <p>Click the button below to automatically update the Configuration sheet with your deployment URL.</p>
+          <p id="webapp-url-message">The Web App deployment URL is not configured.</p>
+          <p>Copy the URL from Apps Script → Deploy → Manage deployments, then paste it below:</p>
         </div>
-        <button onclick="updateDeploymentUrlFromUI()">Update Deployment URL</button>
+        <input type="text" id="webapp-url-input" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box;">
+        <button onclick="saveDeploymentUrlFromUI()">Save Deployment URL</button>
         <div id="webapp-message" class="form-message"></div>
       </div>
     </div>

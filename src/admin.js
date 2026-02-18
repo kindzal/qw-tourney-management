@@ -1263,49 +1263,36 @@ function checkWebAppDeployment() {
   const config = getConfiguration();
   const configuredUrl = config["Web App Deployment URL"];
   
-  // Check if web app is actually deployed
-  let actualUrl = null;
-  try {
-    actualUrl = ScriptApp.getService().getUrl();
-  } catch (e) {
-    // Web app not deployed or error getting URL
-  }
-  
-  const isDeployed = !!(actualUrl && actualUrl.trim() !== "");
   const hasConfiguredUrl = !!(configuredUrl && configuredUrl.trim() !== "");
-  const urlsMatch = isDeployed && hasConfiguredUrl && (actualUrl === configuredUrl);
   
   return {
-    isDeployed: isDeployed,
     hasConfiguredUrl: hasConfiguredUrl,
-    urlsMatch: urlsMatch,
-    needsUpdate: isDeployed && (!hasConfiguredUrl || !urlsMatch),
-    actualUrl: actualUrl || null,
-    configuredUrl: configuredUrl || null,
-    readmeUrl: "https://github.com/vikpe/qw-dojo/tree/main/qml7#web-app-simplified-deployment-method",
-    readmeSection: "Web App (simplified deployment method)"
+    configuredUrl: configuredUrl || null
   };
 }
 
 /**
- * Get the current deployment URL and update Configuration sheet
+ * Save the deployment URL to Configuration sheet
  * Creates the configuration key if it doesn't exist
  * Also extracts and stores the Deployment ID from the URL
+ * @param {string} url - The deployment URL to save
  */
-function updateDeploymentUrl() {
+function saveDeploymentUrl(url) {
   try {
-    const url = ScriptApp.getService().getUrl();
-    
-    if (!url) {
-      throw new Error("This script is not deployed as a web app. Please deploy it first.");
+    if (!url || !url.trim()) {
+      throw new Error("Please provide a deployment URL.");
     }
     
-    // Extract deployment ID from URL (format: https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec)
-    let deploymentId = null;
-    const match = url.match(/\/macros\/s\/([^\/]+)\/exec/);
-    if (match && match[1]) {
-      deploymentId = match[1];
+    url = url.trim();
+    
+    // Validate URL format
+    const urlMatch = url.match(/^https:\/\/script\.google\.com\/macros\/s\/([^\/]+)\/exec$/);
+    if (!urlMatch) {
+      throw new Error("Invalid URL format. Expected: https://script.google.com/macros/s/.../exec");
     }
+    
+    // Extract deployment ID from URL
+    const deploymentId = urlMatch[1];
     
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const configSheet = ss.getSheetByName("Configuration");
@@ -1338,21 +1325,19 @@ function updateDeploymentUrl() {
     }
     
     // Update or add Deployment ID
-    if (deploymentId) {
-      if (idRow !== -1) {
-        configSheet.getRange(idRow + 1, 2).setValue(deploymentId);
-      } else {
-        const lastRow = configSheet.getLastRow();
-        configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment ID");
-        configSheet.getRange(lastRow + 1, 2).setValue(deploymentId);
-      }
+    if (idRow !== -1) {
+      configSheet.getRange(idRow + 1, 2).setValue(deploymentId);
+    } else {
+      const lastRow = configSheet.getLastRow();
+      configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment ID");
+      configSheet.getRange(lastRow + 1, 2).setValue(deploymentId);
     }
     
     return {
       success: true,
       url: url,
       deploymentId: deploymentId,
-      message: "✅ Configuration updated with deployment URL" + (deploymentId ? " and ID" : "")
+      message: "✅ Configuration updated with deployment URL and ID"
     };
     
   } catch (e) {
