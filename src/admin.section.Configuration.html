@@ -101,6 +101,34 @@
       <div id="fixme-message" class="form-message"></div>
     </div>
 
+    <!-- Trigger 5: Auto Discord Schedule -->
+    <div id="trigger-autodiscord" style="display: none;">
+      <h3>Automatic Discord Weekly Schedule Posting</h3>
+      <div id="autodiscord-warning" class="note-box" style="display: none;">
+        <strong>⚠️ Important ⚠️</strong>
+        <p>This feature will not work without the "Discord Schedule Channel Webhook" being set up in the <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> tab.</p>
+      </div>
+      <div class="info-box">
+        <p>Enables automatic posting of weekly schedule information to Discord.</p>
+        <p>The trigger runs daily between 10-11am and will:</p>
+        <ul>
+          <li>Find the first round with a deadline in the future</li>
+          <li>Check if "Schedule Info Sent" is "No" for that round</li>
+          <li>If not yet sent, post the schedule message to Discord</li>
+          <li>Mark the round as "Sent" to prevent duplicate posts</li>
+        </ul>
+      </div>
+      <div id="autodiscord-status-disabled" style="display: none; color: #c93a3a; margin-bottom: 10px;">
+        <strong>✗ Status: Disabled</strong>
+      </div>
+      <div id="autodiscord-status-enabled" style="display: none; color: #2d8f2d; margin-bottom: 10px;">
+        <strong>✓ Status: Enabled</strong>
+      </div>
+      <button id="install-autodiscord-btn" onclick="installAutoDiscordTrigger()" style="display: none;">Install Automatic Discord Schedule Posting</button>
+      <button id="disable-autodiscord-btn" onclick="disableAutoDiscordTrigger()" style="display: none;">Disable Automatic Discord Schedule Posting</button>
+      <div id="autodiscord-message" class="form-message"></div>
+    </div>
+
     <div id="all-triggers-installed" style="display: none;">
       <div class="info-box">
         <p>✅ All triggers are installed and active.</p>

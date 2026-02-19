@@ -1,29 +1,76 @@
 function postToDiscord(mode = 'post', roundNumber = null) {
   const ui = SpreadsheetApp.getUi();
-  const sheet = SpreadsheetApp.getActiveSpreadsheet();
   
-  const discordSheet = sheet.getSheetByName('Discord');
-      
-  // --- Fetch Schedule Sheet Data ---
-  const scheduleSheet = sheet.getSheetByName('Schedule');
-  const scheduleConfigSheet = sheet.getSheetByName('ScheduleConfig');
+  // Round is now passed as parameter (from sidebar dropdown)
+  if (!roundNumber) {
+    throw new Error("Round not specified. Please select a round from the dropdown.");
+  }
+  
+  // Build the message
+  const { message, webhookUrl } = buildScheduleMessage(roundNumber);
+
+  // --- Preview Mode ---
+  if (mode === 'preview') {
+    ui.showModalDialog(
+      HtmlService.createHtmlOutput(`<pre style="white-space: pre-wrap;">${message}</pre>`)
+        .setWidth(700)
+        .setHeight(820),
+      'Discord Post Preview'
+    );
+    return;
+  }
+
+  // --- Confirm Before Posting ---
+  const response = ui.alert('Are you sure you want to post this update to Discord?', ui.ButtonSet.YES_NO);
+  if (response !== ui.Button.YES) {
+    ui.alert('Post cancelled.');
+    return;
+  }
+
+  // --- Post to Discord --- 
+  try {
+    const payload = JSON.stringify({ content: message });
+
+    const options = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: payload,
+    };
+
+    UrlFetchApp.fetch(webhookUrl, options);
+
+    ui.alert('Message successfully posted to Discord! ✅');
+    logPostHistory(message, 'Success');
+    
+    // Mark this round's Schedule Info as Sent
+    markScheduleInfoSent(roundNumber);
+  } catch (e) {
+    ui.alert('❌ Failed to post to Discord: ' + e.message);
+    logPostHistory(message, 'Failed');
+  }
+}
+
+/**
+ * Builds the Discord schedule message for a given round.
+ * @param {string} roundNumber - The round to build message for
+ * @returns {Object} - { message: string, webhookUrl: string }
+ */
+function buildScheduleMessage(roundNumber) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  const discordSheet = ss.getSheetByName('Discord');
+  const scheduleSheet = ss.getSheetByName('Schedule');
+  const scheduleConfigSheet = ss.getSheetByName('ScheduleConfig');
   const scheduleData = scheduleSheet.getDataRange().getValues();
   const scheduleConfigData = scheduleConfigSheet.getDataRange().getValues();
   
-  // -------------------------------------------------------
   // Read Discord Config (key -> value)
-  // -------------------------------------------------------
   const lastRow = discordSheet.getLastRow();
   const configData = discordSheet.getRange(2, 1, lastRow - 1, 2).getValues();
   const config = {};
   configData.forEach(([key, value]) => {
     if (key) config[String(key).trim()] = value;
   });
-
-  // Round is now passed as parameter (from sidebar dropdown)
-  if (!roundNumber) {
-    throw new Error("Round not specified. Please select a round from the dropdown.");
-  }  
   
   // Read URL and webhook from Configuration tab
   const globalConfig = getConfiguration();
@@ -38,19 +85,19 @@ function postToDiscord(mode = 'post', roundNumber = null) {
     throw new Error("Missing 'Discord Schedule Channel Webhook' in Configuration tab");
   }
   
-  // --- Fetch Maps and Deadline from Schedule Config ---
+  // Fetch Maps and Deadline from Schedule Config
   const roundConfigRow = scheduleConfigData.slice(1).find(row => row[0] == roundNumber);
 
   if (!roundConfigRow) {
-    ui.alert(`Round ${roundNumber} not found in Schedule Config sheet.`);
-    return;
+    throw new Error(`Round ${roundNumber} not found in Schedule Config sheet.`);
   }
 
-  const mapList = roundConfigRow[1]; // Column B (index 1)
-  const deadline = roundConfigRow[2]; // Column C (index 2)
+  const mapList = roundConfigRow[1];
+  const deadline = roundConfigRow[2];
   
-  // --- Fetch Opponents from Schedule (A:C) ---
-  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);  
+  // Fetch Opponents from Schedule
+  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);
+  
   const numberEmojis = {
     0: 'round 0️⃣',
     1: 'round 1️⃣',
@@ -70,9 +117,9 @@ function postToDiscord(mode = 'post', roundNumber = null) {
     'Final': 'the Final! 🥇',
     'Final A': 'the Final A! 🥇',
     'Final B': 'the Final B! 🥇',
-    'Bronze' : 'the Bronze Match! 🥉',
-    'Bronze A' : 'the Bronze A Match! 🥉',
-    'Bronze B' : 'the Bronze B Match! 🥉',
+    'Bronze': 'the Bronze Match! 🥉',
+    'Bronze A': 'the Bronze A Match! 🥉',
+    'Bronze B': 'the Bronze B Match! 🥉',
   };
   
   var playoffs = false;
@@ -82,17 +129,17 @@ function postToDiscord(mode = 'post', roundNumber = null) {
   
   const opponents = {};
   roundSchedule.forEach(row => {
-      const team1 = row[1];
-      const team2 = row[2];
-      opponents[team1] = team2;
-      opponents[team2] = team1;
-    });
+    const team1 = row[1];
+    const team2 = row[2];
+    opponents[team1] = team2;
+    opponents[team2] = team1;
+  });
 
-  // --- BUILD MATCH MESSAGE ---
+  // BUILD MATCH MESSAGE
   let matchLines = [];
   const alreadyListed = new Set();
   
-  const teamsSheet = sheet.getSheetByName('Teams');
+  const teamsSheet = ss.getSheetByName('Teams');
   const lastTeamsRow = teamsSheet.getLastRow();
   const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 2).getValues();
   const teams = {};
@@ -121,26 +168,24 @@ function postToDiscord(mode = 'post', roundNumber = null) {
   
   message += `**This is ${roundEmoji}**\n\n`;
 
-  if (playoffs) {           
-
+  if (playoffs) {
     message += (config["Playoff msg"]);
-    message += `\n\n${matchLines.join("\n")}\n\n`;      
+    message += `\n\n${matchLines.join("\n")}\n\n`;
     
     if (config["Playoff match procedure"]) {
-      message += `**🏆 Playoff Match Procedure**\n`;  
+      message += `**🏆 Playoff Match Procedure**\n`;
       message += config["Playoff match procedure"];
-    }      
-  } else {    
-    
+    }
+  } else {
     message += (config["Group stage msg"]);
-    message += `\n\n${matchLines.join("\n")}\n\n`;      
+    message += `\n\n${matchLines.join("\n")}\n\n`;
     
     if (config["Group match procedure"]) {
-      message += `**🎾 Group Stage Match Procedure**\n`;  
+      message += `**🎾 Group Stage Match Procedure**\n`;
       message += config["Group match procedure"];
-    }    
+    }
   }
-  message += `\n\n`;  
+  message += `\n\n`;
   message += `**Maps:** ${mapList}\n\n`;
   if (deadline) message += `${config["Deadline msg"]} ${deadline}\n\n`;
   
@@ -156,46 +201,7 @@ function postToDiscord(mode = 'post', roundNumber = null) {
   message += `[${config["Ranking title"]}](${rankingURL})\n\n`;
   message += `GL HF! 🎮`;
 
-  // --- Preview Mode ---
-  if (mode === 'preview') {
-    ui.showModalDialog(
-      HtmlService.createHtmlOutput(`<pre style="white-space: pre-wrap;">${message}</pre>`)
-        .setWidth(700)
-        .setHeight(820),
-      'Discord Post Preview'
-    );
-    return;
-  }
-
-  // --- Confirm Before Posting ---
-  const response = ui.alert('Are you sure you want to post this update to Discord?', ui.ButtonSet.YES_NO);
-  if (response !== ui.Button.YES) {
-    ui.alert('Post cancelled.');
-    return;
-  }
-
-  // --- Post to Discord --- 
-
-  try {
-    const payload = JSON.stringify({ content: message });
-
-    const options = {
-      method: 'post',
-      contentType: 'application/json',
-      payload: payload,
-    };
-
-    UrlFetchApp.fetch(webhookUrl, options);
-
-    ui.alert('Message successfully posted to Discord! ✅');
-    logPostHistory(message, 'Success');
-    
-    // Mark this round's Schedule Info as Sent
-    markScheduleInfoSent(roundNumber);
-  } catch (e) {
-    ui.alert('❌ Failed to post to Discord: ' + e.message);
-    logPostHistory(message, 'Failed');
-  }
+  return { message, webhookUrl };
 }
 
 /**
@@ -221,6 +227,105 @@ function markScheduleInfoSent(roundNumber) {
       break;
     }
   }
+}
+
+/**
+ * Automatic Discord schedule posting - designed for time-based triggers.
+ * Finds the first round with deadline > now, then checks if Schedule Info Sent = 'No'.
+ * Only posts if not yet sent.
+ * 
+ * @returns {Object} - Result with status and message
+ */
+function autoPostScheduleToDiscord() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scheduleConfigSheet = ss.getSheetByName('ScheduleConfig');
+  
+  if (!scheduleConfigSheet) {
+    Logger.log('autoPostScheduleToDiscord: ScheduleConfig sheet not found');
+    return { success: false, message: 'ScheduleConfig sheet not found' };
+  }
+  
+  const now = new Date();
+  const data = scheduleConfigSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const roundIdx = headers.indexOf('Round');
+  const deadlineIdx = headers.indexOf('Deadline');
+  const sentIdx = headers.indexOf('Schedule Info Sent');
+  
+  if (roundIdx === -1 || deadlineIdx === -1) {
+    Logger.log('autoPostScheduleToDiscord: Required columns not found');
+    return { success: false, message: 'Required columns not found' };
+  }
+  
+  // Find the first round with deadline > now
+  let targetRound = null;
+  let targetSent = null;
+  
+  for (let i = 1; i < data.length; i++) {
+    const round = data[i][roundIdx];
+    const deadlineVal = data[i][deadlineIdx];
+    const sent = sentIdx !== -1 ? String(data[i][sentIdx] || 'No').trim() : 'No';
+    
+    if (!round || round === '') continue;
+    
+    // Parse deadline
+    const deadline = parseDeadline(deadlineVal);
+    if (!deadline) continue;
+    
+    if (deadline > now) {
+      targetRound = String(round).trim();
+      targetSent = sent;
+      break; // Found the first round with future deadline
+    }
+  }
+  
+  if (!targetRound) {
+    Logger.log('autoPostScheduleToDiscord: No rounds with future deadlines found');
+    return { success: false, message: 'No rounds with future deadlines found' };
+  }
+  
+  // Check if already sent for this round
+  if (targetSent === 'Yes') {
+    Logger.log(`autoPostScheduleToDiscord: Round ${targetRound} schedule info already sent`);
+    return { success: false, message: `Round ${targetRound} schedule info already sent` };
+  }
+  
+  // Post the schedule for the target round
+  try {
+    postToDiscordSilent(targetRound);
+    Logger.log(`autoPostScheduleToDiscord: Successfully posted schedule for round ${targetRound}`);
+    return { success: true, message: `Posted schedule for round ${targetRound}` };
+  } catch (e) {
+    Logger.log(`autoPostScheduleToDiscord: Failed to post - ${e.message}`);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * Silent version of postToDiscord - no UI prompts, designed for triggers.
+ * Posts the schedule message for the specified round.
+ * 
+ * @param {string} roundNumber - The round to post
+ */
+function postToDiscordSilent(roundNumber) {
+  const { message, webhookUrl } = buildScheduleMessage(roundNumber);
+
+  // Post to Discord (no confirmation needed for trigger)
+  const payload = JSON.stringify({ content: message });
+
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: payload,
+  };
+
+  UrlFetchApp.fetch(webhookUrl, options);
+
+  logPostHistory(message, 'Success (Auto)');
+  
+  // Mark this round's Schedule Info as Sent
+  markScheduleInfoSent(roundNumber);
 }
 
 function sendAvailabilityRequestsToDiscord() {
@@ -493,7 +598,7 @@ function sendFixMeNotification() {
     .join("\n");
 
   const message = [
-    `⚠️ **[${webAppTitle}] Tournament Admin Issues Found**`,
+    `⚠️ **[${webAppTitle}] Tournament Issues Found**`,
     "",
     summary,
     "",

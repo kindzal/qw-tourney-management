@@ -248,6 +248,12 @@ function generateSchedule(data) {
   writeSchedule(scheduleSheet, scheduleRows);
   writeScheduleConfig(configSheet, configRows);
 
+  // ---- SAVE MODE SETTINGS TO CONFIGURATION ----
+  setConfigurationValue("Group Stage Mode", data.groupStageMode, ["GO3", "BO5"]);
+  if (data.playoffsRequired === "Yes") {
+    setConfigurationValue("Playoffs Mode", data.playoffsMode, ["BO5", "BO7"]);
+  }
+
   return "Schedule generated successfully.";
 }
 
@@ -1070,6 +1076,7 @@ function checkTriggerStatus() {
                        triggerFunctions.includes('sendUnscheduledGamesReminder');
   const hasAutoImport = triggerFunctions.includes('autoImportGames');
   const hasFixMe = triggerFunctions.includes('sendFixMeNotification');
+  const hasAutoDiscord = triggerFunctions.includes('autoPostScheduleToDiscord');
 
   // Check config prerequisites
   let missingRoleIds = false;
@@ -1103,20 +1110,26 @@ function checkTriggerStatus() {
     missingAdminWebhook = true;
   }
 
+  // Check if Discord schedule webhook is configured
+  const missingScheduleWebhook = !config["Discord Schedule Channel Webhook"];
+
   return {
     // What needs installation
     needsAutomation: !hasAutomation,
     needsReminders: !hasReminders,
     needsAutoImport: !hasAutoImport,
     needsFixMe: !hasFixMe,
+    needsAutoDiscord: !hasAutoDiscord,
     // What is installed
     hasAutomation,
     hasReminders,
     hasAutoImport,
     hasFixMe,
+    hasAutoDiscord,
     // Config issues
     missingRoleIds,
-    missingAdminWebhook
+    missingAdminWebhook,
+    missingScheduleWebhook
   };
 }
 
@@ -1275,6 +1288,45 @@ function uninstallFixMeTriggers() {
   }
 
   return '✅ Fix-Me notification trigger already uninstalled';
+}
+
+/**
+ * Install autoPostScheduleToDiscord trigger (daily between 10-11am)
+ */
+function installAutoDiscordTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  // Check if trigger already exists
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'autoPostScheduleToDiscord') {
+      return '✅ Automatic Discord posting trigger already installed';
+    }
+  }
+
+  // Create the trigger
+  ScriptApp.newTrigger('autoPostScheduleToDiscord')
+    .timeBased()
+    .atHour(10)
+    .everyDays(1)
+    .create();
+
+  return '✅ Automatic Discord posting trigger installed successfully';
+}
+
+/**
+ * Uninstall autoPostScheduleToDiscord trigger
+ */
+function uninstallAutoDiscordTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'autoPostScheduleToDiscord') {
+      ScriptApp.deleteTrigger(trigger);
+      return '✅ Automatic Discord posting trigger uninstalled successfully';
+    }
+  }
+
+  return '✅ Automatic Discord posting trigger already uninstalled';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

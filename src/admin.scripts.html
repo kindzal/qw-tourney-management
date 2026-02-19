@@ -295,9 +295,23 @@
         document.getElementById('fixme-warning').style.display = 
           status.missingAdminWebhook ? 'block' : 'none';
 
+        // Trigger 5: Auto Discord - show section, toggle button and status
+        const autoDiscordSection = document.getElementById('trigger-autodiscord');
+        autoDiscordSection.style.display = 'block';
+        document.getElementById('install-autodiscord-btn').style.display = 
+          status.needsAutoDiscord ? 'inline-block' : 'none';
+        document.getElementById('disable-autodiscord-btn').style.display = 
+          status.hasAutoDiscord ? 'inline-block' : 'none';
+        document.getElementById('autodiscord-status-disabled').style.display = 
+          status.needsAutoDiscord ? 'block' : 'none';
+        document.getElementById('autodiscord-status-enabled').style.display = 
+          status.hasAutoDiscord ? 'block' : 'none';
+        document.getElementById('autodiscord-warning').style.display = 
+          status.missingScheduleWebhook ? 'block' : 'none';
+
         // Show "all installed" message only if everything is installed
         const allInstalled = status.hasAutomation && status.hasReminders && 
-                            status.hasAutoImport && status.hasFixMe;
+                            status.hasAutoImport && status.hasFixMe && status.hasAutoDiscord;
         document.getElementById('all-triggers-installed').style.display = 
           allInstalled ? 'block' : 'none';
       })
@@ -494,6 +508,60 @@
         messageBox.classList.add('error');
       })
       .uninstallFixMeTriggers();
+  }
+
+  function installAutoDiscordTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('autodiscord-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .installAutoDiscordTriggers();
+  }
+
+  function disableAutoDiscordTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('autodiscord-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .uninstallAutoDiscordTriggers();
   }
 
   function saveDeploymentUrlFromUI() {

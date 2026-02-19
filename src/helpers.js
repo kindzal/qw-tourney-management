@@ -909,6 +909,65 @@ function fixMissingTeamTagsBatch(teamTags, threshold) {
 }
 
 // ============================================================================
+// CONFIGURATION HELPERS
+// ============================================================================
+
+/**
+ * Set a value in the Configuration tab, with optional dropdown validation.
+ * Creates the key if it doesn't exist, updates if it does.
+ * 
+ * @param {string} key - The configuration key name
+ * @param {string} value - The value to set
+ * @param {string[]} [dropdownOptions] - Optional array of values for dropdown validation
+ * @returns {Object} - { updated: boolean, created: boolean }
+ */
+function setConfigurationValue(key, value, dropdownOptions) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName("Configuration");
+  
+  if (!configSheet) {
+    throw new Error("Configuration sheet not found");
+  }
+  
+  const data = configSheet.getDataRange().getValues();
+  let rowIndex = -1;
+  
+  // Find existing key
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === key) {
+      rowIndex = i + 1; // 1-based
+      break;
+    }
+  }
+  
+  let created = false;
+  let targetRow;
+  
+  if (rowIndex === -1) {
+    // Create new row
+    targetRow = configSheet.getLastRow() + 1;
+    configSheet.getRange(targetRow, 1).setValue(key);
+    configSheet.getRange(targetRow, 2).setValue(value);
+    created = true;
+  } else {
+    // Update existing row
+    targetRow = rowIndex;
+    configSheet.getRange(targetRow, 2).setValue(value);
+  }
+  
+  // Add dropdown validation if specified
+  if (dropdownOptions && dropdownOptions.length > 0) {
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(dropdownOptions, true)
+      .setAllowInvalid(false)
+      .build();
+    configSheet.getRange(targetRow, 2).setDataValidation(rule);
+  }
+  
+  return { updated: !created, created: created };
+}
+
+// ============================================================================
 // MIGRATIONS
 // ============================================================================
 
@@ -935,6 +994,9 @@ function runMigration() {
   
   // Migration 5: Remove 'Notes' column from Discord tab
   results.push(migrateDiscordNotesColumn());
+  
+  // Migration 6: Add Group Stage Mode and Playoffs Mode to Configuration
+  results.push(migrateGroupStageAndPlayoffsMode());
   
   const applied = results.filter(r => r.applied).length;
   const skipped = results.filter(r => !r.applied).length;
@@ -1243,5 +1305,72 @@ function migrateDiscordNotesColumn() {
     name: "migrateDiscordNotesColumn", 
     applied: true, 
     message: "Removed 'Notes' column from Discord tab" 
+  };
+}
+
+/**
+ * Migration 6: Add 'Group Stage Mode' and 'Playoffs Mode' to Configuration tab
+ * Only applies if Schedule sheet has data (more than just the header row)
+ */
+function migrateGroupStageAndPlayoffsMode() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scheduleSheet = ss.getSheetByName("Schedule");
+  const configSheet = ss.getSheetByName("Configuration");
+  
+  if (!scheduleSheet || !configSheet) {
+    return { 
+      name: "migrateGroupStageAndPlayoffsMode", 
+      applied: false, 
+      message: "Schedule or Configuration sheet not found" 
+    };
+  }
+  
+  // Only apply if Schedule has data (more than header row)
+  const scheduleLastRow = scheduleSheet.getLastRow();
+  if (scheduleLastRow <= 1) {
+    return { 
+      name: "migrateGroupStageAndPlayoffsMode", 
+      applied: false, 
+      message: "Schedule sheet is empty (only header row) - skipping" 
+    };
+  }
+  
+  // Check if both keys already exist
+  const configData = configSheet.getDataRange().getValues();
+  let hasGroupStageMode = false;
+  let hasPlayoffsMode = false;
+  
+  for (let i = 1; i < configData.length; i++) {
+    const key = String(configData[i][0]).trim();
+    if (key === "Group Stage Mode") hasGroupStageMode = true;
+    if (key === "Playoffs Mode") hasPlayoffsMode = true;
+  }
+  
+  if (hasGroupStageMode && hasPlayoffsMode) {
+    return { 
+      name: "migrateGroupStageAndPlayoffsMode", 
+      applied: false, 
+      message: "Both 'Group Stage Mode' and 'Playoffs Mode' already exist in Configuration" 
+    };
+  }
+  
+  const changes = [];
+  
+  // Add Group Stage Mode if missing
+  if (!hasGroupStageMode) {
+    setConfigurationValue("Group Stage Mode", "GO3", ["GO3", "BO5"]);
+    changes.push("Group Stage Mode (GO3)");
+  }
+  
+  // Add Playoffs Mode if missing
+  if (!hasPlayoffsMode) {
+    setConfigurationValue("Playoffs Mode", "BO5", ["BO5", "BO7"]);
+    changes.push("Playoffs Mode (BO5)");
+  }
+  
+  return { 
+    name: "migrateGroupStageAndPlayoffsMode", 
+    applied: true, 
+    message: `Added to Configuration: ${changes.join(", ")}` 
   };
 }
