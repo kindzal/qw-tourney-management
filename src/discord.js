@@ -231,7 +231,7 @@ function markScheduleInfoSent(roundNumber) {
 
 /**
  * Automatic Discord schedule posting - designed for time-based triggers.
- * Finds the first round with deadline > now, then checks if Schedule Info Sent = 'No'.
+ * Finds the current round (deadline >= today), then checks if Schedule Info Sent = 'No'.
  * Only posts if not yet sent.
  * 
  * @returns {Object} - Result with status and message
@@ -258,7 +258,7 @@ function autoPostScheduleToDiscord() {
     return { success: false, message: 'Required columns not found' };
   }
   
-  // Find the first round with deadline > now
+  // Find the current round (deadline is today or in the future)
   let targetRound = null;
   let targetSent = null;
   
@@ -269,20 +269,21 @@ function autoPostScheduleToDiscord() {
     
     if (!round || round === '') continue;
     
-    // Parse deadline
+    // Parse deadline and treat it as end-of-day (23:59:59)
     const deadline = parseDeadline(deadlineVal);
     if (!deadline) continue;
+    deadline.setHours(23, 59, 59, 999);
     
-    if (deadline > now) {
+    if (deadline >= now) {
       targetRound = String(round).trim();
       targetSent = sent;
-      break; // Found the first round with future deadline
+      break; // Found the current round
     }
   }
   
   if (!targetRound) {
-    Logger.log('autoPostScheduleToDiscord: No rounds with future deadlines found');
-    return { success: false, message: 'No rounds with future deadlines found' };
+    Logger.log('autoPostScheduleToDiscord: No current or upcoming rounds found');
+    return { success: false, message: 'No current or upcoming rounds found' };
   }
   
   // Check if already sent for this round
