@@ -29,6 +29,46 @@ function jsonResponse(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Logo URL base path
+const LOGO_BASE_URL = 'https://cdn.jsdelivr.net/gh/kindzal/my-assets@master/images/clan-logos/optimised/';
+
+/**
+ * Strips emoji characters from a string.
+ * @param {string} str - Input string
+ * @returns {string} String with emojis removed and trimmed
+ */
+function stripEmojis(str) {
+  if (!str) return '';
+  // Remove emoji characters (covers most common emoji ranges)
+  return String(str)
+    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FAFF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{231A}-\u{231B}]|[\u{23E9}-\u{23F3}]|[\u{23F8}-\u{23FA}]|[\u{25AA}-\u{25AB}]|[\u{25B6}]|[\u{25C0}]|[\u{25FB}-\u{25FE}]|[\u{2614}-\u{2615}]|[\u{2648}-\u{2653}]|[\u{267F}]|[\u{2693}]|[\u{26A1}]|[\u{26AA}-\u{26AB}]|[\u{26BD}-\u{26BE}]|[\u{26C4}-\u{26C5}]|[\u{26CE}]|[\u{26D4}]|[\u{26EA}]|[\u{26F2}-\u{26F3}]|[\u{26F5}]|[\u{26FA}]|[\u{26FD}]|[\u{2702}]|[\u{2705}]|[\u{2708}-\u{270D}]|[\u{270F}]|[\u{2712}]|[\u{2714}]|[\u{2716}]|[\u{271D}]|[\u{2721}]|[\u{2728}]|[\u{2733}-\u{2734}]|[\u{2744}]|[\u{2747}]|[\u{274C}]|[\u{274E}]|[\u{2753}-\u{2755}]|[\u{2757}]|[\u{2763}-\u{2764}]|[\u{2795}-\u{2797}]|[\u{27A1}]|[\u{27B0}]|[\u{27BF}]|[\u{2934}-\u{2935}]|[\u{2B05}-\u{2B07}]|[\u{2B1B}-\u{2B1C}]|[\u{2B50}]|[\u{2B55}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{FE0F}]|[\u{200D}]/gu, '')
+    .trim();
+}
+
+/**
+ * Creates a cleaned team name for logo URL (lowercase, no spaces, no special chars).
+ * @param {string} teamName - Original team name
+ * @returns {string} Cleaned name for URL
+ */
+function cleanTeamNameForLogo(teamName) {
+  if (!teamName) return '';
+  // First strip emojis, then remove special chars and spaces, lowercase
+  return stripEmojis(teamName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Builds the logo URL for a team.
+ * @param {string} teamName - Original team name
+ * @returns {string} Full logo URL
+ */
+function buildTeamLogoUrl(teamName) {
+  const cleaned = cleanTeamNameForLogo(teamName);
+  if (!cleaned) return LOGO_BASE_URL + 'fallback.png';
+  return LOGO_BASE_URL + cleaned + '.png';
+}
+
 function getScheduleConfigAPI() {  
   const scheduleConfigSheet = SpreadsheetApp.getActive().getSheetByName('ScheduleConfig');
 
@@ -71,7 +111,16 @@ function getStandingsAPI() {
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
 
-  return values.map(r => Object.fromEntries(headers.map((h,i) => [h, r[i]])));
+  return values.map(r => {
+    const obj = Object.fromEntries(headers.map((h,i) => [h, r[i]]));
+    
+    // Add Team Display Name and logo URL
+    const teamName = obj['Team'] || obj['Team Name'] || '';
+    obj['Team Display Name'] = stripEmojis(teamName);
+    obj['teamLogoUrl'] = buildTeamLogoUrl(teamName);
+    
+    return obj;
+  });
 }
 
 function getPlayersAPI() {
@@ -188,11 +237,18 @@ function getTeamGamesAPI(mode = 'group') {
       gameDate = new Date(iso);
     }
     
+    const teamAName = row[gIdx.TeamA];
+    const teamBName = row[gIdx.TeamB];
+    
     const game = {
       stage,
       round: String(round),
-      teamA: row[gIdx.TeamA],
-      teamB: row[gIdx.TeamB],
+      teamA: teamAName,
+      teamB: teamBName,
+      teamADisplayName: stripEmojis(teamAName),
+      teamBDisplayName: stripEmojis(teamBName),
+      teamALogoUrl: buildTeamLogoUrl(teamAName),
+      teamBLogoUrl: buildTeamLogoUrl(teamBName),
       mapsWonA: Number(row[gIdx.MapsWonA]) || 0,
       mapsWonB: Number(row[gIdx.MapsWonB]) || 0,
       played: 1,
@@ -257,6 +313,10 @@ function getTeamGamesAPI(mode = 'group') {
         round: String(round),
         teamA: team1,
         teamB: team2,
+        teamADisplayName: stripEmojis(team1),
+        teamBDisplayName: stripEmojis(team2),
+        teamALogoUrl: buildTeamLogoUrl(team1),
+        teamBLogoUrl: buildTeamLogoUrl(team2),
         mapsWonA: "",
         mapsWonB: "",
         played: 0,
@@ -287,6 +347,14 @@ function getTeamsAPI() {
     TAG_COLUMNS.forEach(col => {
       if (col in obj) obj[col] = parseTagAliases(GASdecode(obj[col]));
     });
+    
+    // Add Team Display Name (team name with emojis stripped)
+    const teamName = obj['Team Name'] || obj['Team'] || '';
+    obj['Team Display Name'] = stripEmojis(teamName);
+    
+    // Add logo URL
+    obj['logoUrl'] = buildTeamLogoUrl(teamName);
+    
     return obj;
   });
 }
@@ -328,7 +396,24 @@ function getMapStatsAPI() {
       .forEach(col => {
         if (obj[col]) {
           try {
-            obj[col] = JSON.parse(obj[col]);
+            const parsed = JSON.parse(obj[col]);
+            // Add display names and logo URLs for game objects
+            if (col === "Highest Frag Game" || col === "Most One-Sided Game") {
+              if (parsed.teamNameA) {
+                parsed.teamDisplayNameA = stripEmojis(parsed.teamNameA);
+                parsed.teamLogoUrlA = buildTeamLogoUrl(parsed.teamNameA);
+              }
+              if (parsed.teamNameB) {
+                parsed.teamDisplayNameB = stripEmojis(parsed.teamNameB);
+                parsed.teamLogoUrlB = buildTeamLogoUrl(parsed.teamNameB);
+              }
+            }
+            // Add display name and logo URL for dominant team
+            if (col === "Dominant Team" && parsed.teamName) {
+              parsed.teamDisplayName = stripEmojis(parsed.teamName);
+              parsed.teamLogoUrl = buildTeamLogoUrl(parsed.teamName);
+            }
+            obj[col] = parsed;
           } catch (e) {
             // Leave as raw value if parsing fails
           }

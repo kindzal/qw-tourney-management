@@ -263,7 +263,29 @@ table th:nth-child(2), table td:nth-child(2) {
 .rank-tooltip.open {
   display: block;
 }
-/* Teams Grid - QWicky Style */
+/* Standings Team Cell */
+td.team-cell {
+  vertical-align: middle;
+}
+td.team-cell .standings-team-logo {
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.standings-team-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 3px;
+  object-fit: contain;
+  background: transparent;
+  flex-shrink: 0;
+}
+/* Map Stats Dominant Team */
+.map-dominant-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Teams Grid */
 .teams-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -283,10 +305,21 @@ table th:nth-child(2), table td:nth-child(2) {
   border-color: #4b5563;
 }
 .team-card .team-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 1.3em;
   font-weight: 700;
   color: #ffffff;
   margin-bottom: 8px;
+}
+.team-card .team-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: transparent;
 }
 .team-card .team-tag {
   font-size: 0.9em;
@@ -323,7 +356,7 @@ h1, h2, h3, .round-header {
   display: block;
   margin-top: 4px;
 }
-/* ==================== ROUND NAVIGATION (Light Blue - QWicky Style) ==================== */
+/* ==================== ROUND NAVIGATION ==================== */
 .round-nav {
   display: flex;
   gap: 8px;
@@ -422,13 +455,36 @@ h1, h2, h3, .round-header {
 }
 .bracket-player {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
   padding: 6px 8px;
   word-break: break-word;
   color: #f3f4f6;
   border-radius: 4px;
   transition: all 0.2s ease;
+}
+.bracket-team-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: transparent;
+}
+.bracket-team-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.bracket-team-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .bracket-player.winner {
   font-weight: 700;
@@ -1074,14 +1130,42 @@ h1, h2, h3, .round-header {
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .map-game-link {
-  color: #60a5fa;
+  color: #e2e8f0;
   text-decoration: none;
   font-weight: 500;
   font-size: 0.95em;
-  transition: color 0.15s ease;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 .map-game-link:hover {
-  color: #93c5fd;
-  text-decoration: underline;
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
+}
+.map-game-link-logos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.map-team-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  object-fit: contain;
+  background: transparent;
+  vertical-align: middle;
+}
+.map-game-score {
+  font-weight: 600;
+  font-family: 'Droid Sans Mono', monospace;
+}
+.map-game-vs {
+  color: #9ca3af;
+  font-size: 0.85em;
+  margin: 0 2px;
 }
 </style>

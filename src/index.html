@@ -148,6 +148,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });  
   
   const PERCENT_COLUMNS=["Win %","Avg Eff","Avg SG","Avg LG"];
+  const LOGO_FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/kindzal/my-assets@master/images/clan-logos/optimised/fallback.png';
+  
   function formatCell(h,v){
     if(PERCENT_COLUMNS.includes(h)){
       if(v==null||v==="") return "";
@@ -213,7 +215,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const t = document.createElement("table");
-    const h = Object.keys(data[0]);
+    const h = Object.keys(data[0]).filter(col => col !== 'Team Display Name' && col !== 'teamLogoUrl');
+    const isStandings = id === 'standings-output';
 
     /* ---------- THEAD ---------- */
     const thead = document.createElement("thead");
@@ -257,7 +260,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
       h.forEach(key => {
         const td = document.createElement("td");
-        td.textContent = formatCell(key, row[key]);
+        
+        // Special handling for Team column in standings
+        if (isStandings && key === 'Team') {
+          td.className = 'team-cell';
+          const logoUrl = row['teamLogoUrl'] || LOGO_FALLBACK_URL;
+          const displayName = row['Team Display Name'] || row['Team'] || '';
+          
+          const logoImg = document.createElement('img');
+          logoImg.className = 'standings-team-logo';
+          logoImg.src = logoUrl;
+          logoImg.alt = '';
+          logoImg.width = 32;
+          logoImg.height = 32;
+          logoImg.loading = 'lazy';
+          logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+          
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = displayName;
+          
+          td.appendChild(logoImg);
+          td.appendChild(nameSpan);
+        } else {
+          td.textContent = formatCell(key, row[key]);
+        }
         tr.appendChild(td);
       });
 
@@ -268,7 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
     c.appendChild(t);
   }
   
-  function renderTeamsQWickyStyle(data) {
+  function renderTeams(data) {
     const c = document.getElementById("teams-output");
     c.innerHTML = "";
     if (!data?.length) { c.textContent = "No teams."; return; }
@@ -280,15 +306,30 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.createElement("div");
       card.className = "team-card";
       
-      const teamName = team['Team Name'] || team['Team'] || '';
+      const teamDisplayName = team['Team Display Name'] || team['Team Name'] || team['Team'] || '';
+      const logoUrl = team['logoUrl'] || LOGO_FALLBACK_URL;
       const rawTag = team['Team Tag'] || team['Tag'] || '';
       const teamTag = Array.isArray(rawTag) ? rawTag.join(' / ') : rawTag;
       const players = team['Players'] || '';
       
-      // Team name
+      // Team name with logo
       const nameDiv = document.createElement("div");
       nameDiv.className = "team-name";
-      nameDiv.textContent = teamName;
+      
+      const logoImg = document.createElement("img");
+      logoImg.className = "team-logo";
+      logoImg.src = logoUrl;
+      logoImg.alt = teamDisplayName + " logo";
+      logoImg.width = 48;
+      logoImg.height = 48;
+      logoImg.loading = "lazy";
+      logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = teamDisplayName;
+      
+      nameDiv.appendChild(logoImg);
+      nameDiv.appendChild(nameSpan);
 
       // Team tag
       const tagDiv = document.createElement("div");
@@ -337,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("GroupGames load failed", e);
       return [];
     });
-  fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTeamsQWickyStyle(d));
+  fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTeams(d));
   fetch(baseUrl+"?endpoint=standings").then(r=>r.json()).then(d=>renderTable("standings-output",d));
   fetch(baseUrl+"?endpoint=players")
     .then(r => r.json())
@@ -368,15 +409,67 @@ document.addEventListener("DOMContentLoaded", () => {
     match.className = "bracket-match";
     if (!g.played) match.classList.add("unplayed");
     
+    // Team A - logo + name grouped on left, score on right
     const a = document.createElement("div");
     const aWinner = Number(g.mapsWonA) > Number(g.mapsWonB);
     a.className = "bracket-player" + (aWinner ? " winner" : "");
-    a.innerHTML = `<span>${g.teamA || ""}</span><span class="bracket-score">${g.mapsWonA ?? ""}</span>`;
     
+    const aTeamInfo = document.createElement("div");
+    aTeamInfo.className = "bracket-team-info";
+    
+    const aLogoImg = document.createElement("img");
+    aLogoImg.className = "bracket-team-logo";
+    aLogoImg.src = g.teamALogoUrl || LOGO_FALLBACK_URL;
+    aLogoImg.alt = "";
+    aLogoImg.width = 24;
+    aLogoImg.height = 24;
+    aLogoImg.loading = "lazy";
+    aLogoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+    
+    const aNameSpan = document.createElement("span");
+    aNameSpan.className = "bracket-team-name";
+    aNameSpan.textContent = g.teamADisplayName || g.teamA || "";
+    
+    aTeamInfo.appendChild(aLogoImg);
+    aTeamInfo.appendChild(aNameSpan);
+    
+    const aScoreSpan = document.createElement("span");
+    aScoreSpan.className = "bracket-score";
+    aScoreSpan.textContent = g.mapsWonA ?? "";
+    
+    a.appendChild(aTeamInfo);
+    a.appendChild(aScoreSpan);
+    
+    // Team B - logo + name grouped on left, score on right
     const b = document.createElement("div");
     const bWinner = Number(g.mapsWonB) > Number(g.mapsWonA);
     b.className = "bracket-player" + (bWinner ? " winner" : "");
-    b.innerHTML = `<span>${g.teamB || ""}</span><span class="bracket-score">${g.mapsWonB ?? ""}</span>`;
+    
+    const bTeamInfo = document.createElement("div");
+    bTeamInfo.className = "bracket-team-info";
+    
+    const bLogoImg = document.createElement("img");
+    bLogoImg.className = "bracket-team-logo";
+    bLogoImg.src = g.teamBLogoUrl || LOGO_FALLBACK_URL;
+    bLogoImg.alt = "";
+    bLogoImg.width = 24;
+    bLogoImg.height = 24;
+    bLogoImg.loading = "lazy";
+    bLogoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+    
+    const bNameSpan = document.createElement("span");
+    bNameSpan.className = "bracket-team-name";
+    bNameSpan.textContent = g.teamBDisplayName || g.teamB || "";
+    
+    bTeamInfo.appendChild(bLogoImg);
+    bTeamInfo.appendChild(bNameSpan);
+    
+    const bScoreSpan = document.createElement("span");
+    bScoreSpan.className = "bracket-score";
+    bScoreSpan.textContent = g.mapsWonB ?? "";
+    
+    b.appendChild(bTeamInfo);
+    b.appendChild(bScoreSpan);
     
     if (g.played) {
       if (aWinner) a.classList.add("advanced");
@@ -947,13 +1040,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (map["Dominant Team"] && map["Dominant Team"].teamName) {
       const dt = map["Dominant Team"];
       const winPct = Math.round(dt.winPercentage || 0);
-      body.appendChild(statRow("👑", "Dominant Team",
-        `${dt.teamName} <span class="map-stat-accent">${winPct}% wins</span>`
-      ));
-      // fix: innerHTML used above so set via innerHTML on value span
-      const lastRow = body.lastElementChild;
-      const valSpan = lastRow.querySelector(".map-stat-value");
-      valSpan.innerHTML = `${dt.teamName} <span class="map-stat-accent">${winPct}% wins</span>`;
+      const row = statRow("👑", "Dominant Team", "");
+      const valueSpan = row.querySelector(".map-stat-value");
+      valueSpan.innerHTML = "";
+      valueSpan.className = "map-stat-value map-dominant-team";
+      
+      const logoImg = document.createElement("img");
+      logoImg.className = "map-team-logo";
+      logoImg.src = dt.teamLogoUrl || LOGO_FALLBACK_URL;
+      logoImg.alt = "";
+      logoImg.width = 16;
+      logoImg.height = 16;
+      logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = dt.teamDisplayName || dt.teamName || "";
+      
+      const pctSpan = document.createElement("span");
+      pctSpan.className = "map-stat-accent";
+      pctSpan.textContent = ` ${winPct}% wins`;
+      
+      valueSpan.append(logoImg, nameSpan, pctSpan);
+      body.appendChild(row);
     } else {
       body.appendChild(statRow("👑", "Dominant Team", "—"));
     }
@@ -961,14 +1069,53 @@ document.addEventListener("DOMContentLoaded", () => {
     // highest frag game
     if (map["Highest Frag Game"] && map["Highest Frag Game"].gameUrl) {
       const hf = map["Highest Frag Game"];
+      const row = statRow("🔥", "Highest Frags", "");
+      const valueSpan = row.querySelector(".map-stat-value");
+      valueSpan.innerHTML = "";
+      
       const link = document.createElement("a");
       link.href = hf.gameUrl;
       link.target = "_blank";
       link.rel = "noopener";
-      link.className = "map-game-link";
-      link.textContent = `${hf.teamNameA} ${hf.fragsA} vs ${hf.fragsB} ${hf.teamNameB} `;
-      const row = statRow("🔥", "Highest Frags", "");
-      row.querySelector(".map-stat-value").appendChild(link);
+      link.className = "map-game-link map-game-link-logos";
+      
+      // Team A: [logo] Name Score
+      const logoA = document.createElement("img");
+      logoA.className = "map-team-logo";
+      logoA.src = hf.teamLogoUrlA || LOGO_FALLBACK_URL;
+      logoA.alt = "";
+      logoA.width = 16;
+      logoA.height = 16;
+      logoA.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      
+      const nameA = document.createElement("span");
+      nameA.textContent = hf.teamDisplayNameA || hf.teamNameA || "";
+      
+      const scoreA = document.createElement("span");
+      scoreA.className = "map-game-score";
+      scoreA.textContent = hf.fragsA;
+      
+      const vs = document.createElement("span");
+      vs.className = "map-game-vs";
+      vs.textContent = "vs";
+      
+      const scoreB = document.createElement("span");
+      scoreB.className = "map-game-score";
+      scoreB.textContent = hf.fragsB;
+      
+      const nameB = document.createElement("span");
+      nameB.textContent = hf.teamDisplayNameB || hf.teamNameB || "";
+      
+      const logoB = document.createElement("img");
+      logoB.className = "map-team-logo";
+      logoB.src = hf.teamLogoUrlB || LOGO_FALLBACK_URL;
+      logoB.alt = "";
+      logoB.width = 16;
+      logoB.height = 16;
+      logoB.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      
+      link.append(logoA, nameA, scoreA, vs, scoreB, nameB, logoB);
+      valueSpan.appendChild(link);
       body.appendChild(row);
     } else {
       body.appendChild(statRow("🔥", "Highest Frags", "—"));
@@ -977,14 +1124,53 @@ document.addEventListener("DOMContentLoaded", () => {
     // most one-sided game
     if (map["Most One-Sided Game"] && map["Most One-Sided Game"].gameUrl) {
       const os = map["Most One-Sided Game"];
+      const row = statRow("⚡", "Most One-Sided", "");
+      const valueSpan = row.querySelector(".map-stat-value");
+      valueSpan.innerHTML = "";
+      
       const link = document.createElement("a");
       link.href = os.gameUrl;
       link.target = "_blank";
       link.rel = "noopener";
-      link.className = "map-game-link";
-      link.textContent = `${os.teamNameA} ${os.fragsA} vs ${os.fragsB} ${os.teamNameB}`;
-      const row = statRow("⚡", "Most One-Sided", "");
-      row.querySelector(".map-stat-value").appendChild(link);
+      link.className = "map-game-link map-game-link-logos";
+      
+      // Team A: [logo] Name Score
+      const logoA = document.createElement("img");
+      logoA.className = "map-team-logo";
+      logoA.src = os.teamLogoUrlA || LOGO_FALLBACK_URL;
+      logoA.alt = "";
+      logoA.width = 16;
+      logoA.height = 16;
+      logoA.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      
+      const nameA = document.createElement("span");
+      nameA.textContent = os.teamDisplayNameA || os.teamNameA || "";
+      
+      const scoreA = document.createElement("span");
+      scoreA.className = "map-game-score";
+      scoreA.textContent = os.fragsA;
+      
+      const vs = document.createElement("span");
+      vs.className = "map-game-vs";
+      vs.textContent = "vs";
+      
+      const scoreB = document.createElement("span");
+      scoreB.className = "map-game-score";
+      scoreB.textContent = os.fragsB;
+      
+      const nameB = document.createElement("span");
+      nameB.textContent = os.teamDisplayNameB || os.teamNameB || "";
+      
+      const logoB = document.createElement("img");
+      logoB.className = "map-team-logo";
+      logoB.src = os.teamLogoUrlB || LOGO_FALLBACK_URL;
+      logoB.alt = "";
+      logoB.width = 16;
+      logoB.height = 16;
+      logoB.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      
+      link.append(logoA, nameA, scoreA, vs, scoreB, nameB, logoB);
+      valueSpan.appendChild(link);
       body.appendChild(row);
     } else {
       body.appendChild(statRow("⚡", "Most One-Sided", "—"));
