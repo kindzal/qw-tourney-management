@@ -1,5 +1,10 @@
 <div id="Configuration" class="section">
   <div class="container">
+    <div class="note-box">
+      <strong>⚠️ Important ⚠️</strong>
+      <p>Expected date format across <span class="qwadmin-brand">🏆 QWadmin</span> is: <strong>dd/mm/yyyy</strong>.</p>
+      <p><span class="warning-glow">DO NOT CHANGE IT OR SHIT WILL BREAK!</span></p>
+    </div>
     <div class="info-box">
       <p>This tab allows you to configure the Web App deployment and install automation triggers for the tournament management system.</p>
       <p>Each trigger only needs to be installed once per tournament.</p>
@@ -10,7 +15,7 @@
       <h3>Web App Deployment</h3>
       <div id="webapp-url-not-configured" style="display: none;">
         <div class="info-box">
-          <p id="webapp-url-message">The Web App deployment URL is not configured.</p>
+          <p id="webapp-url-message"><span class="inline-cell">The Web App deployment URL</span> is not configured.</p>
           <p>Copy the URL from Apps Script → Deploy → Manage deployments, then paste it below:</p>
         </div>
         <input type="text" id="webapp-url-input" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box;">
@@ -39,7 +44,7 @@
       <h3>Automatic Game Reminders</h3>
       <div id="reminders-warning" class="note-box" style="display: none;">
         <strong>⚠️ Important ⚠️</strong>
-        <p>These reminders will not work without Discord Role IDs being set up for all teams in the <span class="inline-tab" onclick="runTask('switchTab', 'Teams')">Teams</span> tab.</p>
+        <p>These reminders will not work without <span class="inline-col">Discord Role IDs</span> being set up for all teams in the <span class="inline-tab" onclick="runTask('switchTab', 'Teams')">Teams</span> tab.</p>
       </div>
       <div class="info-box">
         <p>Enables automatic game reminders on the day of scheduled matches and chasers to prompt players to schedule their games.</p>
@@ -85,7 +90,7 @@
       <h3>Automatic "Fix Me" Notifications</h3>
       <div id="fixme-warning" class="note-box" style="display: none;">
         <strong>⚠️ Important ⚠️</strong>
-        <p>These notifications will not work without the "Discord admin channel webhook" being set up in the <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> tab.</p>
+        <p>These notifications will not work without the <span class="inline-cell">Discord admin channel webhook</span> being set up in the <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> tab.</p>
       </div>
       <div class="info-box">
         <p>Enables automatic notifications sent to the Discord #admin channel about issues found relating to imported games.</p>
@@ -106,14 +111,14 @@
       <h3>Automatic Discord Weekly Schedule Posting</h3>
       <div id="autodiscord-warning" class="note-box" style="display: none;">
         <strong>⚠️ Important ⚠️</strong>
-        <p>This feature will not work without the "Discord Schedule Channel Webhook" being set up in the <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> tab.</p>
+        <p>This feature will not work without the <span class="inline-cell">Discord Schedule Channel Webhook</span> being set up in the <span class="inline-tab" onclick="runTask('switchTab', 'Configuration')">Configuration</span> tab.</p>
       </div>
       <div class="info-box">
         <p>Enables automatic posting of weekly schedule information to Discord.</p>
         <p>The trigger runs daily between 10-11am and will:</p>
         <ul>
           <li>Find the first round with a deadline in the future</li>
-          <li>Check if "Schedule Info Sent" is "No" for that round</li>
+          <li>Check if <span class="inline-col">Schedule Info Sent</span> is "No" for that round</li>
           <li>If not yet sent, post the schedule message to Discord</li>
           <li>Mark the round as "Sent" to prevent duplicate posts</li>
         </ul>
