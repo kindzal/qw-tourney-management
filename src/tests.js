@@ -325,3 +325,127 @@ function testFuzzyMatchTeam() {
   result = fuzzyMatchTeam("red", teams, 65);
   assertEquals("Red Devils", result.team);
 }
+
+function testStripEmojis() {
+  // Basic emoji removal - emojis replaced with spaces, then trimmed
+  assertEquals("TeamName", stripEmojis("🔥TeamName"));
+  assertEquals("TeamName", stripEmojis("TeamName🏆"));
+  assertEquals("TeamName", stripEmojis("🇧🇷TeamName🔥"));
+  
+  // Multiple emojis - replaced with spaces
+  assertEquals("Hello World", stripEmojis("👋Hello🌍World🎉"));
+  
+  // No emojis
+  assertEquals("PlainText", stripEmojis("PlainText"));
+  
+  // Only emojis - becomes empty after trim
+  assertEquals("", stripEmojis("🔥🏆🎮"));
+  
+  // Empty string
+  assertEquals("", stripEmojis(""));
+  
+  // Null/undefined handling
+  assertEquals("", stripEmojis(null));
+  assertEquals("", stripEmojis(undefined));
+  
+  // Flag emojis (country flags)
+  assertEquals("Brasil", stripEmojis("🇧🇷Brasil"));
+  
+  // Mixed content with spaces - multiple spaces collapsed to single
+  assertEquals("Seleção Nordeste Brasil", stripEmojis("🇧🇷 Seleção Nordeste Brasil 🔥"));
+  
+  // Tournament team names with leading emojis
+  assertEquals("Pink", stripEmojis("🌸 Pink"));
+  assertEquals("Mint", stripEmojis("🌿 Mint"));
+  assertEquals("Green", stripEmojis("🟢 Green"));
+  assertEquals("Violet", stripEmojis("🟣 Violet"));
+  assertEquals("Brown", stripEmojis("🟤 Brown"));
+  assertEquals("Yellow", stripEmojis("🟡 Yellow"));
+}
+
+function testCleanTeamNameForLogo() {
+  // Basic cleaning - lowercase and remove spaces/special chars
+  assertEquals("teamname", cleanTeamNameForLogo("TeamName"));
+  assertEquals("teamname", cleanTeamNameForLogo("Team Name"));
+  assertEquals("teamname", cleanTeamNameForLogo("TEAM NAME"));
+  
+  // Remove diacritics/accented characters
+  assertEquals("selecaonordestebrasil", cleanTeamNameForLogo("Seleção Nordeste Brasil"));
+  assertEquals("selecaonordestebrasil", cleanTeamNameForLogo("seleção nordeste brasil"));
+  
+  // Strip emojis first, then clean
+  assertEquals("selecaonordestebrasil", cleanTeamNameForLogo("🇧🇷 Seleção Nordeste Brasil"));
+  assertEquals("teamfire", cleanTeamNameForLogo("🔥Team Fire🔥"));
+  
+  // Numbers should be preserved
+  assertEquals("team123", cleanTeamNameForLogo("Team 123"));
+  assertEquals("4kings", cleanTeamNameForLogo("4 Kings"));
+  
+  // Special characters removed
+  assertEquals("teamalpha", cleanTeamNameForLogo("Team-Alpha"));
+  assertEquals("teambeta", cleanTeamNameForLogo("Team.Beta"));
+  assertEquals("teamgamma", cleanTeamNameForLogo("Team_Gamma"));
+  assertEquals("teamdelta", cleanTeamNameForLogo("Team'Delta"));
+  
+  // Various accented characters
+  assertEquals("cafe", cleanTeamNameForLogo("Café"));
+  assertEquals("nino", cleanTeamNameForLogo("Niño"));
+  assertEquals("uber", cleanTeamNameForLogo("Über"));
+  assertEquals("naive", cleanTeamNameForLogo("Naïve"));
+  
+  // Empty/null handling
+  assertEquals("", cleanTeamNameForLogo(""));
+  assertEquals("", cleanTeamNameForLogo(null));
+  assertEquals("", cleanTeamNameForLogo(undefined));
+  
+  // Only emojis results in empty
+  assertEquals("", cleanTeamNameForLogo("🔥🏆🎮"));
+  
+  // Tournament team names with leading emojis
+  assertEquals("pink", cleanTeamNameForLogo("🌸 Pink"));
+  assertEquals("mint", cleanTeamNameForLogo("🌿 Mint"));
+  assertEquals("green", cleanTeamNameForLogo("🟢 Green"));
+  assertEquals("violet", cleanTeamNameForLogo("🟣 Violet"));
+  assertEquals("brown", cleanTeamNameForLogo("🟤 Brown"));
+  assertEquals("yellow", cleanTeamNameForLogo("🟡 Yellow"));
+}
+
+function testBuildTeamLogoUrl() {
+  const BASE = 'https://cdn.jsdelivr.net/gh/kindzal/my-assets@master/images/clan-logos/optimised/';
+  
+  // Standard team name
+  assertEquals(BASE + "teamname.png", buildTeamLogoUrl("TeamName"));
+  assertEquals(BASE + "teamname.png", buildTeamLogoUrl("Team Name"));
+  
+  // Brazilian team with accents and emojis
+  assertEquals(BASE + "selecaonordestebrasil.png", buildTeamLogoUrl("🇧🇷 Seleção Nordeste Brasil"));
+  assertEquals(BASE + "selecaonordestebrasil.png", buildTeamLogoUrl("Seleção Nordeste Brasil"));
+  
+  // Team with emojis
+  assertEquals(BASE + "teamfire.png", buildTeamLogoUrl("🔥Team Fire"));
+  assertEquals(BASE + "champions.png", buildTeamLogoUrl("🏆 Champions 🏆"));
+  
+  // Numbers preserved
+  assertEquals(BASE + "team123.png", buildTeamLogoUrl("Team 123"));
+  assertEquals(BASE + "4kings.png", buildTeamLogoUrl("4 Kings"));
+  
+  // Various accents
+  assertEquals(BASE + "cafe.png", buildTeamLogoUrl("Café"));
+  assertEquals(BASE + "nino.png", buildTeamLogoUrl("Niño"));
+  
+  // Empty/null returns fallback
+  assertEquals(BASE + "fallback.png", buildTeamLogoUrl(""));
+  assertEquals(BASE + "fallback.png", buildTeamLogoUrl(null));
+  assertEquals(BASE + "fallback.png", buildTeamLogoUrl(undefined));
+  
+  // Only emojis returns fallback
+  assertEquals(BASE + "fallback.png", buildTeamLogoUrl("🔥🏆🎮"));
+  
+  // Tournament team names with leading emojis
+  assertEquals(BASE + "pink.png", buildTeamLogoUrl("🌸 Pink"));
+  assertEquals(BASE + "mint.png", buildTeamLogoUrl("🌿 Mint"));
+  assertEquals(BASE + "green.png", buildTeamLogoUrl("🟢 Green"));
+  assertEquals(BASE + "violet.png", buildTeamLogoUrl("🟣 Violet"));
+  assertEquals(BASE + "brown.png", buildTeamLogoUrl("🟤 Brown"));
+  assertEquals(BASE + "yellow.png", buildTeamLogoUrl("🟡 Yellow"));
+}

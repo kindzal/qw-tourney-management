@@ -905,11 +905,13 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const finalGame = (byRound["Final"] || [])[0];
     if (finalGame?.played) {
-      const winnerName =
-        Number(finalGame.mapsWonA) > Number(finalGame.mapsWonB) ? finalGame.teamA :
-        Number(finalGame.mapsWonB) > Number(finalGame.mapsWonA) ? finalGame.teamB :
-        "";
-      if (winnerName) {
+      const isAWinner = Number(finalGame.mapsWonA) > Number(finalGame.mapsWonB);
+      const isBWinner = Number(finalGame.mapsWonB) > Number(finalGame.mapsWonA);
+      const winnerDisplayName = isAWinner ? finalGame.teamADisplayName :
+                                 isBWinner ? finalGame.teamBDisplayName : "";
+      const winnerLogoUrl = isAWinner ? finalGame.teamALogoUrl :
+                            isBWinner ? finalGame.teamBLogoUrl : LOGO_FALLBACK_URL;
+      if (winnerDisplayName) {
         const finalCol = wrap.querySelector(".stage-final");
         if (finalCol) {
           const finalGameEl = finalCol.querySelector(".bracket-game");
@@ -922,7 +924,24 @@ document.addEventListener("DOMContentLoaded", () => {
             winnerWrap.className = "bracket-winner-wrap";
             const badge = document.createElement("div");
             badge.className = "bracket-winner main";
-            badge.textContent = "🏆 Winner: " + winnerName;
+            
+            const trophy = document.createElement("span");
+            trophy.textContent = "🏆 Winner: ";
+            
+            const logoImg = document.createElement("img");
+            logoImg.className = "bracket-winner-logo";
+            logoImg.src = winnerLogoUrl;
+            logoImg.alt = "";
+            logoImg.width = 48;
+            logoImg.height = 48;
+            logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+            
+            const nameSpan = document.createElement("span");
+            nameSpan.textContent = winnerDisplayName;
+            
+            badge.appendChild(trophy);
+            badge.appendChild(logoImg);
+            badge.appendChild(nameSpan);
             winnerWrap.appendChild(badge);
             row.appendChild(winnerWrap);
           }
@@ -934,11 +953,13 @@ document.addEventListener("DOMContentLoaded", () => {
       wrap.appendChild(buildStageRow("Losers Bracket", losersStages));
       const finalBGame = (byRound["Final B"] || [])[0];
       if (finalBGame?.played) {
-        const winnerName =
-          Number(finalBGame.mapsWonA) > Number(finalBGame.mapsWonB) ? finalBGame.teamA :
-          Number(finalBGame.mapsWonB) > Number(finalBGame.mapsWonA) ? finalBGame.teamB :
-          "";
-        if (winnerName) {
+        const isAWinner = Number(finalBGame.mapsWonA) > Number(finalBGame.mapsWonB);
+        const isBWinner = Number(finalBGame.mapsWonB) > Number(finalBGame.mapsWonA);
+        const winnerDisplayName = isAWinner ? finalBGame.teamADisplayName :
+                                   isBWinner ? finalBGame.teamBDisplayName : "";
+        const winnerLogoUrl = isAWinner ? finalBGame.teamALogoUrl :
+                              isBWinner ? finalBGame.teamBLogoUrl : LOGO_FALLBACK_URL;
+        if (winnerDisplayName) {
           const finalBCol = wrap.querySelector(".stage-final-b");
           if (finalBCol) {
             const finalGameEl = finalBCol.querySelector(".bracket-game");
@@ -951,7 +972,24 @@ document.addEventListener("DOMContentLoaded", () => {
               winnerWrap.className = "bracket-winner-wrap";
               const badge = document.createElement("div");
               badge.className = "bracket-winner losers";
-              badge.textContent = "🏆 Winner: " + winnerName;
+              
+              const trophy = document.createElement("span");
+              trophy.textContent = "🏆 Winner: ";
+              
+              const logoImg = document.createElement("img");
+              logoImg.className = "bracket-winner-logo";
+              logoImg.src = winnerLogoUrl;
+              logoImg.alt = "";
+              logoImg.width = 48;
+              logoImg.height = 48;
+              logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+              
+              const nameSpan = document.createElement("span");
+              nameSpan.textContent = winnerDisplayName;
+              
+              badge.appendChild(trophy);
+              badge.appendChild(logoImg);
+              badge.appendChild(nameSpan);
               winnerWrap.appendChild(badge);
               row.appendChild(winnerWrap);
             }
