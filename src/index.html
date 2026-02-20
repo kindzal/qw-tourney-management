@@ -641,6 +641,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         wrapper.appendChild(label);
         th.appendChild(wrapper);
+        // Show detailed rank info on hover using the configured tooltip text
+        if (typeof rankTooltipText !== 'undefined') {
+          th.title = `Rank - ${rankTooltipText}`;
+        }
       } else {
         // Use abbreviation if available, otherwise full column name
         const abbr = HEADER_ABBR.hasOwnProperty(col) ? HEADER_ABBR[col] : col;
