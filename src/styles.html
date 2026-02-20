@@ -412,44 +412,26 @@ td.team-cell .standings-team-logo {
   padding: 16px;
   transition: all 0.2s ease;
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .team-card:hover {
   background: #2d3748;
   border-color: #4b5563;
 }
-.team-card .team-name {
+.team-card-name-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1.3em;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 8px;
+  gap: 12px;
 }
-.team-card .team-logo {
-  width: 48px;
-  height: 48px;
-  border-radius: 4px;
-  object-fit: contain;
+.team-card-name-row .team-view-logo {
+  margin-top: 0;
   flex-shrink: 0;
-  background: transparent;
 }
-.team-card .team-tag {
-  font-size: 0.9em;
-  color: #9ca3af;
-  margin-bottom: 6px;
-}
-.team-card .team-tag span {
-  color: #d1d5db;
-  font-weight: 500;
-}
-.team-card .team-players {
-  font-size: 0.9em;
-  color: #9ca3af;
-}
-.team-card .team-players span {
-  color: #d1d5db;
-  font-weight: 500;
+.team-card-name-row .team-view-name {
+  font-size: 1.3em;
+  margin-bottom: 0;
 }
 /* Round Headers */
 h1, h2, h3, .round-header {
@@ -1493,7 +1475,7 @@ h1, h2, h3, .round-header {
   margin-bottom: 8px;
   line-height: 1.2;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }

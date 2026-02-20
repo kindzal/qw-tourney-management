@@ -828,64 +828,49 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const teamDisplayName = team['Team Display Name'] || team['Team Name'] || team['Team'] || '';
       const logoUrl = team['logoUrl'] || LOGO_FALLBACK_URL;
-      const rawTag = team['Team Tag'] || team['Tag'] || '';
-      const teamTag = Array.isArray(rawTag) ? rawTag.join(' / ') : rawTag;
       const players = team['Players'] || '';
-      
-      // Team name with logo
-      const nameDiv = document.createElement("div");
-      nameDiv.className = "team-name";
-      
+
+      // Logo + name row
+      const nameRow = document.createElement("div");
+      nameRow.className = "team-card-name-row";
+
       const logoImg = document.createElement("img");
-      logoImg.className = "team-logo";
+      logoImg.className = "team-view-logo";
       logoImg.src = logoUrl;
       logoImg.alt = teamDisplayName + " logo";
       logoImg.width = 48;
       logoImg.height = 48;
       logoImg.loading = "lazy";
       logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
-      
-      const nameSpan = document.createElement("span");
-      nameSpan.textContent = teamDisplayName;
-      
-      nameDiv.appendChild(logoImg);
-      nameDiv.appendChild(nameSpan);
 
-      // Team tag
-      const tagDiv = document.createElement("div");
-      tagDiv.className = "team-tag";
-      tagDiv.textContent = "Tag: ";
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "team-view-name";
+      nameDiv.textContent = teamDisplayName;
 
-      const tagSpan = document.createElement("span");
-      tagSpan.textContent = teamTag;
-      tagDiv.appendChild(tagSpan);
+      nameRow.append(logoImg, nameDiv);
 
-      // Team players with captain badge
+      // Players row
       const playersDiv = document.createElement("div");
-      playersDiv.className = "team-players";
-      playersDiv.textContent = "Players: ";
-
-      const playersSpan = document.createElement("span");
+      playersDiv.className = "team-view-players";
       const playerList = players.split(',').map(p => p.trim()).filter(p => p);
       playerList.forEach((player, idx) => {
         if (idx === 0) {
           const captainSpan = document.createElement("span");
           captainSpan.className = "captain-name";
           captainSpan.textContent = player;
-          playersSpan.appendChild(captainSpan);
+          playersDiv.appendChild(captainSpan);
           const badge = document.createElement("span");
           badge.className = "captain-badge";
           badge.textContent = "C";
           badge.title = "Captain";
-          playersSpan.appendChild(badge);
+          playersDiv.appendChild(badge);
         } else {
-          playersSpan.appendChild(document.createTextNode(" \u00B7 " + player));
+          playersDiv.appendChild(document.createTextNode(" \u00B7 " + player));
         }
       });
-      playersDiv.appendChild(playersSpan);
 
       // Assemble card
-      card.append(nameDiv, tagDiv, playersDiv);
+      card.append(nameRow, playersDiv);
       
       // Click to open team view
       card.addEventListener("click", () => showTeamView(teamDisplayName));
