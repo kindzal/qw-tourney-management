@@ -642,7 +642,8 @@
           const dataChanged = !currentIssueData || 
                               currentIssueData.issueType !== result.issueType ||
                               currentIssueData.value !== result.value ||
-                              JSON.stringify(currentIssueData.targets) !== JSON.stringify(result.targets);
+                              JSON.stringify(currentIssueData.targets) !== JSON.stringify(result.targets) ||
+                              JSON.stringify(currentIssueData.maps) !== JSON.stringify(result.maps);
           
           // Store current issue data
           currentIssueData = result;
@@ -650,15 +651,87 @@
           // Update status
           status.style.color = '#2d8f2d';
           status.innerHTML = `<strong>Selected:</strong> ${result.issueType} - "${result.value}"`;
-          
-          // Show and populate dropdown
-          dropdownContainer.style.display = 'block';
-          
-          // Update label based on issue type
-          if (result.issueType === 'Unmatched Player') {
-            dropdownLabel.textContent = 'Select Player to add this Game Nick to:';
-          } else {
-            dropdownLabel.textContent = 'Select Team to add this Team Tag to:';
+
+          // Hide both containers by default
+          dropdownContainer.style.display = 'none';
+          const incorrectContainer = document.getElementById('incorrect-maps-container');
+          incorrectContainer.style.display = 'none';
+
+          // If it's a standard unmatched issue, show the dropdown
+          if (result.issueType === 'Unmatched Player' || result.issueType === 'Unmatched Team Tag') {
+            dropdownContainer.style.display = 'block';
+            if (result.issueType === 'Unmatched Player') {
+              dropdownLabel.textContent = 'Select Player to add this Game Nick to:';
+            } else {
+              dropdownLabel.textContent = 'Select Team to add this Team Tag to:';
+            }
+          }
+
+          // If it's Incorrect Number of Maps, show the custom radio-list UI
+          if (result.issueType === 'Incorrect Number of Maps') {
+            incorrectContainer.style.display = 'block';
+            // Populate heading and list
+            const heading = document.getElementById('incorrect-maps-heading');
+            const list = document.getElementById('incorrect-maps-list');
+            heading.textContent = `Incorrect number of maps in ${String(result.stage||'').toLowerCase()} match round ${String(result.round||'').toLowerCase()} at ${result.date || ''}`;
+            const matchDiv = document.getElementById('incorrect-maps-match');
+            if (matchDiv) {
+              if (result.match) {
+                matchDiv.textContent = result.match;
+                matchDiv.style.display = 'block';
+              } else {
+                matchDiv.textContent = '';
+                matchDiv.style.display = 'none';
+              }
+            }
+            // Only repopulate if data changed
+            if (dataChanged) {
+              list.innerHTML = '';
+              (result.maps || []).forEach(function(m, idx) {
+                const id = 'incmap_' + idx;
+                const wrapper = document.createElement('div');
+                wrapper.style.marginBottom = '6px';
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'incmap';
+                radio.value = m.gameUrl || m.mapUrl || '';
+                radio.id = id;
+
+                const label = document.createElement('label');
+                label.htmlFor = id;
+                const teamA = (m.teamAFrags != null) ? m.teamAFrags : '';
+                const teamB = (m.teamBFrags != null) ? m.teamBFrags : '';
+                label.textContent = `${m.mapName || m.map || ''} ${teamA} - ${teamB}`;
+                label.style.marginLeft = '6px';
+
+                const viewLink = document.createElement('a');
+                viewLink.href = m.gameUrl || m.mapUrl || '#';
+                viewLink.target = '_blank';
+                viewLink.textContent = ' view game';
+                viewLink.style.marginLeft = '8px';
+
+                wrapper.appendChild(radio);
+                wrapper.appendChild(label);
+                wrapper.appendChild(viewLink);
+                list.appendChild(wrapper);
+              });
+
+              // wire up change handler to toggle button
+              const radios = Array.from(document.getElementsByName('incmap'));
+              radios.forEach(r => r.onchange = function() {
+                const btn = document.getElementById('fix-selected-btn');
+                if (document.querySelector('input[name="incmap"]:checked')) {
+                  btn.disabled = false;
+                  btn.style.opacity = '1';
+                  btn.style.cursor = 'pointer';
+                } else {
+                  btn.disabled = true;
+                  btn.style.opacity = '0.5';
+                  btn.style.cursor = 'not-allowed';
+                }
+              });
+            }
           }
           
           // Only repopulate dropdown if data has changed
@@ -699,15 +772,28 @@
             };
           }
           
-          // Update button state based on current dropdown value
-          if (dropdown.value) {
-            button.disabled = false;
-            button.style.opacity = '1';
-            button.style.cursor = 'pointer';
+          // Update button state based on current issue type
+          if (result.issueType === 'Incorrect Number of Maps') {
+            const selectedRadio = document.querySelector('input[name="incmap"]:checked');
+            if (selectedRadio) {
+              button.disabled = false;
+              button.style.opacity = '1';
+              button.style.cursor = 'pointer';
+            } else {
+              button.disabled = true;
+              button.style.opacity = '0.5';
+              button.style.cursor = 'not-allowed';
+            }
           } else {
-            button.disabled = true;
-            button.style.opacity = '0.5';
-            button.style.cursor = 'not-allowed';
+            if (dropdown.value) {
+              button.disabled = false;
+              button.style.opacity = '1';
+              button.style.cursor = 'pointer';
+            } else {
+              button.disabled = true;
+              button.style.opacity = '0.5';
+              button.style.cursor = 'not-allowed';
+            }
           }
           
         } else {
@@ -734,12 +820,22 @@
       return;
     }
     
-    const dropdown = document.getElementById('fix-target-select');
-    const targetRow = parseInt(dropdown.value);
-    
-    if (!targetRow) {
-      alert('Please select a Player or Team from the dropdown');
-      return;
+    let targetRow = null;
+    // For Incorrect Number of Maps, read selected radio value (gameUrl)
+    if (currentIssueData.issueType === 'Incorrect Number of Maps') {
+      const sel = document.querySelector('input[name="incmap"]:checked');
+      if (!sel || !sel.value) {
+        alert('Please select a map to exclude');
+        return;
+      }
+      targetRow = sel.value; // pass URL string through
+    } else {
+      const dropdown = document.getElementById('fix-target-select');
+      targetRow = parseInt(dropdown.value);
+      if (!targetRow) {
+        alert('Please select a Player or Team from the dropdown');
+        return;
+      }
     }
     
     const button = document.getElementById('fix-selected-btn');

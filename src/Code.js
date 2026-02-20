@@ -421,6 +421,119 @@ function generateFixMeReport() {
       });
   }
 
+  // ── Validate TeamGames map counts against Configuration modes ────────
+  const configSheet = ss.getSheetByName("Configuration");
+  let groupMode = null;
+  let playoffsMode = null;
+  if (configSheet && configSheet.getLastRow() > 1) {
+    const cfgRows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 2).getValues();
+    const cfg = {};
+    cfgRows.forEach(([k, v]) => { if (k) cfg[String(k).trim()] = v; });
+    groupMode = String(cfg["Group Stage Mode"] || "").trim();
+    playoffsMode = String(cfg["Playoffs Mode"] || "").trim();
+  }
+
+  const teamGamesSheet = ss.getSheetByName("TeamGames");
+  if (teamGamesSheet && teamGamesSheet.getLastRow() > 1) {
+    const tgData = teamGamesSheet.getDataRange().getValues();
+    const tgHeaders = tgData[0] || [];
+    const stageCol = tgHeaders.indexOf("Stage");
+    const teamACol = tgHeaders.indexOf("TeamA");
+    const teamBCol = tgHeaders.indexOf("TeamB");
+    const allMapsCol = tgHeaders.indexOf("AllMapsJSON");
+
+    for (let i = 1; i < tgData.length; i++) {
+      const row = tgData[i];
+      const stage = stageCol >= 0 ? String(row[stageCol] || "").trim() : "";
+      const teamA = teamACol >= 0 ? String(row[teamACol] || "").trim() : "";
+      const teamB = teamBCol >= 0 ? String(row[teamBCol] || "").trim() : "";
+      const rawAllMaps = allMapsCol >= 0 ? row[allMapsCol] : null;
+
+      let mapsArray = [];
+      if (rawAllMaps) {
+        try {
+          if (typeof rawAllMaps === 'string') mapsArray = JSON.parse(rawAllMaps);
+          else if (Array.isArray(rawAllMaps)) mapsArray = rawAllMaps;
+        } catch (e) {
+          // If parsing fails, treat as no maps but still report
+          mapsArray = null;
+        }
+      }
+
+      const mapsPlayed = Array.isArray(mapsArray) ? mapsArray.length : 0;
+
+      const modeRaw = (stage === "Playoff") ? playoffsMode : groupMode;
+      if (!modeRaw) continue; // no configured mode to validate against
+
+      const mode = String(modeRaw).toUpperCase();
+      let valid = true;
+
+      if (mode.indexOf("GO") === 0) {
+        const x = parseInt(mode.slice(2), 10);
+        if (!isNaN(x)) {
+          if (mapsPlayed !== x) valid = false;
+        }
+      } else if (mode.indexOf("BO") === 0) {
+        const x = parseInt(mode.slice(2), 10);
+        if (!isNaN(x)) {
+          const min = Math.ceil(x / 2);
+          const max = x;
+          if (mapsPlayed < min || mapsPlayed > max) valid = false;
+        }
+      } else {
+        // Unknown mode format — skip validation
+        continue;
+      }
+
+      if (!valid) {
+        const roundCol = tgHeaders.indexOf("Round");
+        const scoreCol = tgHeaders.indexOf("Score");
+        const dateCol = tgHeaders.indexOf("Date");
+
+        const round = roundCol >= 0 ? String(row[roundCol] || "").trim() : "";
+        const score = scoreCol >= 0 ? String(row[scoreCol] || "").trim() : "";
+
+        let dateVal = "";
+        if (dateCol >= 0) {
+          const rawDateCell = row[dateCol];
+          if (rawDateCell instanceof Date) {
+            const dd = String(rawDateCell.getDate()).padStart(2, '0');
+            const mm = String(rawDateCell.getMonth() + 1).padStart(2, '0');
+            const yyyy = String(rawDateCell.getFullYear());
+            dateVal = `${dd}/${mm}/${yyyy}`;
+          } else {
+            dateVal = String(rawDateCell || "").trim();
+          }
+        }
+
+        const match = `${teamA} ${score} ${teamB}`.trim();
+
+        // Ensure AllMapsJSON is an array
+        let allMapsArray = [];
+        if (Array.isArray(mapsArray)) {
+          allMapsArray = mapsArray;
+        } else if (rawAllMaps) {
+          try {
+            const parsed = (typeof rawAllMaps === 'string') ? JSON.parse(rawAllMaps) : rawAllMaps;
+            if (Array.isArray(parsed)) allMapsArray = parsed;
+          } catch (e) {
+            allMapsArray = [];
+          }
+        }
+
+        const valueObj = {
+          Stage: stage,
+          Round: round,
+          Match: match,
+          Date: dateVal,
+          AllMapsJSON: allMapsArray
+        };
+
+        rows.push(["Incorrect Number of Maps", JSON.stringify(valueObj), DESCRIPTION]);
+      }
+    }
+  }
+
  // ── Write combined rows (or a clean all-clear message) ────────────────
   if (rows.length > 0) {
     fixMeSheet.getRange(2, 1, rows.length, 3).setValues(rows);

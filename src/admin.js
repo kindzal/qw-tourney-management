@@ -1467,7 +1467,7 @@ function getFixMeIssueForRow(row) {
     return { canFix: false, message: "Selected row is empty" };
   }
 
-  if (issueType !== "Unmatched Player" && issueType !== "Unmatched Team Tag") {
+  if (issueType !== "Unmatched Player" && issueType !== "Unmatched Team Tag" && issueType !== "Incorrect Number of Maps") {
     return { canFix: false, message: "Unknown issue type" };
   }
 
@@ -1524,6 +1524,27 @@ function getFixMeIssueForRow(row) {
           });
         }
       });
+    }
+  }
+
+  // Handle Incorrect Number of Maps (Value is expected to be JSON with Stage, Round, Combined/Match, Date, AllMapsJSON)
+  if (issueType === "Incorrect Number of Maps") {
+    try {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      const maps = parsed && parsed.AllMapsJSON ? parsed.AllMapsJSON : [];
+      return {
+        canFix: true,
+        issueType,
+        value: `${parsed.Stage || ''} ${parsed.Round || ''} ${parsed.Date || ''}`.trim(),
+        row,
+        maps,
+        stage: parsed.Stage || '',
+        round: parsed.Round || '',
+        date: parsed.Date || '',
+        match: parsed.Match || ''
+      };
+    } catch (e) {
+      return { canFix: false, message: 'Malformed JSON in FIX-ME value' };
     }
   }
 
@@ -1604,16 +1625,22 @@ function fixSelectedFixMeIssue(targetRow) {
     throw new Error(issue.message);
   }
   
-  // Find the selected target
-  const target = issue.targets.find(t => t.row === targetRow);
-  if (!target) {
-    throw new Error("Invalid target selected");
+  let target = null;
+  // Only resolve a target for Unmatched Player / Team Tag issues
+  if (issue.issueType === "Unmatched Player" || issue.issueType === "Unmatched Team Tag") {
+    if (!issue.targets || !Array.isArray(issue.targets)) {
+      throw new Error("No targets available for this issue");
+    }
+    target = issue.targets.find(t => t.row === targetRow);
+    if (!target) {
+      throw new Error("Invalid target selected");
+    }
   }
   
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(target.sheet);
-  
-  if (!sheet) {
+  const sheet = target ? ss.getSheetByName(target.sheet) : null;
+
+  if (target && !sheet) {
     throw new Error(`${target.sheet} sheet not found`);
   }
   
@@ -1666,5 +1693,35 @@ function fixSelectedFixMeIssue(targetRow) {
     return `✅ Added "${issue.value}" to ${target.name}'s Team Tags. Stats updated.`;
   }
   
+  // New handler: Incorrect Number of Maps -> add the selected gameUrl to ExcludedGames
+  if (issue.issueType === "Incorrect Number of Maps") {
+    // targetRow is used to carry the gameUrl string in this case
+    const excludeUrl = targetRow;
+    if (!excludeUrl || typeof excludeUrl !== 'string') {
+      throw new Error('No game URL provided to exclude');
+    }
+
+    let sheet = ss.getSheetByName('ExcludedGames');
+    if (!sheet) {
+      sheet = ss.insertSheet('ExcludedGames');
+      sheet.getRange(1,1).setValue('Hub URL');
+    }
+
+    // Check existing
+    const lastRow = sheet.getLastRow();
+    const existing = lastRow > 1 ? sheet.getRange(2,1,lastRow-1,1).getValues().flat().map(v=>String(v).trim()) : [];
+    if (existing.includes(String(excludeUrl).trim())) {
+      return `✅ URL already present in ExcludedGames: ${excludeUrl}`;
+    }
+
+    sheet.getRange(lastRow+1,1).setValue(excludeUrl);
+
+    // Refresh stats and selection
+    updateStats(true);
+    refreshCurrentFixMeSelection();
+
+    return `✅ Added ${excludeUrl} to ExcludedGames. Stats updated.`;
+  }
+
   throw new Error("Unknown issue type");
 }

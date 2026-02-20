@@ -131,7 +131,7 @@ function getPlayersAPI() {
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
 
-  const PRIORITY_ORDER = ["Rank", "Player", "Maps Pld", "Avg Frags", "Win %", "Avg Eff", "Avg SG", "Avg LG", "Avg RL Kld"];
+  const PRIORITY_ORDER = ["Player", "Rank", "Maps Pld", "Avg Frags", "Win %", "Avg Eff", "Avg SG", "Avg LG", "Avg RL Kld"];
   const EXCLUDE = ["Game Nicks", "Team", "Total Frags", "Maps Won", ];
 
   return values.map(row => {
