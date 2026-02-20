@@ -156,6 +156,10 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const PERCENT_COLUMNS=["Win %","Avg Eff","Avg SG","Avg LG"];
   const LOGO_FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/kindzal/my-assets@master/images/clan-logos/optimised/fallback.png';
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
   
   // ==================== TEAM VIEW OVERLAY ====================
   const teamViewOverlay = document.getElementById("team-view-overlay");
@@ -300,6 +304,14 @@ document.addEventListener("DOMContentLoaded", () => {
       let totalMaps = 0;
       let totalFrags = 0;
 
+      // Build a tag lookup map: display name (lowercase) -> tag
+      const teamTagMap = {};
+      teams.forEach(t => {
+        const n = (t['Team Display Name'] || t['Team Name'] || t['Team'] || '').toLowerCase().trim();
+        const raw = t['Team Tag'] || t['Tag'] || '';
+        teamTagMap[n] = Array.isArray(raw) ? raw.join(' / ') : raw;
+      });
+
       playedGames.forEach(g => {
         const isTeamA = (g.teamADisplayName || g.teamA || '').toLowerCase().trim() === normalizedName;
         
@@ -325,6 +337,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const fragsAgainst = isTeamA ? (m.teamBFrags || 0) : (m.teamAFrags || 0);
           const opponentName = isTeamA ? (g.teamBDisplayName || g.teamB) : (g.teamADisplayName || g.teamA);
           const opponentLogo = isTeamA ? g.teamBLogoUrl : g.teamALogoUrl;
+          const opponentTag = teamTagMap[(opponentName || '').toLowerCase().trim()] || '';
           
           stat.totalFragsFor += fragsFor;
           stat.totalFragsAgainst += fragsAgainst;
@@ -340,7 +353,8 @@ document.addEventListener("DOMContentLoaded", () => {
               fragsFor,
               fragsAgainst,
               opponent: opponentName,
-              opponentLogo
+              opponentLogo,
+              opponentTag
             };
           }
           
@@ -351,7 +365,8 @@ document.addEventListener("DOMContentLoaded", () => {
               fragsFor,
               fragsAgainst,
               opponent: opponentName,
-              opponentLogo
+              opponentLogo,
+              opponentTag
             };
           }
         });
@@ -428,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="team-map-vs-score">${bw.fragsFor} - ${bw.fragsAgainst}</span>
               <span class="team-map-vs-label">vs</span>
               <img class="team-map-vs-logo" src="${bw.opponentLogo || LOGO_FALLBACK_URL}" alt="" onerror="this.src='${LOGO_FALLBACK_URL}'">
-              <span class="team-map-vs-name">${bw.opponent}</span>
+              ${bw.opponentTag ? `<span class="team-map-vs-tag">${escapeHtml(bw.opponentTag)}</span>` : ''}
             `;
             bigWinRow.appendChild(valueSpan);
             statsOverlay.appendChild(bigWinRow);
@@ -446,7 +461,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="team-map-vs-score">${bl.fragsFor} - ${bl.fragsAgainst}</span>
               <span class="team-map-vs-label">vs</span>
               <img class="team-map-vs-logo" src="${bl.opponentLogo || LOGO_FALLBACK_URL}" alt="" onerror="this.src='${LOGO_FALLBACK_URL}'">
-              <span class="team-map-vs-name">${bl.opponent}</span>
+              ${bl.opponentTag ? `<span class="team-map-vs-tag">${escapeHtml(bl.opponentTag)}</span>` : ''}
             `;
             bigLossRow.appendChild(valueSpan);
             statsOverlay.appendChild(bigLossRow);
