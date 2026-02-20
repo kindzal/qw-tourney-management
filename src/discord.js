@@ -139,24 +139,29 @@ function buildScheduleMessage(roundNumber) {
   let matchLines = [];
   const alreadyListed = new Set();
   
+  // Read teams and role IDs in one go
   const teamsSheet = ss.getSheetByName('Teams');
   const lastTeamsRow = teamsSheet.getLastRow();
-  const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 2).getValues();
+  const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 5).getValues();
   const teams = {};
-  teamsData.forEach(([key, value]) => {
-    if (key) teams[String(key).trim()] = value;
+  const teamRoles = {};
+  teamsData.forEach(([name, players, roleId]) => {
+    if (name) teams[String(name).trim()] = players;
+    if (name && roleId) teamRoles[String(name).trim()] = roleId;
   });
-   
+
   for (const team in opponents) {
     if (alreadyListed.has(team)) continue;
 
     const opp = opponents[team];
+    // Replace team name with Discord role mention if roleId is set
+    const teamMention = teamRoles[team] ? `<@&${teamRoles[team]}>` : `**${team}**`;
+    const oppMention = teamRoles[opp] ? `<@&${teamRoles[opp]}>` : `**${opp}**`;
     if (config["Include players list"] == 'Yes') {
-      matchLines.push(`**${team}** (${teams[team]})\n    vs\n**${opp}** (${teams[opp]})\n`);
+      matchLines.push(`${teamMention} (${teams[team]})\n    vs\n${oppMention} (${teams[opp]})\n`);
     } else {
-      matchLines.push(`• **${team}** vs **${opp}**`);
+      matchLines.push(`• ${teamMention} vs ${oppMention}`);
     }
-    
     alreadyListed.add(team);
     alreadyListed.add(opp);
   }
