@@ -195,7 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Find the team
     const team = teams.find(t => {
-      const name = (t['Team Display Name'] || t['Team Name'] || t['Team'] || '').toLowerCase().trim();
+      const name = (t['Team Name'] || '').toLowerCase().trim();
       return name === normalizedName;
     });
 
@@ -206,17 +206,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Find ranking from standings
     const standingsEntry = standings.find(s => {
-      const name = (s['Team Display Name'] || s['Team'] || '').toLowerCase().trim();
+      const name = (s['Team'] || '').toLowerCase().trim();
       return name === normalizedName;
     });
     const rank = standingsEntry?.Rank || standingsEntry?.['#'] || '?';
     const division = standingsEntry?.Division || '';
 
     // Get team data
-    const teamDisplayName = team['Team Display Name'] || team['Team Name'] || team['Team'] || '';
+    const teamDisplayName = team['Team Name'] || '';
     const logoUrl = team['logoUrl'] || LOGO_FALLBACK_URL;
     const players = (team['Players'] || '').split(',').map(p => p.trim()).filter(p => p);
-    const rawTag = team['Team Tag'] || team['Tag'] || '';
+    const rawTag = team['Team Tag'] || '';
     const teamTag = Array.isArray(rawTag) ? rawTag.join(' / ') : rawTag;
 
     // Build header
@@ -284,8 +284,8 @@ document.addEventListener("DOMContentLoaded", () => {
     teamViewContent.innerHTML = '';
 
     const teamGames = games.filter(g => {
-      const a = (g.teamADisplayName || g.teamA || '').toLowerCase().trim();
-      const b = (g.teamBDisplayName || g.teamB || '').toLowerCase().trim();
+      const a = (g.teamA || '').toLowerCase().trim();
+      const b = (g.teamB || '').toLowerCase().trim();
       return a === normalizedName || b === normalizedName;
     });
 
@@ -307,13 +307,13 @@ document.addEventListener("DOMContentLoaded", () => {
       // Build a tag lookup map: display name (lowercase) -> tag
       const teamTagMap = {};
       teams.forEach(t => {
-        const n = (t['Team Display Name'] || t['Team Name'] || t['Team'] || '').toLowerCase().trim();
-        const raw = t['Team Tag'] || t['Tag'] || '';
+        const n = (t['Team Name'] || '').toLowerCase().trim();
+        const raw = t['Team Tag'] || '';
         teamTagMap[n] = Array.isArray(raw) ? raw.join(' / ') : raw;
       });
 
       playedGames.forEach(g => {
-        const isTeamA = (g.teamADisplayName || g.teamA || '').toLowerCase().trim() === normalizedName;
+        const isTeamA = (g.teamA || '').toLowerCase().trim() === normalizedName;
         
         g.maps.forEach(m => {
           const mapName = m.mapName || 'Unknown';
@@ -335,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
           
           const fragsFor = isTeamA ? (m.teamAFrags || 0) : (m.teamBFrags || 0);
           const fragsAgainst = isTeamA ? (m.teamBFrags || 0) : (m.teamAFrags || 0);
-          const opponentName = isTeamA ? (g.teamBDisplayName || g.teamB) : (g.teamADisplayName || g.teamA);
+          const opponentName = isTeamA ? (g.teamB) : (g.teamA);
           const opponentLogo = isTeamA ? g.teamBLogoUrl : g.teamALogoUrl;
           const opponentTag = teamTagMap[(opponentName || '').toLowerCase().trim()] || '';
           
@@ -651,7 +651,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isStandings && key === 'Team') {
           td.className = 'team-cell team-name-link';
           const logoUrl = row['teamLogoUrl'] || LOGO_FALLBACK_URL;
-          const displayName = row['Team Display Name'] || row['Team'] || '';
+          const displayName = row['Team'] || '';
           
           const logoImg = document.createElement('img');
           logoImg.className = 'standings-team-logo';
@@ -728,7 +728,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const teamCell = document.createElement("div");
       teamCell.className = "standings-team-cell";
       
-      const displayName = row['Team Display Name'] || row['Team'] || '';
+      const displayName = row['Team'] || '';
       
       const logoImg = document.createElement("img");
       logoImg.className = "standings-logo";
@@ -841,7 +841,7 @@ document.addEventListener("DOMContentLoaded", () => {
       card.className = "team-card";
       card.style.cursor = "pointer";
       
-      const teamDisplayName = team['Team Display Name'] || team['Team Name'] || team['Team'] || '';
+      const teamDisplayName = team['Team Name'] || '';
       const logoUrl = team['logoUrl'] || LOGO_FALLBACK_URL;
       const players = team['Players'] || '';
 
@@ -958,8 +958,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const games = await this.getGames();
       const name = teamName.toLowerCase().trim();
       return games.filter(g => 
-        (g.teamADisplayName || g.teamA || '').toLowerCase().trim() === name || 
-        (g.teamBDisplayName || g.teamB || '').toLowerCase().trim() === name
+        (g.teamA || '').toLowerCase().trim() === name || 
+        (g.teamB || '').toLowerCase().trim() === name
       );
     },
 
@@ -1045,13 +1045,13 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const aNameSpan = document.createElement("span");
     aNameSpan.className = "bracket-team-name";
-    aNameSpan.textContent = g.teamADisplayName || g.teamA || "";
+    aNameSpan.textContent = g.teamA || "";
     
     aTeamInfo.appendChild(aLogoImg);
     aTeamInfo.appendChild(aNameSpan);
     aTeamInfo.addEventListener("click", (e) => {
       e.stopPropagation();
-      showTeamView(g.teamADisplayName || g.teamA);
+      showTeamView(g.teamA);
     });
     
     const aScoreSpan = document.createElement("span");
@@ -1080,13 +1080,13 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const bNameSpan = document.createElement("span");
     bNameSpan.className = "bracket-team-name";
-    bNameSpan.textContent = g.teamBDisplayName || g.teamB || "";
+    bNameSpan.textContent = g.teamB || "";
     
     bTeamInfo.appendChild(bLogoImg);
     bTeamInfo.appendChild(bNameSpan);
     bTeamInfo.addEventListener("click", (e) => {
       e.stopPropagation();
-      showTeamView(g.teamBDisplayName || g.teamB);
+      showTeamView(g.teamB);
     });
     
     const bScoreSpan = document.createElement("span");
@@ -1135,8 +1135,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const popup = document.createElement("div");
     popup.className = "bracket-popup-wrapper";
-    const teamAName = g.teamADisplayName || g.teamA || "";
-    const teamBName = g.teamBDisplayName || g.teamB || "";
+    const teamAName = g.teamA || "";
+    const teamBName = g.teamB || "";
     const teamALogo = g.teamALogoUrl || LOGO_FALLBACK_URL;
     const teamBLogo = g.teamBLogoUrl || LOGO_FALLBACK_URL;
     const mapsA = g.mapsWonA ?? "";
@@ -1549,8 +1549,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (finalGame?.played) {
       const isAWinner = Number(finalGame.mapsWonA) > Number(finalGame.mapsWonB);
       const isBWinner = Number(finalGame.mapsWonB) > Number(finalGame.mapsWonA);
-      const winnerDisplayName = isAWinner ? finalGame.teamADisplayName :
-                                 isBWinner ? finalGame.teamBDisplayName : "";
+      const winnerDisplayName = isAWinner ? finalGame.teamA :
+                                 isBWinner ? finalGame.teamB : "";
       const winnerLogoUrl = isAWinner ? finalGame.teamALogoUrl :
                             isBWinner ? finalGame.teamBLogoUrl : LOGO_FALLBACK_URL;
       if (winnerDisplayName) {
@@ -1597,8 +1597,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (finalBGame?.played) {
         const isAWinner = Number(finalBGame.mapsWonA) > Number(finalBGame.mapsWonB);
         const isBWinner = Number(finalBGame.mapsWonB) > Number(finalBGame.mapsWonA);
-        const winnerDisplayName = isAWinner ? finalBGame.teamADisplayName :
-                                   isBWinner ? finalBGame.teamBDisplayName : "";
+        const winnerDisplayName = isAWinner ? finalBGame.teamA :
+                                   isBWinner ? finalBGame.teamB : "";
         const winnerLogoUrl = isAWinner ? finalBGame.teamALogoUrl :
                               isBWinner ? finalBGame.teamBLogoUrl : LOGO_FALLBACK_URL;
         if (winnerDisplayName) {
@@ -1726,7 +1726,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const teamLink = document.createElement("span");
       teamLink.className = "team-name-link";
-      teamLink.addEventListener("click", () => showTeamView(dt.teamDisplayName || dt.teamName));
+      teamLink.addEventListener("click", () => showTeamView(dt.teamName));
       
       const logoImg = document.createElement("img");
       logoImg.className = "map-team-logo";
@@ -1737,7 +1737,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
       
       const nameSpan = document.createElement("span");
-      nameSpan.textContent = dt.teamDisplayName || dt.teamName || "";
+      nameSpan.textContent = dt.teamName || "";
       
       teamLink.append(logoImg, nameSpan);
       
@@ -1774,7 +1774,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoA.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
       
       const nameA = document.createElement("span");
-      nameA.textContent = hf.teamDisplayNameA || hf.teamNameA || "";
+      nameA.textContent = hf.teamNameA || "";
       
       const scoreA = document.createElement("span");
       scoreA.className = "map-game-score";
@@ -1789,7 +1789,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scoreB.textContent = hf.fragsB;
       
       const nameB = document.createElement("span");
-      nameB.textContent = hf.teamDisplayNameB || hf.teamNameB || "";
+      nameB.textContent = hf.teamNameB || "";
       
       const logoB = document.createElement("img");
       logoB.className = "map-team-logo";
@@ -1829,7 +1829,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoA.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
       
       const nameA = document.createElement("span");
-      nameA.textContent = os.teamDisplayNameA || os.teamNameA || "";
+      nameA.textContent = os.teamNameA || "";
       
       const scoreA = document.createElement("span");
       scoreA.className = "map-game-score";
@@ -1844,7 +1844,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scoreB.textContent = os.fragsB;
       
       const nameB = document.createElement("span");
-      nameB.textContent = os.teamDisplayNameB || os.teamNameB || "";
+      nameB.textContent = os.teamNameB || "";
       
       const logoB = document.createElement("img");
       logoB.className = "map-team-logo";

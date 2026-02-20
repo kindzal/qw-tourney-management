@@ -248,8 +248,6 @@ function getTeamGamesAPI(mode = 'group') {
       round: String(round),
       teamA: teamAName,
       teamB: teamBName,
-      teamADisplayName: stripEmojis(teamAName),
-      teamBDisplayName: stripEmojis(teamBName),
       teamALogoUrl: buildTeamLogoUrl(teamAName),
       teamBLogoUrl: buildTeamLogoUrl(teamBName),
       mapsWonA: Number(row[gIdx.MapsWonA]) || 0,
@@ -316,8 +314,6 @@ function getTeamGamesAPI(mode = 'group') {
         round: String(round),
         teamA: team1,
         teamB: team2,
-        teamADisplayName: stripEmojis(team1),
-        teamBDisplayName: stripEmojis(team2),
         teamALogoUrl: buildTeamLogoUrl(team1),
         teamBLogoUrl: buildTeamLogoUrl(team2),
         mapsWonA: "",
@@ -350,11 +346,9 @@ function getTeamsAPI() {
     TAG_COLUMNS.forEach(col => {
       if (col in obj) obj[col] = parseTagAliases(GASdecode(obj[col]));
     });
-    
-    // Add Team Display Name (team name with emojis stripped)
-    const teamName = obj['Team Name'] || obj['Team'] || '';
-    obj['Team Display Name'] = stripEmojis(teamName);
-    
+        
+    const teamName = obj['Team Name'];
+        
     // Add logo URL
     obj['logoUrl'] = buildTeamLogoUrl(teamName);
     
@@ -400,20 +394,17 @@ function getMapStatsAPI() {
         if (obj[col]) {
           try {
             const parsed = JSON.parse(obj[col]);
-            // Add display names and logo URLs for game objects
+
             if (col === "Highest Frag Game" || col === "Most One-Sided Game") {
               if (parsed.teamNameA) {
-                parsed.teamDisplayNameA = stripEmojis(parsed.teamNameA);
                 parsed.teamLogoUrlA = buildTeamLogoUrl(parsed.teamNameA);
               }
               if (parsed.teamNameB) {
-                parsed.teamDisplayNameB = stripEmojis(parsed.teamNameB);
                 parsed.teamLogoUrlB = buildTeamLogoUrl(parsed.teamNameB);
               }
             }
-            // Add display name and logo URL for dominant team
+
             if (col === "Dominant Team" && parsed.teamName) {
-              parsed.teamDisplayName = stripEmojis(parsed.teamName);
               parsed.teamLogoUrl = buildTeamLogoUrl(parsed.teamName);
             }
             obj[col] = parsed;
