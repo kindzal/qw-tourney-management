@@ -107,9 +107,9 @@ The sheet itself allows manual data imports from the QuakeWorld hub. In order to
 
 Each instance of the QWadmin comes with a simple display layer for the players.
 
-![web-app-example](https://github.com/user-attachments/assets/a667da7e-061c-473b-97ab-d1782f2b64f3)
+<img width="1731" height="1284" alt="image" src="https://github.com/user-attachments/assets/39bc1a0c-4145-439b-a84b-5e27d5767768" />
 
-You can check out the template example here: 👉 https://qw-app.short.gy/tHWsP7
+You can check out an example here: 👉 https://qw-app.short.gy/OVc4m4
 
 To enable it follow the steps below:
 
