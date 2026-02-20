@@ -9,7 +9,7 @@
   function showSection(sheetName) {
     hideAllSections();
 
-    document.getElementById("currentTab").innerText = sheetName;
+    document.getElementById("currentTab").innerHTML = `<span class="qwadmin-brand">🏆 QWadmin</span> ➡ ${sheetName}`;
 
     const section = document.getElementById(sheetName);
 
