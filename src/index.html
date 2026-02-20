@@ -155,6 +155,24 @@ document.addEventListener("DOMContentLoaded", () => {
   });  
   
   const PERCENT_COLUMNS=["Win %","Avg Eff","Avg SG","Avg LG"];
+  const HEADER_ABBR = {
+    'Player': '',
+    'Rank': 'R',
+    'Maps Pld': 'M',
+    'Avg Frags': 'F',
+    'Win %': 'W',
+    'Avg Eff': 'Eff',
+    'Avg SG': 'SG',
+    'Avg LG': 'LG',
+    'Avg RL Kld': 'RLk',
+    'Avg RL Tkn': 'RLt',
+    'Avg RL Drpd': 'RLd',
+    'Avg TKs': 'TKs',
+    'Avg Bores': 'B',
+    'Avg Dmg': 'Gvn',
+    'Avg EWEP': 'EW',
+    'Avg Q': 'Q'
+  };
   const LOGO_FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/kindzal/my-assets@master/images/clan-logos/optimised/fallback.png';
 
   function escapeHtml(str) {
@@ -611,12 +629,15 @@ document.addEventListener("DOMContentLoaded", () => {
     h.forEach(col => {
       const th = document.createElement("th");
 
+      // Always set the full column name as the native tooltip/title
+      th.title = col;
+
       if (col === "Rank") {
         const wrapper = document.createElement("span");
         wrapper.className = "rank-header";
 
         const label = document.createElement("span");
-        label.textContent = "Rank";
+        label.textContent = HEADER_ABBR[col] || "Rank";
 
         const icon = document.createElement("span");
         icon.className = "rank-tooltip-icon";
@@ -629,7 +650,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Attach tooltip behavior
         attachRankTooltip(icon);
       } else {
-        th.textContent = col;
+        // Use abbreviation if available, otherwise full column name
+        const abbr = HEADER_ABBR.hasOwnProperty(col) ? HEADER_ABBR[col] : col;
+        th.textContent = abbr;
       }
 
       trHead.appendChild(th);
