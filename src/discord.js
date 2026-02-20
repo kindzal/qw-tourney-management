@@ -98,44 +98,8 @@ function buildScheduleMessage(roundNumber) {
   // Fetch Opponents from Schedule
   const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);
   
-  const numberEmojis = {
-    0: 'round 0️⃣',
-    1: 'round 1️⃣',
-    2: 'round 2️⃣',
-    3: 'round 3️⃣',
-    4: 'round 4️⃣',
-    5: 'round 5️⃣',
-    6: 'round 6️⃣',
-    7: 'round 7️⃣',
-    8: 'round 8️⃣',
-    9: 'round 9️⃣',
-    10: 'round 🔟',
-    11: 'round 1️⃣1️⃣',
-    12: 'round 1️⃣2️⃣',
-    13: 'round 1️⃣3️⃣',
-    14: 'round 1️⃣4️⃣',
-    15: 'round 1️⃣5️⃣',
-    16: 'round 1️⃣6️⃣',
-    17: 'round 1️⃣7️⃣',
-    18: 'round 1️⃣8️⃣',
-    19: 'round 1️⃣9️⃣',
-    20: 'round 2️⃣0️⃣',
-    'Quarterfinals': 'the Quarterfinals! 🎉',
-    'Semifinals': 'the Semifinals! 🚀',
-    'Semifinals A': 'the Semifinals A! 🚀',
-    'Semifinals B': 'the Semifinals B! 🚀',
-    'Final': 'the Final! 🥇',
-    'Final A': 'the Final A! 🥇',
-    'Final B': 'the Final B! 🥇',
-    'Bronze': 'the Bronze Match! 🥉',
-    'Bronze A': 'the Bronze A Match! 🥉',
-    'Bronze B': 'the Bronze B Match! 🥉',
-  };
-  
-  var playoffs = false;
-  if (['Quarterfinals', 'Semifinals', 'Semifinals A', 'Semifinals B', 'Final', 'Final A', 'Final B', 'Bronze', 'Bronze A', 'Bronze B'].includes(roundNumber)) playoffs = true;
-
-  const roundEmoji = numberEmojis[roundNumber] || roundNumber;
+  const roundEmoji = getRoundLabel(roundNumber);
+  const playoffs = _playoffStages.has(roundNumber);
   
   const opponents = {};
   roundSchedule.forEach(row => {
@@ -629,4 +593,39 @@ function sendFixMeNotification() {
   });
 
   Logger.log(`sendFixMeNotification: posted ${Object.values(counts).reduce((a, b) => a + b, 0)} issue(s) to Discord`);    
+}
+
+// Helper: future-proof round label / emoji generator (exported for tests)
+const _digitEmoji = {
+  '0': '0️⃣', '1': '1️⃣', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣',
+  '5': '5️⃣', '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣'
+};
+
+const _stageLabels = {
+  'Quarterfinals': 'the Quarterfinals! 🎉',
+  'Semifinals': 'the Semifinals! 🚀',
+  'Semifinals A': 'the Semifinals A! 🚀',
+  'Semifinals B': 'the Semifinals B! 🚀',
+  'Final': 'the Final! 🥇',
+  'Final A': 'the Final A! 🥇',
+  'Final B': 'the Final B! 🥇',
+  'Bronze': 'the Bronze Match! 🥉',
+  'Bronze A': 'the Bronze A Match! 🥉',
+  'Bronze B': 'the Bronze B Match! 🥉'
+};
+
+const _playoffStages = new Set(Object.keys(_stageLabels));
+
+function numberToEmoji(num) {
+  if (Number(num) === 10) return '🔟';
+  return String(num).split('').map(d => _digitEmoji[d] || d).join('');
+}
+
+function getRoundLabel(r) {
+  if (typeof r === 'string' && _stageLabels[r]) return _stageLabels[r];
+  const n = Number(r);
+  if (!isNaN(n) && isFinite(n)) {
+    return `round ${numberToEmoji(n)}`;
+  }
+  return String(r);
 }

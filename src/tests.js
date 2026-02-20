@@ -449,3 +449,22 @@ function testBuildTeamLogoUrl() {
   assertEquals(BASE + "brown.png", buildTeamLogoUrl("🟤 Brown"));
   assertEquals(BASE + "yellow.png", buildTeamLogoUrl("🟡 Yellow"));
 }
+
+function testGetRoundLabel() {
+  // Numeric rounds
+  assertEquals('round 1️⃣', getRoundLabel(1));
+  assertEquals('round 0️⃣', getRoundLabel(0));
+  assertEquals('round 🔟', getRoundLabel(10));
+  assertEquals('round 🔟', getRoundLabel('10'));
+  assertEquals('round 1️⃣2️⃣', getRoundLabel(12));
+  assertEquals('round 1️⃣0️⃣0️⃣', getRoundLabel(100));
+
+  // Playoff / stage labels
+  assertEquals('the Quarterfinals! 🎉', getRoundLabel('Quarterfinals'));
+  assertEquals('the Semifinals B! 🚀', getRoundLabel('Semifinals B'));
+  assertEquals('the Final! 🥇', getRoundLabel('Final'));
+  assertEquals('the Bronze A Match! 🥉', getRoundLabel('Bronze A'));
+
+  // Unknown stage falls back to string
+  assertEquals('UnknownStage', getRoundLabel('UnknownStage'));
+}
