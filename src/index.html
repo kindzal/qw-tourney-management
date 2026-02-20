@@ -36,6 +36,13 @@
   </nav>
 </header> 
 <div class="popup-overlay" id="popup-overlay"></div>
+<div class="team-view-overlay" id="team-view-overlay">
+  <div class="team-view-panel">
+    <button class="team-view-close" aria-label="Close">&times;</button>
+    <div class="team-view-header"></div>
+    <div class="team-view-content"></div>
+  </div>
+</div>
 <section id="standings">
   <div class="content-wrapper">
     <div class="section-title">Standings</div>
@@ -150,6 +157,370 @@ document.addEventListener("DOMContentLoaded", () => {
   const PERCENT_COLUMNS=["Win %","Avg Eff","Avg SG","Avg LG"];
   const LOGO_FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/kindzal/my-assets@master/images/clan-logos/optimised/fallback.png';
   
+  // ==================== TEAM VIEW OVERLAY ====================
+  const teamViewOverlay = document.getElementById("team-view-overlay");
+  const teamViewPanel = teamViewOverlay.querySelector(".team-view-panel");
+  const teamViewHeader = teamViewOverlay.querySelector(".team-view-header");
+  const teamViewContent = teamViewOverlay.querySelector(".team-view-content");
+  const teamViewClose = teamViewOverlay.querySelector(".team-view-close");
+
+  function closeTeamView() {
+    teamViewOverlay.classList.remove("active");
+    document.body.style.overflow = "";
+  }
+
+  teamViewClose.addEventListener("click", closeTeamView);
+  teamViewOverlay.addEventListener("click", (e) => {
+    if (e.target === teamViewOverlay) closeTeamView();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && teamViewOverlay.classList.contains("active")) {
+      closeTeamView();
+    }
+  });
+
+  async function showTeamView(teamName) {
+    const normalizedName = teamName.toLowerCase().trim();
+    
+    // Fetch all required data
+    const [teams, standings, games] = await Promise.all([
+      DataStore.getTeams(),
+      DataStore.getStandings(),
+      DataStore.getGames()
+    ]);
+
+    // Find the team
+    const team = teams.find(t => {
+      const name = (t['Team Display Name'] || t['Team Name'] || t['Team'] || '').toLowerCase().trim();
+      return name === normalizedName;
+    });
+
+    if (!team) {
+      console.error("Team not found:", teamName);
+      return;
+    }
+
+    // Find ranking from standings
+    const standingsEntry = standings.find(s => {
+      const name = (s['Team Display Name'] || s['Team'] || '').toLowerCase().trim();
+      return name === normalizedName;
+    });
+    const rank = standingsEntry?.Rank || standingsEntry?.['#'] || '?';
+    const division = standingsEntry?.Division || '';
+
+    // Get team data
+    const teamDisplayName = team['Team Display Name'] || team['Team Name'] || team['Team'] || '';
+    const logoUrl = team['logoUrl'] || LOGO_FALLBACK_URL;
+    const players = (team['Players'] || '').split(',').map(p => p.trim()).filter(p => p);
+    const rawTag = team['Team Tag'] || team['Tag'] || '';
+    const teamTag = Array.isArray(rawTag) ? rawTag.join(' / ') : rawTag;
+
+    // Build header
+    teamViewHeader.innerHTML = '';
+    
+    const headerCard = document.createElement("div");
+    headerCard.className = "team-view-card";
+
+    const logoImg = document.createElement("img");
+    logoImg.className = "team-view-logo";
+    logoImg.src = logoUrl;
+    logoImg.alt = teamDisplayName + " logo";
+    logoImg.width = 48;
+    logoImg.height = 48;
+    logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+
+    const infoDiv = document.createElement("div");
+    infoDiv.className = "team-view-info";
+
+    const rankLine = document.createElement("div");
+    rankLine.className = "team-view-rank";
+    if (division) {
+      rankLine.innerHTML = `<span class="team-view-division">${division}</span> · RANKED #${rank}`;
+    } else {
+      rankLine.textContent = `RANKED #${rank}`;
+    }
+
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "team-view-name";
+    
+    const nameText = document.createElement("span");
+    nameText.textContent = teamDisplayName;
+    nameDiv.appendChild(nameText);
+    
+    if (teamTag) {
+      const tagSpan = document.createElement("span");
+      tagSpan.className = "team-view-tag";
+      tagSpan.textContent = teamTag;
+      nameDiv.appendChild(tagSpan);
+    }
+
+    const playersDiv = document.createElement("div");
+    playersDiv.className = "team-view-players";
+    players.forEach((player, idx) => {
+      if (idx === 0) {
+        const captainSpan = document.createElement("span");
+        captainSpan.className = "captain-name";
+        captainSpan.textContent = player;
+        playersDiv.appendChild(captainSpan);
+        const badge = document.createElement("span");
+        badge.className = "captain-badge";
+        badge.textContent = "C";
+        badge.title = "Captain";
+        playersDiv.appendChild(badge);
+      } else {
+        playersDiv.appendChild(document.createTextNode(" \u00B7 " + player));
+      }
+    });
+
+    infoDiv.append(rankLine, nameDiv, playersDiv);
+    headerCard.append(logoImg, infoDiv);
+    teamViewHeader.appendChild(headerCard);
+
+    // Build content
+    teamViewContent.innerHTML = '';
+
+    const teamGames = games.filter(g => {
+      const a = (g.teamADisplayName || g.teamA || '').toLowerCase().trim();
+      const b = (g.teamBDisplayName || g.teamB || '').toLowerCase().trim();
+      return a === normalizedName || b === normalizedName;
+    });
+
+    // Build Map Statistics section FIRST
+    const playedGames = teamGames.filter(g => g.played && g.maps && g.maps.length > 0);
+    if (playedGames.length > 0) {
+      const mapStatsSection = document.createElement("div");
+      mapStatsSection.className = "team-view-section";
+      
+      const mapStatsTitle = document.createElement("h3");
+      mapStatsTitle.textContent = "Map Statistics";
+      mapStatsSection.appendChild(mapStatsTitle);
+
+      // Calculate team map stats
+      const mapStats = {};
+      let totalMaps = 0;
+      let totalFrags = 0;
+
+      playedGames.forEach(g => {
+        const isTeamA = (g.teamADisplayName || g.teamA || '').toLowerCase().trim() === normalizedName;
+        
+        g.maps.forEach(m => {
+          const mapName = m.mapName || 'Unknown';
+          if (!mapStats[mapName]) {
+            mapStats[mapName] = {
+              name: mapName,
+              played: 0,
+              wins: 0,
+              totalFragsFor: 0,
+              totalFragsAgainst: 0,
+              biggestWin: null,
+              biggestLoss: null
+            };
+          }
+          
+          const stat = mapStats[mapName];
+          stat.played++;
+          totalMaps++;
+          
+          const fragsFor = isTeamA ? (m.teamAFrags || 0) : (m.teamBFrags || 0);
+          const fragsAgainst = isTeamA ? (m.teamBFrags || 0) : (m.teamAFrags || 0);
+          const opponentName = isTeamA ? (g.teamBDisplayName || g.teamB) : (g.teamADisplayName || g.teamA);
+          const opponentLogo = isTeamA ? g.teamBLogoUrl : g.teamALogoUrl;
+          
+          stat.totalFragsFor += fragsFor;
+          stat.totalFragsAgainst += fragsAgainst;
+          totalFrags += fragsFor;
+          
+          const fragDiff = fragsFor - fragsAgainst;
+          if (fragDiff > 0) stat.wins++;
+          
+          // Track biggest win
+          if (fragDiff > 0 && (!stat.biggestWin || fragDiff > stat.biggestWin.diff)) {
+            stat.biggestWin = {
+              diff: fragDiff,
+              fragsFor,
+              fragsAgainst,
+              opponent: opponentName,
+              opponentLogo
+            };
+          }
+          
+          // Track biggest loss
+          if (fragDiff < 0 && (!stat.biggestLoss || fragDiff < stat.biggestLoss.diff)) {
+            stat.biggestLoss = {
+              diff: fragDiff,
+              fragsFor,
+              fragsAgainst,
+              opponent: opponentName,
+              opponentLogo
+            };
+          }
+        });
+      });
+
+      // Summary
+      const summary = document.createElement("div");
+      summary.className = "team-mapstats-summary";
+      const uniqueMaps = Object.keys(mapStats).length;
+      const avgFrags = totalMaps > 0 ? Math.ceil(totalFrags / totalMaps) : 0;
+      summary.innerHTML = `
+        <span>🗺️ <strong>${uniqueMaps}</strong> maps played</span>
+        <span>·</span>
+        <span>🎮 <strong>${totalMaps}</strong> total games</span>
+        <span>·</span>
+        <span>💥 <strong>${avgFrags}</strong> avg frags/game</span>
+      `;
+      mapStatsSection.appendChild(summary);
+
+      // Map cards grid
+      const mapGrid = document.createElement("div");
+      mapGrid.className = "team-mapstats-grid";
+      
+      const maxPlayed = Math.max(...Object.values(mapStats).map(s => s.played));
+      
+      Object.values(mapStats)
+        .sort((a, b) => b.played - a.played)
+        .forEach(stat => {
+          const card = document.createElement("div");
+          card.className = "team-map-card";
+          card.style.backgroundImage = `url('https://a.quake.world/mapshots/webp/sm/${stat.name}.webp')`;
+          
+          // Map name overlay
+          const nameOverlay = document.createElement("div");
+          nameOverlay.className = "team-map-card-name";
+          nameOverlay.textContent = stat.name;
+          card.appendChild(nameOverlay);
+          
+          // Stats overlay
+          const statsOverlay = document.createElement("div");
+          statsOverlay.className = "team-map-card-stats";
+          
+          // Played row with bar
+          const playedRow = document.createElement("div");
+          playedRow.className = "team-map-stat-row";
+          playedRow.innerHTML = `
+            <span class="team-map-stat-icon">🎮</span>
+            <span class="team-map-stat-label">Played</span>
+            <span class="team-map-stat-value">${stat.played}</span>
+            <div class="team-map-bar"><div class="team-map-bar-fill" style="width: ${(stat.played / maxPlayed * 100).toFixed(0)}%"></div></div>
+          `;
+          statsOverlay.appendChild(playedRow);
+          
+          // Win Rate row
+          const winRate = stat.played > 0 ? Math.round((stat.wins / stat.played) * 100) : 0;
+          const winRow = document.createElement("div");
+          winRow.className = "team-map-stat-row";
+          winRow.innerHTML = `
+            <span class="team-map-stat-icon">🏆</span>
+            <span class="team-map-stat-label">Win Rate</span>
+            <span class="team-map-stat-value">${winRate}%</span>
+          `;
+          statsOverlay.appendChild(winRow);
+          
+          // Biggest Win row
+          if (stat.biggestWin) {
+            const bw = stat.biggestWin;
+            const bigWinRow = document.createElement("div");
+            bigWinRow.className = "team-map-stat-row";
+            bigWinRow.innerHTML = `<span class="team-map-stat-icon">📈</span><span class="team-map-stat-label">Top Win</span>`;
+            const valueSpan = document.createElement("span");
+            valueSpan.className = "team-map-stat-value team-map-vs";
+            valueSpan.innerHTML = `
+              <span class="team-map-vs-score">${bw.fragsFor} - ${bw.fragsAgainst}</span>
+              <span class="team-map-vs-label">vs</span>
+              <img class="team-map-vs-logo" src="${bw.opponentLogo || LOGO_FALLBACK_URL}" alt="" onerror="this.src='${LOGO_FALLBACK_URL}'">
+              <span class="team-map-vs-name">${bw.opponent}</span>
+            `;
+            bigWinRow.appendChild(valueSpan);
+            statsOverlay.appendChild(bigWinRow);
+          }
+          
+          // Biggest Loss row
+          if (stat.biggestLoss) {
+            const bl = stat.biggestLoss;
+            const bigLossRow = document.createElement("div");
+            bigLossRow.className = "team-map-stat-row";
+            bigLossRow.innerHTML = `<span class="team-map-stat-icon">📉</span><span class="team-map-stat-label">Top Loss</span>`;
+            const valueSpan = document.createElement("span");
+            valueSpan.className = "team-map-stat-value team-map-vs";
+            valueSpan.innerHTML = `
+              <span class="team-map-vs-score">${bl.fragsFor} - ${bl.fragsAgainst}</span>
+              <span class="team-map-vs-label">vs</span>
+              <img class="team-map-vs-logo" src="${bl.opponentLogo || LOGO_FALLBACK_URL}" alt="" onerror="this.src='${LOGO_FALLBACK_URL}'">
+              <span class="team-map-vs-name">${bl.opponent}</span>
+            `;
+            bigLossRow.appendChild(valueSpan);
+            statsOverlay.appendChild(bigLossRow);
+          }
+          
+          card.appendChild(statsOverlay);
+          mapGrid.appendChild(card);
+        });
+      
+      mapStatsSection.appendChild(mapGrid);
+      teamViewContent.appendChild(mapStatsSection);
+    }
+
+    // Build Games section AFTER Map Statistics
+    if (teamGames.length > 0) {
+      const gamesSection = document.createElement("div");
+      gamesSection.className = "team-view-section";
+      
+      const gamesTitle = document.createElement("h3");
+      gamesTitle.textContent = "Games";
+      gamesSection.appendChild(gamesTitle);
+
+      const gamesGrid = document.createElement("div");
+      gamesGrid.className = "team-view-games";
+
+      // Sort by schedule config order (reverse: most recent first)
+      // Playoffs come before group games, playoffs sorted by stage, group sorted by round descending
+      const playoffStageOrder = {
+        "Final": 1, "Final B": 2, "Bronze": 3, "Bronze B": 4,
+        "Semifinals": 5, "Semifinals B": 6,
+        "Quarterfinals": 7
+      };
+      
+      teamGames.sort((a, b) => {
+        const aIsPlayoff = a.stage === "Playoff";
+        const bIsPlayoff = b.stage === "Playoff";
+        
+        // Playoffs before group games
+        if (aIsPlayoff && !bIsPlayoff) return -1;
+        if (!aIsPlayoff && bIsPlayoff) return 1;
+        
+        if (aIsPlayoff && bIsPlayoff) {
+          // Both playoffs: sort by stage order
+          const aStage = a.round || a.playoffRound || "";
+          const bStage = b.round || b.playoffRound || "";
+          const aOrder = playoffStageOrder[aStage] ?? 99;
+          const bOrder = playoffStageOrder[bStage] ?? 99;
+          return aOrder - bOrder;
+        }
+        
+        // Both group games: sort by round descending
+        const aRound = Number(a.round) || 0;
+        const bRound = Number(b.round) || 0;
+        return bRound - aRound;
+      });
+
+      teamGames.forEach(g => gamesGrid.appendChild(buildGameCard(g)));
+      gamesSection.appendChild(gamesGrid);
+      teamViewContent.appendChild(gamesSection);
+    }
+
+    // Show "no games" message if needed
+    if (teamGames.length === 0) {
+      const noGames = document.createElement("p");
+      noGames.className = "team-view-empty";
+      noGames.textContent = "No games played yet.";
+      teamViewContent.appendChild(noGames);
+    }
+
+    // Show overlay
+    document.body.style.overflow = "hidden";
+    teamViewOverlay.classList.add("active");
+  }
+
   function formatCell(h,v){
     if(PERCENT_COLUMNS.includes(h)){
       if(v==null||v==="") return "";
@@ -263,7 +634,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Special handling for Team column in standings
         if (isStandings && key === 'Team') {
-          td.className = 'team-cell';
+          td.className = 'team-cell team-name-link';
           const logoUrl = row['teamLogoUrl'] || LOGO_FALLBACK_URL;
           const displayName = row['Team Display Name'] || row['Team'] || '';
           
@@ -281,6 +652,9 @@ document.addEventListener("DOMContentLoaded", () => {
           
           td.appendChild(logoImg);
           td.appendChild(nameSpan);
+          
+          // Make clickable
+          td.addEventListener('click', () => showTeamView(displayName));
         } else {
           td.textContent = formatCell(key, row[key]);
         }
@@ -294,6 +668,151 @@ document.addEventListener("DOMContentLoaded", () => {
     c.appendChild(t);
   }
   
+  function renderStandings(data) {
+    const c = document.getElementById("standings-output");
+    c.innerHTML = "";
+    
+    if (!data?.length) {
+      c.textContent = "No standings data.";
+      return;
+    }
+    
+    const container = document.createElement("div");
+    container.className = "standings-container";
+    
+    const table = document.createElement("table");
+    table.className = "standings-table";
+    
+    // Build header
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr>
+        <th>#</th>
+        <th>Team</th>
+        <th>GW - GL</th>
+        <th>MW - ML</th>
+        <th>DIFF</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+    
+    // Build body
+    const tbody = document.createElement("tbody");
+    
+    data.forEach((row, idx) => {
+      const tr = document.createElement("tr");
+      
+      // Rank
+      const rankTd = document.createElement("td");
+      rankTd.className = "standings-rank";
+      rankTd.textContent = row['#'] ?? row['Rank'] ?? (idx + 1);
+      tr.appendChild(rankTd);
+      
+      // Team (logo + display name)
+      const teamTd = document.createElement("td");
+      const teamCell = document.createElement("div");
+      teamCell.className = "standings-team-cell";
+      
+      const displayName = row['Team Display Name'] || row['Team'] || '';
+      
+      const logoImg = document.createElement("img");
+      logoImg.className = "standings-logo";
+      logoImg.src = row['teamLogoUrl'] || LOGO_FALLBACK_URL;
+      logoImg.alt = "";
+      logoImg.loading = "lazy";
+      logoImg.onerror = function() { this.src = LOGO_FALLBACK_URL; this.onerror = null; };
+      teamCell.appendChild(logoImg);
+      
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "standings-name";
+      nameSpan.textContent = displayName;
+      teamCell.appendChild(nameSpan);
+      
+      teamCell.addEventListener("click", () => showTeamView(displayName));
+      
+      teamTd.appendChild(teamCell);
+      tr.appendChild(teamTd);
+      
+      // Parse "Games" string like "5-1" into GW and GL
+      const gamesStr = row['Games'] || '0-0';
+      const gamesParts = gamesStr.split('-');
+      const gw = gamesParts[0] || 0;
+      const gl = gamesParts[1] || 0;
+      
+      // GW-GL (games won - games lost)
+      const gwglTd = document.createElement("td");
+      gwglTd.className = "standings-record";
+      
+      const gwSpan = document.createElement("span");
+      gwSpan.className = "standings-wins";
+      gwSpan.textContent = gw;
+      
+      const gwglDash = document.createElement("span");
+      gwglDash.className = "standings-dash";
+      gwglDash.textContent = "-";
+      
+      const glSpan = document.createElement("span");
+      glSpan.className = "standings-losses";
+      glSpan.textContent = gl;
+      
+      gwglTd.append(gwSpan, gwglDash, glSpan);
+      tr.appendChild(gwglTd);
+      
+      // Parse "Maps" string like "15-3" into MW and ML
+      const mapsStr = row['Maps'] || '0-0';
+      const mapsParts = mapsStr.split('-');
+      const mw = mapsParts[0] || 0;
+      const ml = mapsParts[1] || 0;
+      
+      // MW-ML (maps won - maps lost)
+      const mwmlTd = document.createElement("td");
+      mwmlTd.className = "standings-record";
+      
+      const mwSpan = document.createElement("span");
+      mwSpan.className = "standings-wins";
+      mwSpan.textContent = mw;
+      
+      const mwmlDash = document.createElement("span");
+      mwmlDash.className = "standings-dash";
+      mwmlDash.textContent = "-";
+      
+      const mlSpan = document.createElement("span");
+      mlSpan.className = "standings-losses";
+      mlSpan.textContent = ml;
+      
+      mwmlTd.append(mwSpan, mwmlDash, mlSpan);
+      tr.appendChild(mwmlTd);
+      
+      // M-D (map diff) - use "Diff" column directly
+      const mdTd = document.createElement("td");
+      mdTd.className = "standings-record";
+      
+      const mapDiff = row['Diff'] || '0';
+      const mapDiffNum = parseInt(mapDiff, 10) || 0;
+      const mdSpan = document.createElement("span");
+      
+      if (mapDiffNum > 0) {
+        mdSpan.className = "standings-positive";
+        mdSpan.textContent = mapDiff;
+      } else if (mapDiffNum < 0) {
+        mdSpan.className = "standings-negative";
+        mdSpan.textContent = mapDiff;
+      } else {
+        mdSpan.className = "standings-neutral";
+        mdSpan.textContent = "0";
+      }
+      
+      mdTd.appendChild(mdSpan);
+      tr.appendChild(mdTd);
+      
+      tbody.appendChild(tr);
+    });
+    
+    table.appendChild(tbody);
+    container.appendChild(table);
+    c.appendChild(container);
+  }
+  
   function renderTeams(data) {
     const c = document.getElementById("teams-output");
     c.innerHTML = "";
@@ -305,6 +824,7 @@ document.addEventListener("DOMContentLoaded", () => {
     data.forEach(team => {
       const card = document.createElement("div");
       card.className = "team-card";
+      card.style.cursor = "pointer";
       
       const teamDisplayName = team['Team Display Name'] || team['Team Name'] || team['Team'] || '';
       const logoUrl = team['logoUrl'] || LOGO_FALLBACK_URL;
@@ -340,17 +860,35 @@ document.addEventListener("DOMContentLoaded", () => {
       tagSpan.textContent = teamTag;
       tagDiv.appendChild(tagSpan);
 
-      // Team players
+      // Team players with captain badge
       const playersDiv = document.createElement("div");
       playersDiv.className = "team-players";
       playersDiv.textContent = "Players: ";
 
       const playersSpan = document.createElement("span");
-      playersSpan.textContent = players;
+      const playerList = players.split(',').map(p => p.trim()).filter(p => p);
+      playerList.forEach((player, idx) => {
+        if (idx === 0) {
+          const captainSpan = document.createElement("span");
+          captainSpan.className = "captain-name";
+          captainSpan.textContent = player;
+          playersSpan.appendChild(captainSpan);
+          const badge = document.createElement("span");
+          badge.className = "captain-badge";
+          badge.textContent = "C";
+          badge.title = "Captain";
+          playersSpan.appendChild(badge);
+        } else {
+          playersSpan.appendChild(document.createTextNode(" \u00B7 " + player));
+        }
+      });
       playersDiv.appendChild(playersSpan);
 
       // Assemble card
       card.append(nameDiv, tagDiv, playersDiv);
+      
+      // Click to open team view
+      card.addEventListener("click", () => showTeamView(teamDisplayName));
             
       grid.appendChild(card);
     });
@@ -358,31 +896,95 @@ document.addEventListener("DOMContentLoaded", () => {
     c.appendChild(grid);
   }
   
-  // ==================== DATA FETCH ====================
-  const scheduleConfigPromise = fetch(baseUrl + "?endpoint=scheduleConfig")
-    .then(r => r.json())
-    .then(data => {
-      data.forEach(r => {
-        scheduleConfigByRound[String(r.round)] = r;
-      });
-      return true;
-    })
-    .catch(e => {
-      console.error("ScheduleConfig load failed", e);
-      return false;
-    });
+  // ==================== DATA STORE ====================
+  const DataStore = {
+    _cache: {},
+    _promises: {},
 
-  const groupGamesPromise = fetch(baseUrl + "?endpoint=groupGames")
-    .then(r => r.json())
-    .catch(e => {
-      console.error("GroupGames load failed", e);
-      return [];
-    });
-  fetch(baseUrl+"?endpoint=teams").then(r=>r.json()).then(d=>renderTeams(d));
-  fetch(baseUrl+"?endpoint=standings").then(r=>r.json()).then(d=>renderTable("standings-output",d));
-  fetch(baseUrl+"?endpoint=players")
-    .then(r => r.json())
+    // Fetch data once and cache it
+    async _fetch(endpoint) {
+      if (this._cache[endpoint] !== undefined) {
+        return this._cache[endpoint];
+      }
+      if (!this._promises[endpoint]) {
+        this._promises[endpoint] = fetch(baseUrl + "?endpoint=" + endpoint)
+          .then(r => r.json())
+          .then(data => {
+            this._cache[endpoint] = data;
+            return data;
+          })
+          .catch(e => {
+            console.error(`${endpoint} load failed`, e);
+            if (endpoint === "allGames") {
+              this._cache[endpoint] = [];
+            } else if (endpoint === "mapStats") {
+              this._cache[endpoint] = { maps: [], totals: {} };
+            } else {
+              this._cache[endpoint] = null;
+            }
+            return this._cache[endpoint];
+          });
+      }
+      return this._promises[endpoint];
+    },
+
+    // Core data fetchers
+    async getGames() { return this._fetch("allGames"); },
+    async getTeams() { return this._fetch("teams"); },
+    async getStandings() { return this._fetch("standings"); },
+    async getPlayers() { return this._fetch("players"); },
+    async getScheduleConfig() { return this._fetch("scheduleConfig"); },
+    async getMapStats() { return this._fetch("mapStats"); },
+
+    // Derived data helpers
+    async getGroupGames() {
+      const games = await this.getGames();
+      return games.filter(g => g.stage === "Group");
+    },
+
+    async getPlayoffGames() {
+      const games = await this.getGames();
+      return games.filter(g => g.stage === "Playoff");
+    },
+
+    async getRecentGames(limit) {
+      const games = await this.getGames();
+      const played = games.filter(g => !!g.played);
+      played.sort((a, b) => getGameDateValue(b) - getGameDateValue(a));
+      return limit ? played.slice(0, limit) : played;
+    },
+
+    async getGamesByTeam(teamName) {
+      const games = await this.getGames();
+      const name = teamName.toLowerCase().trim();
+      return games.filter(g => 
+        (g.teamADisplayName || g.teamA || '').toLowerCase().trim() === name || 
+        (g.teamBDisplayName || g.teamB || '').toLowerCase().trim() === name
+      );
+    },
+
+    // Populate scheduleConfigByRound from fetched data
+    async loadScheduleConfig() {
+      const data = await this.getScheduleConfig();
+      if (data) {
+        data.forEach(r => {
+          scheduleConfigByRound[String(r.round)] = r;
+        });
+      }
+      return !!data;
+    }
+  };
+
+  // ==================== DATA FETCH ====================
+  // Initialize data loading
+  const scheduleConfigPromise = DataStore.loadScheduleConfig();
+  const groupGamesPromise = DataStore.getGroupGames();
+
+  DataStore.getTeams().then(d => d && renderTeams(d));
+  DataStore.getStandings().then(d => d && renderStandings(d));
+  DataStore.getPlayers()
     .then(data => {
+      if (!data) return;
       renderTable("players-output", data);
       if (window.matchMedia("(max-width: 768px)").matches) {
         const container = document.getElementById("players-output");
@@ -409,13 +1011,28 @@ document.addEventListener("DOMContentLoaded", () => {
     match.className = "bracket-match";
     if (!g.played) match.classList.add("unplayed");
     
+    // Get stage badge text and class
+    function getStageBadge(game) {
+      if (game.stage === "Group") return { text: "G", cls: "stage-g", title: "Group Stage" };
+      const round = (game.round || game.playoffRound || "").toLowerCase();
+      if (round.includes("quarterfinal")) return { text: "QF", cls: "stage-qf", title: "Quarterfinals" };
+      if (round === "semifinals b") return { text: "SF-B", cls: "stage-sf", title: "Semifinals B" };
+      if (round.includes("semifinal")) return { text: "SF", cls: "stage-sf", title: "Semifinals" };
+      if (round === "final b") return { text: "F-B", cls: "stage-f", title: "Final B" };
+      if (round.includes("final")) return { text: "F", cls: "stage-f", title: "Final" };
+      if (round === "bronze b") return { text: "B-B", cls: "stage-b", title: "Bronze B" };
+      if (round.includes("bronze")) return { text: "B", cls: "stage-b", title: "Bronze" };
+      return { text: "", cls: "", title: "" };
+    }
+    const stageBadge = getStageBadge(g);
+    
     // Team A - logo + name grouped on left, score on right
     const a = document.createElement("div");
     const aWinner = Number(g.mapsWonA) > Number(g.mapsWonB);
     a.className = "bracket-player" + (aWinner ? " winner" : "");
     
     const aTeamInfo = document.createElement("div");
-    aTeamInfo.className = "bracket-team-info";
+    aTeamInfo.className = "bracket-team-info team-name-link";
     
     const aLogoImg = document.createElement("img");
     aLogoImg.className = "bracket-team-logo";
@@ -432,6 +1049,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     aTeamInfo.appendChild(aLogoImg);
     aTeamInfo.appendChild(aNameSpan);
+    aTeamInfo.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showTeamView(g.teamADisplayName || g.teamA);
+    });
     
     const aScoreSpan = document.createElement("span");
     aScoreSpan.className = "bracket-score";
@@ -446,7 +1067,7 @@ document.addEventListener("DOMContentLoaded", () => {
     b.className = "bracket-player" + (bWinner ? " winner" : "");
     
     const bTeamInfo = document.createElement("div");
-    bTeamInfo.className = "bracket-team-info";
+    bTeamInfo.className = "bracket-team-info team-name-link";
     
     const bLogoImg = document.createElement("img");
     bLogoImg.className = "bracket-team-logo";
@@ -463,6 +1084,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     bTeamInfo.appendChild(bLogoImg);
     bTeamInfo.appendChild(bNameSpan);
+    bTeamInfo.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showTeamView(g.teamBDisplayName || g.teamB);
+    });
     
     const bScoreSpan = document.createElement("span");
     bScoreSpan.className = "bracket-score";
@@ -486,9 +1111,8 @@ document.addEventListener("DOMContentLoaded", () => {
       info.textContent = "🏳️"; // White flag for walkover
     } else if (hasMapData) {
       info = document.createElement("span");
-      info = document.createElement("span");
-      info.className = "info-icon";
-      info.textContent = "ℹ️";
+      info.className = "view-game-link";
+      info.textContent = "MAPS";
     } else if (g.date) {
       info = document.createElement("div");
       info.className = "info-scheduled-wrap";
@@ -505,19 +1129,32 @@ document.addEventListener("DOMContentLoaded", () => {
       info.appendChild(label);
     } else {
         info = document.createElement("span");
-        info.className = "info-icon disabled";
-        info.textContent = "ℹ️";
+        info.className = "view-game-link disabled";
+        info.textContent = "MAPS";
     }    
     
     const popup = document.createElement("div");
     popup.className = "bracket-popup-wrapper";
-    popup.innerHTML = `<div class="bracket-popup-header"><div>${g.teamA || ""}</div><div>${g.teamB || ""}</div></div>`;
+    const teamAName = g.teamADisplayName || g.teamA || "";
+    const teamBName = g.teamBDisplayName || g.teamB || "";
+    const teamALogo = g.teamALogoUrl || LOGO_FALLBACK_URL;
+    const teamBLogo = g.teamBLogoUrl || LOGO_FALLBACK_URL;
+    const mapsA = g.mapsWonA ?? "";
+    const mapsB = g.mapsWonB ?? "";
+    const aWinsMatch = Number(g.mapsWonA) > Number(g.mapsWonB);
+    const bWinsMatch = Number(g.mapsWonB) > Number(g.mapsWonA);
+    popup.innerHTML = `<div class="bracket-popup-header">
+      <div class="popup-team popup-team-a"><img class="popup-team-logo" src="${teamALogo}" alt="" onerror="this.src='${LOGO_FALLBACK_URL}'">${teamAName}<span class="popup-map-score${aWinsMatch ? ' popup-map-score-winner' : ''}">${mapsA}</span></div>
+      <div class="popup-team popup-team-b"><span class="popup-map-score${bWinsMatch ? ' popup-map-score-winner' : ''}">${mapsB}</span>${teamBName}<img class="popup-team-logo" src="${teamBLogo}" alt="" onerror="this.src='${LOGO_FALLBACK_URL}'"></div>
+    </div>`;
     (g.maps || []).forEach(m => {
+      const aWins = Number(m.teamAFrags) > Number(m.teamBFrags);
+      const bWins = Number(m.teamBFrags) > Number(m.teamAFrags);
       popup.innerHTML += `
         <div class="bracket-popup-body-match">
-          <span class="bracket-score" style="font-weight:${m.teamAFrags>m.teamBFrags?'bold':'normal'}">${m.teamAFrags}</span>
+          <span class="popup-score${aWins ? ' popup-score-winner' : ''}">${m.teamAFrags}</span>
           <a class="map-name" href="${m.gameUrl}" target="_blank" rel="noopener">${m.mapName}</a>
-          <span class="bracket-score" style="font-weight:${m.teamBFrags>m.teamAFrags?'bold':'normal'}">${m.teamBFrags}</span>
+          <span class="popup-score${bWins ? ' popup-score-winner' : ''}">${m.teamBFrags}</span>
         </div>`;
     });
     
@@ -577,7 +1214,19 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     }
     
-    match.append(a, info, b);
+    // Create info row with stage badge + info icon
+    const infoRow = document.createElement("div");
+    infoRow.className = "bracket-info-row";
+    
+    const badge = document.createElement("span");
+    badge.className = "stage-badge" + (stageBadge.cls ? " " + stageBadge.cls : "");
+    badge.textContent = stageBadge.text;
+    if (stageBadge.title) badge.title = stageBadge.title;
+    
+    infoRow.appendChild(badge);
+    infoRow.appendChild(info);
+    
+    match.append(a, b, infoRow);
     document.body.appendChild(popup);
     card.appendChild(match);
     return card;
@@ -617,15 +1266,8 @@ document.addEventListener("DOMContentLoaded", () => {
     recentOut.appendChild(wrap);        
   }
   
-  Promise.allSettled([
-    fetch(baseUrl + "?endpoint=allGames").then(r => r.json())    
-  ]).then(results => {
-    const all = [];
-    results.forEach(res => {
-      if (res.status === "fulfilled" && Array.isArray(res.value)) {
-        all.push(...res.value);
-      }
-    });
+  // Load recent games from DataStore
+  DataStore.getGames().then(all => {
     const played = all.filter(g => !!g.played);
     played.sort((a, b) => getGameDateValue(b) - getGameDateValue(a));
 
@@ -1002,8 +1644,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   
   if (hidePlayoffs !== 'Yes') {
-    fetch(baseUrl + "?endpoint=playoffGames")
-      .then(r => r.json())
+    DataStore.getPlayoffGames()
       .then(renderPlayoffsBracket)
       .catch(e => playoffsOut.textContent = "Error loading playoffs: " + e);
   }    
@@ -1083,6 +1724,10 @@ document.addEventListener("DOMContentLoaded", () => {
       valueSpan.innerHTML = "";
       valueSpan.className = "map-stat-value map-dominant-team";
       
+      const teamLink = document.createElement("span");
+      teamLink.className = "team-name-link";
+      teamLink.addEventListener("click", () => showTeamView(dt.teamDisplayName || dt.teamName));
+      
       const logoImg = document.createElement("img");
       logoImg.className = "map-team-logo";
       logoImg.src = dt.teamLogoUrl || LOGO_FALLBACK_URL;
@@ -1094,11 +1739,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const nameSpan = document.createElement("span");
       nameSpan.textContent = dt.teamDisplayName || dt.teamName || "";
       
+      teamLink.append(logoImg, nameSpan);
+      
       const pctSpan = document.createElement("span");
       pctSpan.className = "map-stat-accent";
       pctSpan.textContent = ` ${winPct}% wins`;
       
-      valueSpan.append(logoImg, nameSpan, pctSpan);
+      valueSpan.append(teamLink, pctSpan);
       body.appendChild(row);
     } else {
       body.appendChild(statRow("👑", "Dominant Team", "—"));
@@ -1252,8 +1899,7 @@ document.addEventListener("DOMContentLoaded", () => {
     out.appendChild(grid);
   }
 
-  fetch(baseUrl + "?endpoint=mapStats")
-    .then(r => r.json())
+  DataStore.getMapStats()
     .then(renderMapStats)
     .catch(e => {
       document.getElementById("mapstats-output").textContent = "Error loading map stats: " + e;

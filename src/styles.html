@@ -266,6 +266,11 @@ table th:nth-child(2), table td:nth-child(2) {
 /* Standings Team Cell */
 td.team-cell {
   vertical-align: middle;
+  position: relative;
+}
+td.team-cell .team-name-link {
+  margin: 0;
+  padding: 0;
 }
 td.team-cell .standings-team-logo {
   vertical-align: middle;
@@ -279,11 +284,119 @@ td.team-cell .standings-team-logo {
   background: transparent;
   flex-shrink: 0;
 }
+
+/* New Standings Design */
+.standings-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1f2937;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.standings-table thead th {
+  background: #374151;
+  padding: 12px 16px;
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ca3af;
+  text-align: left;
+  border-bottom: 1px solid #4b5563;
+}
+
+.standings-table thead th:first-child {
+  padding-left: 24px;
+  width: 40px;
+  text-align: center;
+}
+.standings-table thead th:nth-child(n+3) {
+  text-align: center;
+}
+.standings-table tbody tr {
+  transition: background 0.15s ease;
+}
+.standings-table tbody tr:nth-child(even) {
+  background: #1a2332;
+}
+.standings-table tbody tr:hover {
+  background: #2d3748;
+}
+.standings-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid #374151;
+}
+.standings-rank {
+  font-weight: 700;
+  color: #d1d5db;
+  font-size: 1em;
+  width: 40px;
+}
+.standings-team-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  border-radius: 4px;
+}
+.standings-team-cell:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+.standings-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  object-fit: contain;
+  background: transparent;
+  pointer-events: none;
+}
+.standings-name {
+  font-weight: 600;
+  color: #f3f4f6;
+  pointer-events: none;
+}
+.standings-record {
+  text-align: center;
+  font-weight: 600;
+  font-family: 'Droid Sans Mono', monospace;
+}
+.standings-wins {
+  color: #34d399;
+}
+.standings-losses {
+  color: #f87171;
+}
+.standings-dash {
+  color: #6b7280;
+  margin: 0 4px;
+}
+.standings-neutral {
+  color: #d1d5db;
+}
+.standings-positive {
+  color: #34d399;
+}
+.standings-negative {
+  color: #f87171;
+}
+
 /* Map Stats Dominant Team */
 .map-dominant-team {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.map-dominant-team .team-name-link {
+  transform-origin: left center;
 }
 /* Teams Grid */
 .teams-grid {
@@ -519,30 +632,79 @@ h1, h2, h3, .round-header {
 .bracket-match.unplayed .bracket-player {
   opacity: 0.8;
 }
+.bracket-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 6px 0;
+  min-height: 22px;
+}
+.stage-badge {
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.15);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.stage-badge.stage-g {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.15);
+  border-color: rgba(156, 163, 175, 0.3);
+}
+.stage-badge.stage-qf {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.stage-badge.stage-sf {
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+.stage-badge.stage-f {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+.stage-badge.stage-b {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.15);
+  border-color: rgba(217, 119, 6, 0.3);
+}
 .walkover-icon {
   display: block;
   text-align: center;
-  margin: 6px 0;
+  min-height: 22px;
   font-size: 1.1em;
   transition: all 0.2s ease;
 }
 .walkover-icon:hover {
   transform: scale(1.1);
 }
-.info-icon {
-  display: block;
-  text-align: center;
+.view-game-link {
   cursor: pointer;
-  color: #60a5fa;
-  margin: 6px 0;
-  font-size: 1.1em;
+  color: #e2e8f0;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   transition: all 0.2s ease;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
-.info-icon:hover {
-  color: #93c5fd;
-  transform: scale(1.1);
+.view-game-link:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
 }
-.info-icon.disabled {
+.view-game-link.disabled {
   visibility: hidden;
   pointer-events: none;
 }
@@ -551,7 +713,7 @@ h1, h2, h3, .round-header {
   justify-content: center;
   align-items: center;
   gap: 6px;
-  margin: 4px 0;
+  min-height: 22px;
 }
 .info-scheduled-icon {
   font-size: 1em;
@@ -586,7 +748,7 @@ h1, h2, h3, .round-header {
   border: 1px solid #4b5563;
   border-radius: 8px;
   padding: 12px;
-  z-index: 9100;
+  z-index: 9600;
   min-width: 300px;
   max-width: 450px;
   max-height: 80vh;
@@ -602,7 +764,7 @@ h1, h2, h3, .round-header {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.75);
-  z-index: 9000;
+  z-index: 9550;
 }
 .popup-overlay.active {
   display: block;
@@ -615,8 +777,33 @@ h1, h2, h3, .round-header {
   gap: 12px;
   color: #ffffff;
 }
-.bracket-popup-header > div:nth-child(2) {
+.popup-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.popup-team-b {
   text-align: right;
+}
+.popup-team-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  object-fit: contain;
+  background: transparent;
+}
+.popup-map-score {
+  font-family: 'Droid Sans Mono', monospace;
+  font-weight: 600;
+  font-size: 1.1em;
+  color: #9ca3af;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.popup-map-score-winner {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.3);
 }
 .bracket-popup-body-match {
   display: flex;
@@ -626,6 +813,21 @@ h1, h2, h3, .round-header {
   padding: 6px;
   background: rgba(55, 65, 81, 0.3);
   border-radius: 4px;
+}
+.popup-score {
+  font-family: 'Droid Sans Mono', monospace;
+  min-width: 32px;
+  text-align: center;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: #9ca3af;
+}
+.popup-score-winner {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  font-weight: 700;
 }
 .map-name {
   flex-grow: 1;
@@ -1176,5 +1378,304 @@ h1, h2, h3, .round-header {
   color: #9ca3af;
   font-size: 0.85em;
   margin: 0 2px;
+}
+
+/* ==================== CAPTAIN BADGE ==================== */
+.captain-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 4px;
+  margin-left: 4px;  
+  text-transform: uppercase;
+}
+.captain-name {
+  font-weight: 600;
+}
+
+/* ==================== TEAM VIEW OVERLAY ==================== */
+.team-view-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9500;
+  display: flex;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.team-view-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+.team-view-panel {
+  position: relative;
+  width: 90%;
+  max-width: 1478px;
+  height: 100%;
+  background: #111827;
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+}
+.team-view-overlay.active .team-view-panel {
+  transform: translateX(0);
+}
+.team-view-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  z-index: 10;
+}
+.team-view-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.team-view-header {
+  padding: 20px;
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  border-bottom: 1px solid #374151;
+}
+.team-view-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.team-view-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: transparent;
+  margin-top: 15px;
+}
+.team-view-info {
+  flex: 1;
+  min-width: 0;
+}
+.team-view-rank {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: #f59e0b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.team-view-division {
+  color: #60a5fa;
+}
+.team-view-name {
+  font-size: 1.5em;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.team-view-tag {
+  font-size: 0.55em;
+  font-weight: 500;
+  color: #9ca3af;
+  background: rgba(55, 65, 81, 0.6);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+}
+.team-view-players {
+  font-size: 0.95em;
+  color: #d1d5db;
+}
+.team-view-content {
+  padding: 20px;
+}
+.team-view-section h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #9ca3af;
+  margin: 24px 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.team-view-section:first-child h3 {
+  margin-top: 0;
+}
+.team-view-games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.team-view-games .bracket-game {
+  flex: 0 0 auto;
+  max-width: 280px;
+}
+.team-view-empty {
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Team Map Stats */
+.team-mapstats-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  background: rgba(31, 41, 55, 0.5);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9em;
+  color: #d1d5db;
+}
+.team-mapstats-summary strong {
+  color: #fff;
+}
+.team-mapstats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.team-map-card {
+  position: relative;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  min-width: 200px;
+  max-width: calc(20% - 10px);
+  flex: 1 1 calc(20% - 10px);
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.team-map-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.3) 0%, rgba(17, 24, 39, 0.85) 40%, rgba(17, 24, 39, 0.95) 100%);
+  z-index: 0;
+}
+.team-map-card-name {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+  color: #fff;
+  font-size: 1.1em;
+  padding: 10px 12px 6px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  text-transform: uppercase;
+}
+.team-map-card-stats {
+  position: relative;
+  z-index: 1;
+  padding: 6px 12px 12px;
+}
+.team-map-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.85em;
+}
+.team-map-stat-row:last-child {
+  margin-bottom: 0;
+}
+.team-map-stat-icon {
+  font-size: 0.9em;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.team-map-stat-label {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+.team-map-stat-value {
+  color: #fff;
+  font-weight: 500;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.team-map-bar {
+  flex: 1;
+  height: 6px;
+  background: #374151;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 40px;
+  max-width: 80px;
+}
+.team-map-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #3b82f6;
+}
+.team-map-vs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+}
+.team-map-vs-score {
+  font-family: 'Droid Sans Mono', monospace;
+  font-weight: 600;
+}
+.team-map-vs-label {
+  color: #6b7280;
+  margin: 0 2px;
+}
+.team-map-vs-logo {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+.team-map-vs-name {
+  color: #d1d5db;
+}
+
+/* Clickable team names */
+.team-name-link {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  border-radius: 4px;
+}
+.team-name-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: scale(1.05);
+}
+.team-name-link img {
+  pointer-events: none;
 }
 </style>
