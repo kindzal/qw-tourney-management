@@ -637,18 +637,10 @@ document.addEventListener("DOMContentLoaded", () => {
         wrapper.className = "rank-header";
 
         const label = document.createElement("span");
-        label.textContent = HEADER_ABBR[col] || "Rank";
+        label.textContent = HEADER_ABBR[col] || "R";
 
-        const icon = document.createElement("span");
-        icon.className = "rank-tooltip-icon";
-        icon.setAttribute("aria-label", "Rank info");
-        icon.textContent = "ℹ️";
-
-        wrapper.append(label, icon);
+        wrapper.appendChild(label);
         th.appendChild(wrapper);
-
-        // Attach tooltip behavior
-        attachRankTooltip(icon);
       } else {
         // Use abbreviation if available, otherwise full column name
         const abbr = HEADER_ABBR.hasOwnProperty(col) ? HEADER_ABBR[col] : col;

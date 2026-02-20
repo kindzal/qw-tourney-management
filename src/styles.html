@@ -194,6 +194,11 @@ table th {
   letter-spacing: 0.05em;
   vertical-align: top;
 }
+
+/* Do not uppercase headers in the players ranking table (keep abbreviations intact) */
+#players-output table th {
+  text-transform: none;
+}
 table td {
   border: none;
   border-bottom: 1px solid #374151;  
@@ -216,20 +221,21 @@ table th:nth-child(2), table td:nth-child(2) {
   text-align: left;
 }
 /* Rank column emphasis */
-#players-output table th:first-child,
-#players-output table td:first-child {
+/* Rank emphasis moved to second column (Rank now column 2) */
+#players-output table th:nth-child(2),
+#players-output table td:nth-child(2) {
   font-weight: 700;
   text-align: center;
   border-right: 2px solid #3b82f6;
 }
-#players-output table tbody tr:nth-child(1) td:first-child {
-  color: #fbbf24;
+#players-output table tbody tr:nth-child(1) td:nth-child(2) {
+  color: #fbbf24; /* gold */
 }
-#players-output table tbody tr:nth-child(2) td:first-child {
-  color: #9ca3af;
+#players-output table tbody tr:nth-child(2) td:nth-child(2) {
+  color: #9ca3af; /* silver-ish */
 }
-#players-output table tbody tr:nth-child(3) td:first-child {
-  color: #d97706;
+#players-output table tbody tr:nth-child(3) td:nth-child(2) {
+  color: #d97706; /* bronze */
 }
 /* Rank tooltip */
 .rank-header {
