@@ -1,6 +1,6 @@
 function parseDateTime(text) {
-  // Freeze "now" for deterministic tests
-  const now = new Date();
+  // Freeze "now" for deterministic tests (can be overridden by tests)
+  const now = typeof TEST_NOW !== 'undefined' ? new Date(TEST_NOW) : new Date();
 
   let hour = 21;
   let minute = 0;

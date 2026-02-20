@@ -16,6 +16,8 @@ const discordCode = fs.readFileSync(discordPath, 'utf8');
 const testsCode = fs.readFileSync(testsPath, 'utf8');
 
 // Execute in current context
+// Provide a deterministic "now" for tests that expect fixed dates
+global.TEST_NOW = '2026-02-13T12:00:00Z';
 eval(helpersCode);
 eval(apiCode);
 eval(discordCode);
@@ -24,6 +26,7 @@ eval(testsCode);
 // Test functions to run
 const tests = [
   'testLevenshteinDistance',
+  'testParseDateTime',
   'testLevenshteinSimilarity',
   'testFuzzySearch',
   'testFuzzySearchAll',
