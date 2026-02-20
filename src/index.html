@@ -491,6 +491,53 @@ document.addEventListener("DOMContentLoaded", () => {
       
       mapStatsSection.appendChild(mapGrid);
       teamViewContent.appendChild(mapStatsSection);
+
+      // ----- Player Statistics (for this team) -----
+      // Create container and render players table for players in this team
+      const playerStatsSection = document.createElement("div");
+      playerStatsSection.className = "team-view-section";
+      const playerStatsTitle = document.createElement("h3");
+      playerStatsTitle.textContent = "Player Statistics";
+      playerStatsSection.appendChild(playerStatsTitle);
+
+      const playerStatsContainer = document.createElement("div");
+      // static id is fine because only one overlay open at a time
+      playerStatsContainer.id = "team-player-stats";
+      playerStatsContainer.className = "loading";
+      playerStatsSection.appendChild(playerStatsContainer);
+      teamViewContent.appendChild(playerStatsSection);
+
+      // Fetch full players list and filter to this team's players
+      (async () => {
+        try {
+          const allPlayers = await DataStore.getPlayers();
+          if (!allPlayers || !allPlayers.length) {
+            playerStatsContainer.textContent = "No player stats available.";
+            return;
+          }
+
+          const teamPlayerNames = players.map(p => String(p).trim()).filter(Boolean);
+          const teamSet = new Set(teamPlayerNames.map(p => p.toLowerCase()));
+
+          const filtered = allPlayers.filter(p => {
+            const name = String(p['Player'] || p['player'] || "").trim().toLowerCase();
+            return teamSet.has(name);
+          });
+
+          if (!filtered.length) {
+            playerStatsContainer.textContent = "No player stats for this team.";
+            return;
+          }
+
+          // renderTable expects an element with an id
+          // Clear any loading state then call renderTable
+          playerStatsContainer.classList.remove('loading');
+          playerStatsContainer.innerHTML = "";
+          renderTable('team-player-stats', filtered);
+        } catch (e) {
+          playerStatsContainer.textContent = "Error loading player stats: " + e;
+        }
+      })();
     }
 
     // Build Games section AFTER Map Statistics
