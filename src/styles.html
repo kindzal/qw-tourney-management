@@ -1062,6 +1062,16 @@ h1, h2, h3, .round-header {
   #players-output table.show-all-cols td {
     display: table-cell;
   }
+  /* Mirror mobile reduced-columns behaviour for team view player stats */
+  #team-player-stats table:not(.show-all-cols) th:nth-child(n+9),
+  #team-player-stats table:not(.show-all-cols) td:nth-child(n+9) {
+    display: none;
+  }
+  #team-player-stats table.show-all-cols th,
+  #team-player-stats table.show-all-cols td {
+    display: table-cell;
+  }
+
   .players-toggle {
     display: block;
     margin: 10px auto 6px;
@@ -1302,6 +1312,65 @@ h1, h2, h3, .round-header {
   gap: 7px;
   justify-content: center;
 }
+
+  /* Compact standings on mobile to avoid horizontal scroll */
+  .standings-table {
+    font-size: 0.85em;
+    max-width: 100%;
+  }
+  .standings-table thead th {
+    padding: 8px 10px;
+    font-size: 0.7em;
+  }
+  .standings-table td {
+    padding: 6px 8px;
+    font-size: 0.9em;
+    white-space: normal; /* allow wrapping to avoid horizontal overflow */
+  }
+  .standings-logo {
+    width: 22px;
+    height: 22px;
+  }
+  .standings-rank {
+    width: 36px;
+    font-size: 0.95em;
+  }
+  .standings-team-cell {
+    gap: 6px;
+  }
+  .standings-table thead th:first-child {
+    padding-left: 10px;
+    width: 36px;
+  }
+
+  /* Mobile: make team view panel full-width and avoid horizontal scrollbars */
+  .team-view-overlay {
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  .team-view-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none !important;
+    overflow-x: hidden; /* prevent horizontal scrollbar */
+    overflow-y: auto;   /* allow vertical scrolling if needed */
+  }
+
+  .team-view-overlay.active .team-view-panel {
+    transform: none !important;
+  }
+  
 .map-stat-row {
   display: flex;
   align-items: center;
