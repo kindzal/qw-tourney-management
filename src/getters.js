@@ -145,10 +145,9 @@ function loadScheduledTeamPairs() {
     const name = row[nameCol];
 
     if (rawTag && name) {
-      // Use the first alias as the canonical tag for schedule pair matching
-      const canonicalTag = parseTagAliases(rawTag)[0];
-      if (canonicalTag) {
-        nameToTag[String(name).trim().toLowerCase()] = canonicalTag;
+      const aliases = parseTagAliases(rawTag);
+      if (aliases.length) {
+        nameToTag[String(name).trim().toLowerCase()] = aliases;
       }
     }
   });
@@ -165,19 +164,18 @@ function loadScheduledTeamPairs() {
   // Convert to Team Tag pairs
   // -------------------------------------------------------
   return schedulePairs
-    .map(([a, b]) => {
-      const tagA = nameToTag[String(a).trim().toLowerCase()];
-      const tagB = nameToTag[String(b).trim().toLowerCase()];
+    .flatMap(([a, b]) => {
+      const tagsA = nameToTag[String(a).trim().toLowerCase()];
+      const tagsB = nameToTag[String(b).trim().toLowerCase()];
 
-      if (!tagA || !tagB) {
-        // Optional: log for debugging
+      if (!tagsA || !tagsB) {
         Logger.log(`Schedule mapping failed for: ${a} vs ${b}`);
-        return null;
+        return [];
       }
 
-      return [tagA, tagB];
-    })
-    .filter(pair => pair !== null);
+      // Produce a pair for every combination of alias from A and alias from B
+      return tagsA.flatMap(tagA => tagsB.map(tagB => [tagA, tagB]));
+    });
 }
 
 function getConfiguration() {
