@@ -335,8 +335,8 @@ function sendAvailabilityRequestsToDiscord() {
     const row = data[i];
 
     const teamName = row[1];              // Team Name
-    const roleId = row[4];                // Discord Role ID
-    const webhookUrl = row[5];            // Discord Channel Webhook
+    const roleId = row[3];                // Discord Role ID
+    const webhookUrl = row[4];            // Discord Channel Webhook
 
     if (!webhookUrl || !roleId) continue;
 
