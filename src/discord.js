@@ -338,11 +338,11 @@ function sendAvailabilityRequestsToDiscord() {
     const roleId = row[3];                // Discord Role ID
     const webhookUrl = row[4];            // Discord Channel Webhook
 
-    if (!webhookUrl || !roleId) continue;
+    if (!webhookUrl) continue;
 
     // 1️⃣ First message: role ping + instructions
     const introPayload = {
-      content: `<@&${roleId}> react with 👍🏻👎🏻 to the days you are available/unavailable 👇.`
+      content: `Players, react with 👍🏻👎🏻 to the days you are available/unavailable 👇.`
     };
 
     _postToDiscord(webhookUrl, introPayload);
