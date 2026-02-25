@@ -55,7 +55,7 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 | **Discord** | Discord posting tab & msg configuration / customisation | Edit column B only |
 | **FIX-ME** | This tab will show any issues as a result of game data import with a guidance on how to fix them | |
 | **WOTeamGames** | WO games record | Used to record walkovers |
-| **ExcludedGames** | Games to be excluded from the stats calculation | Used to excluded imported games which shouldn't be part of the tournament |
+| **ExcludedGames** | Games to be excluded from the stats calculation | Used to exclude imported games which shouldn't be part of the tournament |
 | **DataImport** | Import queue / manual import functionality  | Used for importing game data by hand |
 | **UnmatchedPlayers** | Unmatched game nicks | Diagnostic tab – **DO NOT EDIT DIRECTLY** |
 | **UnmatchedTeamTags** | Unmatched team tags | Diagnostic tab – **DO NOT EDIT DIRECTLY** |
