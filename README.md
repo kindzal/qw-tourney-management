@@ -23,7 +23,7 @@ The only requirements are:
   
 ### Initial setup
 
-Log in to your Google account, then create your own instance of QWadmin Google Sheet for the tournament you want to manage by navigating here:
+Log in to your Google account, then create your own instance of 🏆 QWadmin Google Sheet for the tournament you want to manage by navigating here:
   👉 https://docs.google.com/spreadsheets/d/1F0J3vrX2EySzALGfVQrfzDOqyT_wiDtY61LnWe_BAWE/copy
 
 and clicking `Make a copy`. Rename the Sheet to clearly identify your tournament.
@@ -71,7 +71,7 @@ For a quick reference guide you can take a look at the QML6 Sheet used to run th
 > **DO NOT CHANGE THEM OR SHIT WILL BREAK!**
 
 > ⚠️ **IMPORTANT**  
-> Expected **date format** accross the board is: **dd/mm/yyyy**.  
+> Expected **date format** across 🏆 QWadmin is: **dd/mm/yyyy**.  
 > **DO NOT CHANGE IT OR SHIT WILL BREAK!**
 
 The sheet itself provides a fully feldged tournament management system with the manual data import option in case automation and integrations are not required (see below).
@@ -105,7 +105,7 @@ The sheet itself allows manual data imports from the QuakeWorld hub. In order to
 
 ### Web App (simplified deployment method)
 
-Each instance of the QWadmin comes with a simple display layer for the players.
+Each instance of the 🏆 QWadmin comes with a simple display layer for the players.
 
 <img width="1731" height="1284" alt="image" src="https://github.com/user-attachments/assets/39bc1a0c-4145-439b-a84b-5e27d5767768" />
 
@@ -113,13 +113,13 @@ You can check out an example here: 👉 https://qw-app.short.gy/OVc4m4
 
 To enable it follow the steps below:
 
-- open your instance of QWadmin Google Sheet and navigate to `Extensions`->`Apps Script`
+- open your instance of 🏆 QWadmin Google Sheet and navigate to `Extensions`->`Apps Script`
 - on the `Apps Script` page click the blue `Deploy` button in the top right of the screen and select `New deployment`
 - in `Select type` choose `Web app`. `Description` could be left blank. Leave `Execute as` on default. In `Who has access` - select `Anyone`. Then click `Deploy`
 - on the next screen you will have to authorise the web app to access and modify your Google Sheets spreadsheet data (this spreadsheet only). Click `Authorise access` and in the `Google hasn’t verified this app` pop up click on `Advanced` then `Go to QWadmin (unsafe)`
 - in the `QWadmin wants access to your Google Account` prompt tick `Select all` then click continue at the bottom. You'll receive a `Security alert` email from Google
 - on the `New deployment` screen look for `Web app` section and click `Copy`. This URL schould look something like this: 'https://script.google.com/macros/s/...../exec'. Click `Done`
-- within your QWadmin Google Sheet open the control panel by selecting `Tournament Tools` -> `Open Control Panel` from the Google Sheets main menu, then navigate to the `Configuration` tab and paste the URL in the `Discord Web App URL` configuration option. 
+- within your 🏆 QWadmin  Google Sheet open the control panel by selecting `Tournament Tools` -> `Open Control Panel` from the Google Sheets main menu, then navigate to the `Configuration` tab and paste the URL in the `Discord Web App URL` configuration option. 
 
 
 From now the link to the Web App will be posted as part of the weekly Discord schedule post.
