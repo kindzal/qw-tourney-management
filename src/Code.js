@@ -131,11 +131,32 @@ function handleScheduleGameReport(payload) {
     throw new Error("Invalid team data");
   }
 
-  const teamA = getTeamByRoleId(teams[0].id);
-  const teamB = getTeamByRoleId(teams[1].id);
+  let teamA = getTeamByRoleId(teams[0].id);
+  let teamB = getTeamByRoleId(teams[1].id);
+
+  // If either team wasn't found by role ID, try fuzzy matching by role name
+  if (!teamA) {
+    const match = findTeamByRoleName(teams[0].name);
+    if (match) {
+      Logger.log(`Team not found by role ID for "${teams[0].name}". Matched by name — updating role ID to ${teams[0].id}.`);
+      const teamsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+      teamsSheet.getRange(match.rowIndex, match.roleCol).setValue(teams[0].id);
+      teamA = { id: teams[0].id, name: match.teamName };
+    }
+  }
+
+  if (!teamB) {
+    const match = findTeamByRoleName(teams[1].name);
+    if (match) {
+      Logger.log(`Team not found by role ID for "${teams[1].name}". Matched by name — updating role ID to ${teams[1].id}.`);
+      const teamsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+      teamsSheet.getRange(match.rowIndex, match.roleCol).setValue(teams[1].id);
+      teamB = { id: teams[1].id, name: match.teamName };
+    }
+  }
 
   if (!teamA || !teamB) {
-    throw new Error("One or more team role IDs are not registered");
+    throw new Error("One or more teams could not be matched by role ID or role name");
   }
 
   const sheet = SpreadsheetApp

@@ -194,3 +194,29 @@ function getTeams() {
   const data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
   return data.flat().filter(name => name);
 }
+
+function findTeamByRoleName(roleName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+  if (!sheet) throw new Error("Teams sheet not found");
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const nameCol = headers.indexOf("Team Name");
+  const roleCol = headers.indexOf("Discord Role ID");
+
+  if (nameCol === -1 || roleCol === -1) {
+    throw new Error("Teams sheet missing required columns");
+  }
+
+  const normalizedRoleName = normalizeForComparison(roleName);
+
+  for (let i = 1; i < data.length; i++) {
+    const teamName = data[i][nameCol];
+    if (normalizeForComparison(teamName) === normalizedRoleName) {
+      return { rowIndex: i + 1, roleCol: roleCol + 1, teamName: teamName, roleId: data[i][roleCol] };
+    }
+  }
+
+  return null;
+}

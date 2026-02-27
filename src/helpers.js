@@ -1374,3 +1374,7 @@ function migrateGroupStageAndPlayoffsMode() {
     message: `Added to Configuration: ${changes.join(", ")}` 
   };
 }
+
+function normalizeForComparison(str) {
+  return String(str).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
