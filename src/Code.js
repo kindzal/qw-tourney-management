@@ -331,7 +331,7 @@ function importSingleMatch(url, gamesSheet, importedGamesSheet) {
   
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
-    const team = quakeNameToStandard(player.team);
+    const team = quakeNameToStandard(player.team).replace(/^[\s_]+|[\s_]+$/g, '');
     if (!teamScores[team]) {
       teamScores[team] = 0;
     }
@@ -347,7 +347,7 @@ function importSingleMatch(url, gamesSheet, importedGamesSheet) {
   
   players.forEach(function(player) {
     const name = quakeNameToStandard(player.name).replace(/=/g, "");
-    const team = quakeNameToStandard(player.team);
+    const team = quakeNameToStandard(player.team).replace(/^[\s_]+|[\s_]+$/g, '');
     const frags = player.stats.frags;
     const deaths = player.stats.deaths;
     const tk = player.stats.tk;
@@ -470,6 +470,10 @@ function generateFixMeReport() {
       const teamB = teamBCol >= 0 ? String(row[teamBCol] || "").trim() : "";
       const rawAllMaps = allMapsCol >= 0 ? row[allMapsCol] : null;
 
+      // Skip WO games — these have no map data by design
+      const allMapsStr = String(rawAllMaps || "").trim();
+      if (!allMapsStr || allMapsStr === "[]") continue;
+      
       let mapsArray = [];
       if (rawAllMaps) {
         try {
@@ -599,7 +603,7 @@ function quakeNameToStandard(name) {
     }
   });
   
-  return convertedName;
+  return convertedName.trim(); 
 }
 
 function updatePlayerAndStandinsStats() {

@@ -6,6 +6,36 @@ function assertEquals(expected, actual) {
   }
 }
 
+function testImportSingleMatch() {
+  
+  const url = "https://hub.quakeworld.nu/games/?gameId=202843";
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const gamesSheet = spreadsheet.getSheetByName("Games");
+  const importedGamesSheet = spreadsheet.getSheetByName("ImportedURLs");
+  
+  if (!gamesSheet) {
+    throw new Error("Sheet 'Games' not found");
+  }
+  if (!importedGamesSheet) {
+    throw new Error("Sheet 'ImportedURLs' not found");
+  }
+
+  // Check if URL was already imported
+  const importedUrlsLastRow = importedGamesSheet.getLastRow();
+  const importedUrls = new Set(
+    importedUrlsLastRow > 0 
+      ? importedGamesSheet.getRange(1, 1, importedUrlsLastRow, 1).getValues().flat().filter(String)
+      : []
+  );
+
+  if (importedUrls.has(url)) {
+    Logger.log("URL already imported, skipping: " + url);
+    return; // Not an error, just skip
+  }
+  // Import the single match
+  importSingleMatch(url, gamesSheet, importedGamesSheet); 
+}
+
 function testEnqueue() {
   enqueueMessageIfNew(
     "TEST-1",
