@@ -419,7 +419,7 @@ function getMapStatsAPI() {
     // ----------------------------------------
     const mapName = row[mapNameIdx];
     obj.mapSnapUrl =
-      "https://assets.quake.world/mapshots/sm/" +
+      "https://a.quake.world/mapshots/webp/sm/" +
       mapName +
       ".webp";
 
