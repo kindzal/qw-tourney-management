@@ -145,10 +145,9 @@ function loadScheduledTeamPairs() {
     const name = row[nameCol];
 
     if (rawTag && name) {
-      // Use the first alias as the canonical tag for schedule pair matching
-      const canonicalTag = parseTagAliases(rawTag)[0];
-      if (canonicalTag) {
-        nameToTag[String(name).trim().toLowerCase()] = canonicalTag;
+      const aliases = parseTagAliases(rawTag);
+      if (aliases.length) {
+        nameToTag[String(name).trim().toLowerCase()] = aliases;
       }
     }
   });
@@ -165,19 +164,18 @@ function loadScheduledTeamPairs() {
   // Convert to Team Tag pairs
   // -------------------------------------------------------
   return schedulePairs
-    .map(([a, b]) => {
-      const tagA = nameToTag[String(a).trim().toLowerCase()];
-      const tagB = nameToTag[String(b).trim().toLowerCase()];
+    .flatMap(([a, b]) => {
+      const tagsA = nameToTag[String(a).trim().toLowerCase()];
+      const tagsB = nameToTag[String(b).trim().toLowerCase()];
 
-      if (!tagA || !tagB) {
-        // Optional: log for debugging
+      if (!tagsA || !tagsB) {
         Logger.log(`Schedule mapping failed for: ${a} vs ${b}`);
-        return null;
+        return [];
       }
 
-      return [tagA, tagB];
-    })
-    .filter(pair => pair !== null);
+      // Produce a pair for every combination of alias from A and alias from B
+      return tagsA.flatMap(tagA => tagsB.map(tagB => [tagA, tagB]));
+    });
 }
 
 function getConfiguration() {
@@ -195,4 +193,30 @@ function getTeams() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Teams");
   const data = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
   return data.flat().filter(name => name);
+}
+
+function findTeamByRoleName(roleName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+  if (!sheet) throw new Error("Teams sheet not found");
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const nameCol = headers.indexOf("Team Name");
+  const roleCol = headers.indexOf("Discord Role ID");
+
+  if (nameCol === -1 || roleCol === -1) {
+    throw new Error("Teams sheet missing required columns");
+  }
+
+  const normalizedRoleName = normalizeForComparison(roleName);
+
+  for (let i = 1; i < data.length; i++) {
+    const teamName = data[i][nameCol];
+    if (normalizeForComparison(teamName) === normalizedRoleName) {
+      return { rowIndex: i + 1, roleCol: roleCol + 1, teamName: teamName, roleId: data[i][roleCol] };
+    }
+  }
+
+  return null;
 }

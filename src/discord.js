@@ -1,157 +1,13 @@
-function postToDiscord(mode = 'post') {
+function postToDiscord(mode = 'post', roundNumber = null) {
   const ui = SpreadsheetApp.getUi();
-  const sheet = SpreadsheetApp.getActiveSpreadsheet();
   
-  const discordSheet = sheet.getSheetByName('Discord');
-      
-  // --- Fetch Schedule Sheet Data ---
-  const scheduleSheet = sheet.getSheetByName('Schedule');
-  const scheduleConfigSheet = sheet.getSheetByName('ScheduleConfig');
-  const scheduleData = scheduleSheet.getDataRange().getValues();
-  const scheduleConfigData = scheduleConfigSheet.getDataRange().getValues();
-  
-  // -------------------------------------------------------
-  // Read Discord Config (key -> value)
-  // -------------------------------------------------------
-  const lastRow = discordSheet.getLastRow();
-  const configData = discordSheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  const config = {};
-  configData.forEach(([key, value]) => {
-    if (key) config[String(key).trim()] = value;
-  });
-
-  const roundNumber = config["Round"];
+  // Round is now passed as parameter (from sidebar dropdown)
   if (!roundNumber) {
-    throw new Error("Missing 'Round' in Discord config");
-  }  
-  
-  const rankingURL = config["Web App deployment URL"];
-  if (!rankingURL) {
-    throw new Error("Missing 'Web App deployment URL' in Discord config");
-  }
-
-  const webhookUrl = config["Discord web hook"];
-  if (!webhookUrl) {
-    throw new Error("Missing 'Discord web hook' in Discord config");
+    throw new Error("Round not specified. Please select a round from the dropdown.");
   }
   
-  // --- Fetch Maps and Deadline from Schedule Config ---
-  const roundConfigRow = scheduleConfigData.slice(1).find(row => row[0] == roundNumber);
-
-  if (!roundConfigRow) {
-    ui.alert(`Round ${roundNumber} not found in Schedule Config sheet.`);
-    return;
-  }
-
-  const mapList = roundConfigRow[1]; // Column B (index 1)
-  const deadline = roundConfigRow[2]; // Column C (index 2)
-  
-  // --- Fetch Opponents from Schedule (A:C) ---
-  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);  
-  const numberEmojis = {
-    0: 'round 0️⃣',
-    1: 'round 1️⃣',
-    2: 'round 2️⃣',
-    3: 'round 3️⃣',
-    4: 'round 4️⃣',
-    5: 'round 5️⃣',
-    6: 'round 6️⃣',
-    7: 'round 7️⃣',
-    8: 'round 8️⃣',
-    9: 'round 9️⃣',
-    10: 'round 🔟',
-    'Quarterfinals': 'the Quarterfinals! 🎉',
-    'Semifinals': 'the Semifinals! 🚀',
-    'Semifinals A': 'the Semifinals A! 🚀',
-    'Semifinals B': 'the Semifinals B! 🚀',
-    'Final': 'the Final! 🥇',
-    'Final A': 'the Final A! 🥇',
-    'Final B': 'the Final B! 🥇',
-    'Bronze' : 'the Bronze Match! 🥉',
-    'Bronze A' : 'the Bronze A Match! 🥉',
-    'Bronze B' : 'the Bronze B Match! 🥉',
-  };
-  
-  var playoffs = false;
-  if (['Quarterfinals', 'Semifinals', 'Semifinals A', 'Semifinals B', 'Final', 'Final A', 'Final B', 'Bronze', 'Bronze A', 'Bronze B'].includes(roundNumber)) playoffs = true;
-
-  const roundEmoji = numberEmojis[roundNumber] || roundNumber;
-  
-  const opponents = {};
-  roundSchedule.forEach(row => {
-      const team1 = row[1];
-      const team2 = row[2];
-      opponents[team1] = team2;
-      opponents[team2] = team1;
-    });
-
-  // --- BUILD MATCH MESSAGE ---
-  let matchLines = [];
-  const alreadyListed = new Set();
-  
-  const teamsSheet = sheet.getSheetByName('Teams');
-  const lastTeamsRow = teamsSheet.getLastRow();
-  const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 2).getValues();
-  const teams = {};
-  teamsData.forEach(([key, value]) => {
-    if (key) teams[String(key).trim()] = value;
-  });
-   
-  for (const team in opponents) {
-    if (alreadyListed.has(team)) continue;
-
-    const opp = opponents[team];
-    if (config["Include players list"] == 'Yes') {
-      matchLines.push(`**${team}** (${teams[team]})\n    vs\n**${opp}** (${teams[opp]})\n`);
-    } else {
-      matchLines.push(`• **${team}** vs **${opp}**`);
-    }
-    
-    alreadyListed.add(team);
-    alreadyListed.add(opp);
-  }
-  
-  let message = '';
-
-  if (config["Everyone spam"] == 'Yes')
-    message += '@everyone\n\n';
-  
-  message += `**This is ${roundEmoji}**\n\n`;
-
-  if (playoffs) {           
-
-    message += (config["Playoff msg"]);
-    message += `\n\n${matchLines.join("\n")}\n\n`;      
-    
-    if (config["Playoff match procedure"]) {
-      message += `**🏆 Playoff Match Procedure**\n`;  
-      message += config["Playoff match procedure"];
-    }      
-  } else {    
-    
-    message += (config["Group stage msg"]);
-    message += `\n\n${matchLines.join("\n")}\n\n`;      
-    
-    if (config["Group match procedure"]) {
-      message += `**🎾 Group Stage Match Procedure**\n`;  
-      message += config["Group match procedure"];
-    }    
-  }
-  message += `\n\n`;  
-  message += `**Maps:** ${mapList}\n\n`;
-  if (deadline) message += `${config["Deadline msg"]} ${deadline}\n\n`;
-  
-  if (config["Reporting prompt"])
-    message += `\`\`\`diff\n- ${config["Reporting prompt"]}\n\`\`\`\n`;
-
-  if (config["Scheduling prompt"])
-    message += `\`\`\`diff\n- ${config["Scheduling prompt"]}\n\`\`\`\n`;
-
-  if (config["Team tags prompt"])
-    message += `\`\`\`diff\n- ${config["Team tags prompt"]}\n\`\`\`\n`;
-  
-  message += `[${config["Ranking title"]}](${rankingURL})\n\n`;
-  message += `GL HF! 🎮`;
+  // Build the message
+  const { message, webhookUrl } = buildScheduleMessage(roundNumber);
 
   // --- Preview Mode ---
   if (mode === 'preview') {
@@ -172,7 +28,6 @@ function postToDiscord(mode = 'post') {
   }
 
   // --- Post to Discord --- 
-
   try {
     const payload = JSON.stringify({ content: message });
 
@@ -186,10 +41,271 @@ function postToDiscord(mode = 'post') {
 
     ui.alert('Message successfully posted to Discord! ✅');
     logPostHistory(message, 'Success');
+    
+    // Mark this round's Schedule Info as Sent
+    markScheduleInfoSent(roundNumber);
   } catch (e) {
     ui.alert('❌ Failed to post to Discord: ' + e.message);
     logPostHistory(message, 'Failed');
   }
+}
+
+/**
+ * Builds the Discord schedule message for a given round.
+ * @param {string} roundNumber - The round to build message for
+ * @returns {Object} - { message: string, webhookUrl: string }
+ */
+function buildScheduleMessage(roundNumber) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  const discordSheet = ss.getSheetByName('Discord');
+  const scheduleSheet = ss.getSheetByName('Schedule');
+  const scheduleConfigSheet = ss.getSheetByName('ScheduleConfig');
+  const scheduleData = scheduleSheet.getDataRange().getValues();
+  const scheduleConfigData = scheduleConfigSheet.getDataRange().getValues();
+  
+  // Read Discord Config (key -> value)
+  const lastRow = discordSheet.getLastRow();
+  const configData = discordSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  const config = {};
+  configData.forEach(([key, value]) => {
+    if (key) config[String(key).trim()] = value;
+  });
+  
+  // Read URL and webhook from Configuration tab
+  const globalConfig = getConfiguration();
+  
+  const rankingURL = globalConfig["Discord Web App URL"] || globalConfig["Web App Deployment URL"];
+  if (!rankingURL) {
+    throw new Error("Missing 'Discord Web App URL' or 'Web App Deployment URL' in Configuration tab");
+  }
+
+  const webhookUrl = globalConfig["Discord Schedule Channel Webhook"];
+  if (!webhookUrl) {
+    throw new Error("Missing 'Discord Schedule Channel Webhook' in Configuration tab");
+  }
+  
+  // Fetch Maps and Deadline from Schedule Config
+  const roundConfigRow = scheduleConfigData.slice(1).find(row => row[0] == roundNumber);
+
+  if (!roundConfigRow) {
+    throw new Error(`Round ${roundNumber} not found in Schedule Config sheet.`);
+  }
+
+  const mapList = roundConfigRow[1];
+  const deadline = roundConfigRow[2];
+  
+  // Fetch Opponents from Schedule
+  const roundSchedule = scheduleData.slice(1).filter(row => row[0] == roundNumber);
+  
+  const roundEmoji = getRoundLabel(roundNumber);
+  const playoffs = _playoffStages.has(roundNumber);
+  
+  const opponents = {};
+  roundSchedule.forEach(row => {
+    const team1 = row[1];
+    const team2 = row[2];
+    opponents[team1] = team2;
+    opponents[team2] = team1;
+  });
+
+  // BUILD MATCH MESSAGE
+  let matchLines = [];
+  const alreadyListed = new Set();
+  
+  // Read teams and role IDs in one go
+  const teamsSheet = ss.getSheetByName('Teams');
+  const lastTeamsRow = teamsSheet.getLastRow();
+  const teamsData = teamsSheet.getRange(2, 2, lastTeamsRow - 1, 5).getValues();
+  const teams = {};
+  const teamRoles = {};
+  teamsData.forEach(([name, players, roleId]) => {
+    if (name) teams[String(name).trim()] = players;
+    if (name && roleId) teamRoles[String(name).trim()] = roleId;
+  });
+
+  for (const team in opponents) {
+    if (alreadyListed.has(team)) continue;
+
+    const opp = opponents[team];
+    // Replace team name with Discord role mention if roleId is set
+    const teamMention = teamRoles[team] ? `<@&${teamRoles[team]}>` : `**${team}**`;
+    const oppMention = teamRoles[opp] ? `<@&${teamRoles[opp]}>` : `**${opp}**`;
+    if (config["Include players list"] == 'Yes') {
+      matchLines.push(`${teamMention} (${teams[team]})\n    vs\n${oppMention} (${teams[opp]})\n`);
+    } else {
+      matchLines.push(`• ${teamMention} vs ${oppMention}`);
+    }
+    alreadyListed.add(team);
+    alreadyListed.add(opp);
+  }
+  
+  let message = '';
+
+  if (config["Everyone spam"] == 'Yes')
+    message += '@everyone\n\n';
+  
+  message += `**This is ${roundEmoji}**\n\n`;
+
+  if (playoffs) {
+    message += (config["Playoff msg"]);
+    message += `\n\n${matchLines.join("\n")}\n\n`;
+    
+    if (config["Playoff match procedure"]) {
+      message += `**🏆 Playoff Match Procedure**\n`;
+      message += config["Playoff match procedure"];
+    }
+  } else {
+    message += (config["Group stage msg"]);
+    message += `\n\n${matchLines.join("\n")}\n\n`;
+    
+    if (config["Group match procedure"]) {
+      message += `**🎾 Group Stage Match Procedure**\n`;
+      message += config["Group match procedure"];
+    }
+  }
+  message += `\n\n`;
+  message += `**Maps:** ${mapList}\n\n`;
+  if (deadline) message += `${config["Deadline msg"]} ${deadline}\n\n`;
+  
+  if (config["Reporting prompt"])
+    message += `\`\`\`diff\n- ${config["Reporting prompt"]}\n\`\`\`\n`;
+
+  if (config["Scheduling prompt"])
+    message += `\`\`\`diff\n- ${config["Scheduling prompt"]}\n\`\`\`\n`;
+
+  if (config["Team tags prompt"])
+    message += `\`\`\`diff\n- ${config["Team tags prompt"]}\n\`\`\`\n`;
+  
+  message += `[${config["Ranking title"]}](${rankingURL})\n\n`;
+  message += `GL HF! 🎮`;
+
+  return { message, webhookUrl };
+}
+
+/**
+ * Mark a round's 'Schedule Info Sent' column as 'Yes' in ScheduleConfig
+ */
+function markScheduleInfoSent(roundNumber) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("ScheduleConfig");
+  
+  if (!sheet) return;
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const roundIdx = headers.indexOf("Round");
+  const sentIdx = headers.indexOf("Schedule Info Sent");
+  
+  if (roundIdx === -1 || sentIdx === -1) return;
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][roundIdx]).trim() === String(roundNumber).trim()) {
+      sheet.getRange(i + 1, sentIdx + 1).setValue("Yes");
+      break;
+    }
+  }
+}
+
+/**
+ * Automatic Discord schedule posting - designed for time-based triggers.
+ * Finds the current round (deadline >= today), then checks if Schedule Info Sent = 'No'.
+ * Only posts if not yet sent.
+ * 
+ * @returns {Object} - Result with status and message
+ */
+function autoPostScheduleToDiscord() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scheduleConfigSheet = ss.getSheetByName('ScheduleConfig');
+  
+  if (!scheduleConfigSheet) {
+    Logger.log('autoPostScheduleToDiscord: ScheduleConfig sheet not found');
+    return { success: false, message: 'ScheduleConfig sheet not found' };
+  }
+  
+  const now = new Date();
+  const data = scheduleConfigSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const roundIdx = headers.indexOf('Round');
+  const deadlineIdx = headers.indexOf('Deadline');
+  const sentIdx = headers.indexOf('Schedule Info Sent');
+  
+  if (roundIdx === -1 || deadlineIdx === -1) {
+    Logger.log('autoPostScheduleToDiscord: Required columns not found');
+    return { success: false, message: 'Required columns not found' };
+  }
+  
+  // Find the current round (deadline is today or in the future)
+  let targetRound = null;
+  let targetSent = null;
+  
+  for (let i = 1; i < data.length; i++) {
+    const round = data[i][roundIdx];
+    const deadlineVal = data[i][deadlineIdx];
+    const sent = sentIdx !== -1 ? String(data[i][sentIdx] || 'No').trim() : 'No';
+    
+    if (!round || round === '') continue;
+    
+    // Parse deadline and treat it as end-of-day (23:59:59)
+    const deadline = parseDeadline(deadlineVal);
+    if (!deadline) continue;
+    deadline.setHours(23, 59, 59, 999);
+    
+    if (deadline >= now) {
+      targetRound = String(round).trim();
+      targetSent = sent;
+      break; // Found the current round
+    }
+  }
+  
+  if (!targetRound) {
+    Logger.log('autoPostScheduleToDiscord: No current or upcoming rounds found');
+    return { success: false, message: 'No current or upcoming rounds found' };
+  }
+  
+  // Check if already sent for this round
+  if (targetSent === 'Yes') {
+    Logger.log(`autoPostScheduleToDiscord: Round ${targetRound} schedule info already sent`);
+    return { success: false, message: `Round ${targetRound} schedule info already sent` };
+  }
+  
+  // Post the schedule for the target round
+  try {
+    postToDiscordSilent(targetRound);
+    Logger.log(`autoPostScheduleToDiscord: Successfully posted schedule for round ${targetRound}`);
+    return { success: true, message: `Posted schedule for round ${targetRound}` };
+  } catch (e) {
+    Logger.log(`autoPostScheduleToDiscord: Failed to post - ${e.message}`);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * Silent version of postToDiscord - no UI prompts, designed for triggers.
+ * Posts the schedule message for the specified round.
+ * 
+ * @param {string} roundNumber - The round to post
+ */
+function postToDiscordSilent(roundNumber) {
+  const { message, webhookUrl } = buildScheduleMessage(roundNumber);
+
+  // Post to Discord (no confirmation needed for trigger)
+  const payload = JSON.stringify({ content: message });
+
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: payload,
+  };
+
+  UrlFetchApp.fetch(webhookUrl, options);
+
+  logPostHistory(message, 'Success (Auto)');
+  
+  // Mark this round's Schedule Info as Sent
+  markScheduleInfoSent(roundNumber);
 }
 
 function sendAvailabilityRequestsToDiscord() {
@@ -219,14 +335,14 @@ function sendAvailabilityRequestsToDiscord() {
     const row = data[i];
 
     const teamName = row[1];              // Team Name
-    const roleId = row[4];                // Discord Role ID
-    const webhookUrl = row[5];            // Discord Channel Webhook
+    const roleId = row[3];                // Discord Role ID
+    const webhookUrl = row[4];            // Discord Channel Webhook
 
-    if (!webhookUrl || !roleId) continue;
+    if (!webhookUrl) continue;
 
     // 1️⃣ First message: role ping + instructions
     const introPayload = {
-      content: `<@&${roleId}> react with 👍🏻👎🏻 to the days you are available/unavailable 👇.`
+      content: `Players, react with 👍🏻👎🏻 to the days you are available/unavailable 👇.`
     };
 
     _postToDiscord(webhookUrl, introPayload);
@@ -257,17 +373,14 @@ function _postToDiscord(webhookUrl, payload) {
 }
 
 function getDiscordWebhookUrl() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Discord");
-  if (!sheet) throw new Error("Discord sheet not found");
-
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === "Discord web hook") {
-      return data[i][1];
-    }
+  const config = getConfiguration();
+  const webhookUrl = config["Discord Schedule Channel Webhook"];
+  
+  if (!webhookUrl) {
+    throw new Error("Missing 'Discord Schedule Channel Webhook' in Configuration tab");
   }
-
-  throw new Error("Discord webhook not configured");
+  
+  return webhookUrl;
 }
 
 function sendTodayGameReminders() {
@@ -465,11 +578,11 @@ function sendFixMeNotification() {
     .join("\n");
 
   const message = [
-    `⚠️ **[${webAppTitle}] Tournament Admin Issues Found**`,
+    `⚠️ **[${webAppTitle}] Tournament Issues Found**`,
     "",
     summary,
     "",
-    `Open the [Tournament admin sheet](${sheetUrl}), navigate to FIX-ME tab and follow the instructions there.` 
+    `Open [QWadmin](${sheetUrl}), navigate to FIX-ME tab and follow the instructions there.` 
   ].join("\n");
 
   // ── Post to Discord ───────────────────────────────────────────────────
@@ -480,4 +593,39 @@ function sendFixMeNotification() {
   });
 
   Logger.log(`sendFixMeNotification: posted ${Object.values(counts).reduce((a, b) => a + b, 0)} issue(s) to Discord`);    
+}
+
+// Helper: future-proof round label / emoji generator (exported for tests)
+const _digitEmoji = {
+  '0': '0️⃣', '1': '1️⃣', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣',
+  '5': '5️⃣', '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣'
+};
+
+const _stageLabels = {
+  'Quarterfinals': 'the Quarterfinals! 🎉',
+  'Semifinals': 'the Semifinals! 🚀',
+  'Semifinals A': 'the Semifinals A! 🚀',
+  'Semifinals B': 'the Semifinals B! 🚀',
+  'Final': 'the Final! 🥇',
+  'Final A': 'the Final A! 🥇',
+  'Final B': 'the Final B! 🥇',
+  'Bronze': 'the Bronze Match! 🥉',
+  'Bronze A': 'the Bronze A Match! 🥉',
+  'Bronze B': 'the Bronze B Match! 🥉'
+};
+
+const _playoffStages = new Set(Object.keys(_stageLabels));
+
+function numberToEmoji(num) {
+  if (Number(num) === 10) return '🔟';
+  return String(num).split('').map(d => _digitEmoji[d] || d).join('');
+}
+
+function getRoundLabel(r) {
+  if (typeof r === 'string' && _stageLabels[r]) return _stageLabels[r];
+  const n = Number(r);
+  if (!isNaN(n) && isFinite(n)) {
+    return `round ${numberToEmoji(n)}`;
+  }
+  return String(r);
 }

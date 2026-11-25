@@ -20,9 +20,13 @@ function getActiveSheetName() {
 }
 
 function openSidebar() {
-  /*const html = HtmlService
-    .createHtmlOutputFromFile('admin-sidebar')
-    .setTitle('Tournament Control Panel');*/
+  // Run any pending migrations silently
+  try {
+    runMigration();
+  } catch (e) {
+    // Ignore migration errors - don't block sidebar
+    Logger.log("Migration error: " + e.message);
+  }
 
   const template = HtmlService.createTemplateFromFile('admin.sidebar');
   const html = template.evaluate()
@@ -202,7 +206,8 @@ function generateSchedule(data) {
     configRows.push([
       roundLabel,
       mapsFormatted + " (" + data.groupStageMode + ")",
-      currentDeadline
+      currentDeadline,
+      "No"  // Schedule Info Sent
     ]);
 
     currentDeadline = addDays(currentDeadline, 7);
@@ -228,7 +233,8 @@ function generateSchedule(data) {
       configRows.push([
         round.name,
         mapsFormatted + " (" + data.playoffsMode + ")",
-        currentDeadline
+        currentDeadline,
+        "No"  // Schedule Info Sent
       ]);
 
       // Only advance the deadline when moving to a new week
@@ -241,6 +247,12 @@ function generateSchedule(data) {
   // ---- WRITE SHEETS ----
   writeSchedule(scheduleSheet, scheduleRows);
   writeScheduleConfig(configSheet, configRows);
+
+  // ---- SAVE MODE SETTINGS TO CONFIGURATION ----
+  setConfigurationValue("Group Stage Mode", data.groupStageMode, ["GO3", "BO5"]);
+  if (data.playoffsRequired === "Yes") {
+    setConfigurationValue("Playoffs Mode", data.playoffsMode, ["BO5", "BO7"]);
+  }
 
   return "Schedule generated successfully.";
 }
@@ -316,11 +328,29 @@ function writeSchedule(sheet, rows) {
 }
 
 function writeScheduleConfig(sheet, rows) {
-  sheet.getRange(2, 1, sheet.getLastRow(), 3).clearContent();
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
+    sheet.getRange(2, 1, lastRow - 1, 4).clearDataValidations();
+  }
 
   if (!rows.length) return;
 
-  sheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  // Ensure header exists for Schedule Info Sent column
+  const headers = sheet.getRange(1, 1, 1, 4).getValues()[0];
+  if (headers[3] !== "Schedule Info Sent") {
+    sheet.getRange(1, 4).setValue("Schedule Info Sent");
+  }
+
+  sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+
+  // Add Yes/No dropdown validation to Schedule Info Sent column
+  const sentValidation = SpreadsheetApp.newDataValidation()
+    .requireValueInList(["No", "Yes"], true)
+    .setAllowInvalid(false)
+    .build();
+
+  sheet.getRange(2, 4, rows.length).setDataValidation(sentValidation);
 }
 
 function confirmScheduleOverwrite() {
@@ -508,8 +538,10 @@ function checkGroupStageComplete(scheduleSheet, teamGamesSheet) {
     }
   }
   
+  // Only complete if there are expected games AND all have been played
+  // If expected is 0, group stage hasn't been generated yet
   return {
-    complete: played >= expected,
+    complete: expected > 0 && played >= expected,
     expected: expected,
     played: played
   };
@@ -1044,6 +1076,7 @@ function checkTriggerStatus() {
                        triggerFunctions.includes('sendUnscheduledGamesReminder');
   const hasAutoImport = triggerFunctions.includes('autoImportGames');
   const hasFixMe = triggerFunctions.includes('sendFixMeNotification');
+  const hasAutoDiscord = triggerFunctions.includes('autoPostScheduleToDiscord');
 
   // Check config prerequisites
   let missingRoleIds = false;
@@ -1077,20 +1110,26 @@ function checkTriggerStatus() {
     missingAdminWebhook = true;
   }
 
+  // Check if Discord schedule webhook is configured
+  const missingScheduleWebhook = !config["Discord Schedule Channel Webhook"];
+
   return {
     // What needs installation
     needsAutomation: !hasAutomation,
     needsReminders: !hasReminders,
     needsAutoImport: !hasAutoImport,
     needsFixMe: !hasFixMe,
+    needsAutoDiscord: !hasAutoDiscord,
     // What is installed
     hasAutomation,
     hasReminders,
     hasAutoImport,
     hasFixMe,
+    hasAutoDiscord,
     // Config issues
     missingRoleIds,
-    missingAdminWebhook
+    missingAdminWebhook,
+    missingScheduleWebhook
   };
 }
 
@@ -1251,6 +1290,144 @@ function uninstallFixMeTriggers() {
   return '✅ Fix-Me notification trigger already uninstalled';
 }
 
+/**
+ * Install autoPostScheduleToDiscord trigger (daily between 10-11am)
+ */
+function installAutoDiscordTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  // Check if trigger already exists
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'autoPostScheduleToDiscord') {
+      return '✅ Automatic Discord posting trigger already installed';
+    }
+  }
+
+  // Create the trigger
+  ScriptApp.newTrigger('autoPostScheduleToDiscord')
+    .timeBased()
+    .atHour(10)
+    .everyDays(1)
+    .create();
+
+  return '✅ Automatic Discord posting trigger installed successfully';
+}
+
+/**
+ * Uninstall autoPostScheduleToDiscord trigger
+ */
+function uninstallAutoDiscordTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'autoPostScheduleToDiscord') {
+      ScriptApp.deleteTrigger(trigger);
+      return '✅ Automatic Discord posting trigger uninstalled successfully';
+    }
+  }
+
+  return '✅ Automatic Discord posting trigger already uninstalled';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Web App Deployment Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Check if Web App is deployed and if deployment URL is configured
+ * Returns an object with deployment status
+ */
+function checkWebAppDeployment() {
+  const config = getConfiguration();
+  const configuredUrl = config["Web App Deployment URL"];
+  
+  const hasConfiguredUrl = !!(configuredUrl && configuredUrl.trim() !== "");
+  
+  return {
+    hasConfiguredUrl: hasConfiguredUrl,
+    configuredUrl: configuredUrl || null
+  };
+}
+
+/**
+ * Save the deployment URL to Configuration sheet
+ * Creates the configuration key if it doesn't exist
+ * Also extracts and stores the Deployment ID from the URL
+ * @param {string} url - The deployment URL to save
+ */
+function saveDeploymentUrl(url) {
+  try {
+    if (!url || !url.trim()) {
+      throw new Error("Please provide a deployment URL.");
+    }
+    
+    url = url.trim();
+    
+    // Validate URL format
+    const urlMatch = url.match(/^https:\/\/script\.google\.com\/macros\/s\/([^\/]+)\/exec$/);
+    if (!urlMatch) {
+      throw new Error("Invalid URL format. Expected: https://script.google.com/macros/s/.../exec");
+    }
+    
+    // Extract deployment ID from URL
+    const deploymentId = urlMatch[1];
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName("Configuration");
+    
+    if (!configSheet) {
+      throw new Error("Configuration sheet not found");
+    }
+    
+    const data = configSheet.getDataRange().getValues();
+    let urlRow = -1;
+    let idRow = -1;
+    
+    // Look for existing keys
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === "Web App Deployment URL") {
+        urlRow = i;
+      }
+      if (data[i][0] === "Web App Deployment ID") {
+        idRow = i;
+      }
+    }
+    
+    // Update or add URL
+    if (urlRow !== -1) {
+      configSheet.getRange(urlRow + 1, 2).setValue(url);
+    } else {
+      const lastRow = configSheet.getLastRow();
+      configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment URL");
+      configSheet.getRange(lastRow + 1, 2).setValue(url);
+    }
+    
+    // Update or add Deployment ID
+    if (idRow !== -1) {
+      configSheet.getRange(idRow + 1, 2).setValue(deploymentId);
+    } else {
+      const lastRow = configSheet.getLastRow();
+      configSheet.getRange(lastRow + 1, 1).setValue("Web App Deployment ID");
+      configSheet.getRange(lastRow + 1, 2).setValue(deploymentId);
+    }
+    
+    return {
+      success: true,
+      url: url,
+      deploymentId: deploymentId,
+      message: "✅ Configuration updated with deployment URL and ID"
+    };
+    
+  } catch (e) {
+    return {
+      success: false,
+      url: null,
+      deploymentId: null,
+      message: "❌ " + e.message
+    };
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FIX-ME Issue Fixing Functions
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1290,7 +1467,7 @@ function getFixMeIssueForRow(row) {
     return { canFix: false, message: "Selected row is empty" };
   }
 
-  if (issueType !== "Unmatched Player" && issueType !== "Unmatched Team Tag") {
+  if (issueType !== "Unmatched Player" && issueType !== "Unmatched Team Tag" && issueType !== "Incorrect Number of Maps") {
     return { canFix: false, message: "Unknown issue type" };
   }
 
@@ -1350,6 +1527,30 @@ function getFixMeIssueForRow(row) {
     }
   }
 
+  // Handle Incorrect Number of Maps (Value is expected to be JSON with Stage, Round, Combined/Match, Date, AllMapsJSON)
+  if (issueType === "Incorrect Number of Maps") {
+    try {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      const maps = parsed && parsed.AllMapsJSON ? parsed.AllMapsJSON : [];
+      return {
+        canFix: true,
+        issueType,
+        value: `${parsed.Stage || ''} ${parsed.Round || ''} ${parsed.Date || ''}`.trim(),
+        row,
+        maps,
+        stage: parsed.Stage || '',
+        round: parsed.Round || '',
+        date: parsed.Date || '',
+        match: parsed.Match || ''
+      };
+    } catch (e) {
+      return { canFix: false, message: 'Malformed JSON in FIX-ME value' };
+    }
+  }
+
+  // Sort targets alphabetically by name
+  targets.sort((a, b) => a.name.localeCompare(b.name));
+
   if (targets.length === 0) {
     return { 
       canFix: false,
@@ -1380,6 +1581,39 @@ function getSelectedFixMeIssue() {
   return prop ? JSON.parse(prop) : 
     { canFix: false, message: "No row selected" };
 }
+
+/**
+ * Refresh the current FIX-ME selection
+ * Checks the currently selected row and updates the property
+ */
+function refreshCurrentFixMeSelection() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = ss.getActiveSheet();
+  
+  // Only refresh if FIX-ME sheet is active
+  if (!activeSheet || activeSheet.getName() !== "FIX-ME") {
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    return;
+  }
+  
+  const activeRange = activeSheet.getActiveRange();
+  if (!activeRange) {
+    PropertiesService.getDocumentProperties()
+      .deleteProperty("CURRENT_FIXME_SELECTION");
+    return;
+  }
+  
+  const row = activeRange.getRow();
+  const issueData = getFixMeIssueForRow(row);
+  
+  PropertiesService.getDocumentProperties()
+    .setProperty(
+      "CURRENT_FIXME_SELECTION",
+      JSON.stringify(issueData)
+    );
+}
+
 /**
  * Fix the currently selected issue by adding the tag to the selected Player/Team
  * @param {number} targetRow - The row number in the Players/Standins/Teams sheet to update
@@ -1391,16 +1625,22 @@ function fixSelectedFixMeIssue(targetRow) {
     throw new Error(issue.message);
   }
   
-  // Find the selected target
-  const target = issue.targets.find(t => t.row === targetRow);
-  if (!target) {
-    throw new Error("Invalid target selected");
+  let target = null;
+  // Only resolve a target for Unmatched Player / Team Tag issues
+  if (issue.issueType === "Unmatched Player" || issue.issueType === "Unmatched Team Tag") {
+    if (!issue.targets || !Array.isArray(issue.targets)) {
+      throw new Error("No targets available for this issue");
+    }
+    target = issue.targets.find(t => t.row === targetRow);
+    if (!target) {
+      throw new Error("Invalid target selected");
+    }
   }
   
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(target.sheet);
-  
-  if (!sheet) {
+  const sheet = target ? ss.getSheetByName(target.sheet) : null;
+
+  if (target && !sheet) {
     throw new Error(`${target.sheet} sheet not found`);
   }
   
@@ -1423,9 +1663,8 @@ function fixSelectedFixMeIssue(targetRow) {
     // Update stats and return
     updateStats(true);
     
-    // Clear the selection property so UI refreshes properly
-    PropertiesService.getDocumentProperties()
-      .deleteProperty("CURRENT_FIXME_SELECTION");
+    // Refresh the selection for the currently active row
+    refreshCurrentFixMeSelection();
     
     return `✅ Added "${issue.value}" to ${target.name}'s Game Nicks. Stats updated.`;
     
@@ -1448,12 +1687,41 @@ function fixSelectedFixMeIssue(targetRow) {
     // Update stats and return
     updateStats(true);
     
-    // Clear the selection property so UI refreshes properly
-    PropertiesService.getDocumentProperties()
-      .deleteProperty("CURRENT_FIXME_SELECTION");
+    // Refresh the selection for the currently active row
+    refreshCurrentFixMeSelection();
     
     return `✅ Added "${issue.value}" to ${target.name}'s Team Tags. Stats updated.`;
   }
   
+  // New handler: Incorrect Number of Maps -> add the selected gameUrl to ExcludedGames
+  if (issue.issueType === "Incorrect Number of Maps") {
+    // targetRow is used to carry the gameUrl string in this case
+    const excludeUrl = targetRow;
+    if (!excludeUrl || typeof excludeUrl !== 'string') {
+      throw new Error('No game URL provided to exclude');
+    }
+
+    let sheet = ss.getSheetByName('ExcludedGames');
+    if (!sheet) {
+      sheet = ss.insertSheet('ExcludedGames');
+      sheet.getRange(1,1).setValue('Hub URL');
+    }
+
+    // Check existing
+    const lastRow = sheet.getLastRow();
+    const existing = lastRow > 1 ? sheet.getRange(2,1,lastRow-1,1).getValues().flat().map(v=>String(v).trim()) : [];
+    if (existing.includes(String(excludeUrl).trim())) {
+      return `✅ URL already present in ExcludedGames: ${excludeUrl}`;
+    }
+
+    sheet.getRange(lastRow+1,1).setValue(excludeUrl);
+
+    // Refresh stats and selection
+    updateStats(true);
+    refreshCurrentFixMeSelection();
+
+    return `✅ Added ${excludeUrl} to ExcludedGames. Stats updated.`;
+  }
+
   throw new Error("Unknown issue type");
 }

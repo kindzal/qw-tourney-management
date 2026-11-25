@@ -1,5 +1,9 @@
 /** @OnlyCurrentDoc */
 function doPost(e) {
+  // LADDER: Ko-fi webhook and queue-service ops. Returns null for everything else, so existing handlers are unchanged.
+  const _ladderResp = routeLadderPost_(e);
+  if (_ladderResp) return _ladderResp;
+
   const action = e.parameter?.action || "reports";
 
   switch (action) {
@@ -131,11 +135,32 @@ function handleScheduleGameReport(payload) {
     throw new Error("Invalid team data");
   }
 
-  const teamA = getTeamByRoleId(teams[0].id);
-  const teamB = getTeamByRoleId(teams[1].id);
+  let teamA = getTeamByRoleId(teams[0].id);
+  let teamB = getTeamByRoleId(teams[1].id);
+
+  // If either team wasn't found by role ID, try fuzzy matching by role name
+  if (!teamA) {
+    const match = findTeamByRoleName(teams[0].name);
+    if (match) {
+      Logger.log(`Team not found by role ID for "${teams[0].name}". Matched by name — updating role ID to ${teams[0].id}.`);
+      const teamsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+      teamsSheet.getRange(match.rowIndex, match.roleCol).setValue(teams[0].id);
+      teamA = { id: teams[0].id, name: match.teamName };
+    }
+  }
+
+  if (!teamB) {
+    const match = findTeamByRoleName(teams[1].name);
+    if (match) {
+      Logger.log(`Team not found by role ID for "${teams[1].name}". Matched by name — updating role ID to ${teams[1].id}.`);
+      const teamsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Teams");
+      teamsSheet.getRange(match.rowIndex, match.roleCol).setValue(teams[1].id);
+      teamB = { id: teams[1].id, name: match.teamName };
+    }
+  }
 
   if (!teamA || !teamB) {
-    throw new Error("One or more team role IDs are not registered");
+    throw new Error("One or more teams could not be matched by role ID or role name");
   }
 
   const sheet = SpreadsheetApp
@@ -200,8 +225,12 @@ function handleScheduleGameReport(payload) {
   );
 }
 
-function postPreview() {
-  postToDiscord('preview');
+function postPreview(roundNumber) {
+  postToDiscord('preview', roundNumber);
+}
+
+function postScheduleToDiscord(roundNumber) {
+  postToDiscord('post', roundNumber);
 }
 
 // --- Function to Log Post History ---
@@ -306,7 +335,7 @@ function importSingleMatch(url, gamesSheet, importedGamesSheet) {
   
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
-    const team = quakeNameToStandard(player.team);
+    const team = quakeNameToStandard(player.team).replace(/^[\s_]+|[\s_]+$/g, '');
     if (!teamScores[team]) {
       teamScores[team] = 0;
     }
@@ -322,7 +351,7 @@ function importSingleMatch(url, gamesSheet, importedGamesSheet) {
   
   players.forEach(function(player) {
     const name = quakeNameToStandard(player.name).replace(/=/g, "");
-    const team = quakeNameToStandard(player.team);
+    const team = quakeNameToStandard(player.team).replace(/^[\s_]+|[\s_]+$/g, '');
     const frags = player.stats.frags;
     const deaths = player.stats.deaths;
     const tk = player.stats.tk;
@@ -417,6 +446,123 @@ function generateFixMeReport() {
       });
   }
 
+  // ── Validate TeamGames map counts against Configuration modes ────────
+  const configSheet = ss.getSheetByName("Configuration");
+  let groupMode = null;
+  let playoffsMode = null;
+  if (configSheet && configSheet.getLastRow() > 1) {
+    const cfgRows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 2).getValues();
+    const cfg = {};
+    cfgRows.forEach(([k, v]) => { if (k) cfg[String(k).trim()] = v; });
+    groupMode = String(cfg["Group Stage Mode"] || "").trim();
+    playoffsMode = String(cfg["Playoffs Mode"] || "").trim();
+  }
+
+  const teamGamesSheet = ss.getSheetByName("TeamGames");
+  if (teamGamesSheet && teamGamesSheet.getLastRow() > 1) {
+    const tgData = teamGamesSheet.getDataRange().getValues();
+    const tgHeaders = tgData[0] || [];
+    const stageCol = tgHeaders.indexOf("Stage");
+    const teamACol = tgHeaders.indexOf("TeamA");
+    const teamBCol = tgHeaders.indexOf("TeamB");
+    const allMapsCol = tgHeaders.indexOf("AllMapsJSON");
+
+    for (let i = 1; i < tgData.length; i++) {
+      const row = tgData[i];
+      const stage = stageCol >= 0 ? String(row[stageCol] || "").trim() : "";
+      const teamA = teamACol >= 0 ? String(row[teamACol] || "").trim() : "";
+      const teamB = teamBCol >= 0 ? String(row[teamBCol] || "").trim() : "";
+      const rawAllMaps = allMapsCol >= 0 ? row[allMapsCol] : null;
+
+      // Skip WO games — these have no map data by design
+      const allMapsStr = String(rawAllMaps || "").trim();
+      if (!allMapsStr || allMapsStr === "[]") continue;
+      
+      let mapsArray = [];
+      if (rawAllMaps) {
+        try {
+          if (typeof rawAllMaps === 'string') mapsArray = JSON.parse(rawAllMaps);
+          else if (Array.isArray(rawAllMaps)) mapsArray = rawAllMaps;
+        } catch (e) {
+          // If parsing fails, treat as no maps but still report
+          mapsArray = null;
+        }
+      }
+
+      const mapsPlayed = Array.isArray(mapsArray) ? mapsArray.length : 0;
+
+      const modeRaw = (stage === "Playoff") ? playoffsMode : groupMode;
+      if (!modeRaw) continue; // no configured mode to validate against
+
+      const mode = String(modeRaw).toUpperCase();
+      let valid = true;
+
+      if (mode.indexOf("GO") === 0) {
+        const x = parseInt(mode.slice(2), 10);
+        if (!isNaN(x)) {
+          if (mapsPlayed !== x) valid = false;
+        }
+      } else if (mode.indexOf("BO") === 0) {
+        const x = parseInt(mode.slice(2), 10);
+        if (!isNaN(x)) {
+          const min = Math.ceil(x / 2);
+          const max = x;
+          if (mapsPlayed < min || mapsPlayed > max) valid = false;
+        }
+      } else {
+        // Unknown mode format — skip validation
+        continue;
+      }
+
+      if (!valid) {
+        const roundCol = tgHeaders.indexOf("Round");
+        const scoreCol = tgHeaders.indexOf("Score");
+        const dateCol = tgHeaders.indexOf("Date");
+
+        const round = roundCol >= 0 ? String(row[roundCol] || "").trim() : "";
+        const score = scoreCol >= 0 ? String(row[scoreCol] || "").trim() : "";
+
+        let dateVal = "";
+        if (dateCol >= 0) {
+          const rawDateCell = row[dateCol];
+          if (rawDateCell instanceof Date) {
+            const dd = String(rawDateCell.getDate()).padStart(2, '0');
+            const mm = String(rawDateCell.getMonth() + 1).padStart(2, '0');
+            const yyyy = String(rawDateCell.getFullYear());
+            dateVal = `${dd}/${mm}/${yyyy}`;
+          } else {
+            dateVal = String(rawDateCell || "").trim();
+          }
+        }
+
+        const match = `${teamA} ${score} ${teamB}`.trim();
+
+        // Ensure AllMapsJSON is an array
+        let allMapsArray = [];
+        if (Array.isArray(mapsArray)) {
+          allMapsArray = mapsArray;
+        } else if (rawAllMaps) {
+          try {
+            const parsed = (typeof rawAllMaps === 'string') ? JSON.parse(rawAllMaps) : rawAllMaps;
+            if (Array.isArray(parsed)) allMapsArray = parsed;
+          } catch (e) {
+            allMapsArray = [];
+          }
+        }
+
+        const valueObj = {
+          Stage: stage,
+          Round: round,
+          Match: match,
+          Date: dateVal,
+          AllMapsJSON: allMapsArray
+        };
+
+        rows.push(["Incorrect Number of Maps", JSON.stringify(valueObj), DESCRIPTION]);
+      }
+    }
+  }
+
  // ── Write combined rows (or a clean all-clear message) ────────────────
   if (rows.length > 0) {
     fixMeSheet.getRange(2, 1, rows.length, 3).setValues(rows);
@@ -427,6 +573,7 @@ function generateFixMeReport() {
 }
 
 function updateStats(interactive = false) {
+  if (isLadderMode()) return ladderUpdateStats_(interactive); // LADDER: separate flow, tournament code below is untouched
   Logger.log("Running updateStats (UPDATE_STATS handler)");
   updatePlayerAndStandinsStats();
   updateTeamStats();
@@ -461,7 +608,7 @@ function quakeNameToStandard(name) {
     }
   });
   
-  return convertedName;
+  return convertedName.trim(); 
 }
 
 function updatePlayerAndStandinsStats() {
@@ -1373,6 +1520,7 @@ function autoImportGames() {
 
   // Exit if current time is before 19:00 or after 23:59
   if (currentHour < 19 || currentHour > 23) return;
+  if (isLadderMode()) return ladderAutoImportGames_(); // LADDER: separate import (no schedule), same trigger and window
   
   // ── 1. Load config ──────────────────────────────────────────────────────
   const cfg = loadAutoImportConfig();

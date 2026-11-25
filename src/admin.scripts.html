@@ -9,7 +9,7 @@
   function showSection(sheetName) {
     hideAllSections();
 
-    document.getElementById("currentTab").innerText = sheetName;
+    document.getElementById("currentTab").innerHTML = `<span class="qwadmin-brand">🏆 QWadmin</span> ➡ ${sheetName}`;
 
     const section = document.getElementById(sheetName);
 
@@ -22,6 +22,8 @@
         checkPlayoffsStatus();
       } else if (sheetName === 'Configuration') {
         initConfigurationSection();
+      } else if (sheetName === 'Discord') {
+        initDiscordSection();
       }
       section.style.display = "block";
     } else {
@@ -229,6 +231,24 @@
   // ═══════════════════════════════════════════════════════════════════════════
 
   function initConfigurationSection() {
+    // Check Web App deployment status
+    google.script.run
+      .withSuccessHandler(function(deploymentStatus) {
+        // Show input section if URL is not configured
+        const needsUrl = !deploymentStatus.hasConfiguredUrl;
+        document.getElementById('webapp-url-not-configured').style.display = 
+          needsUrl ? 'block' : 'none';
+        
+        // Show entire section only if URL is not configured (not deployed warning removed since we can't detect it reliably)
+        document.getElementById('webapp-deployment').style.display = 
+          needsUrl ? 'block' : 'none';
+      })
+      .withFailureHandler(function(error) {
+        console.error('Failed to check Web App deployment:', error);
+      })
+      .checkWebAppDeployment();
+
+    // Check trigger status
     google.script.run
       .withSuccessHandler(function(status) {
         // Trigger 1: Automation - hide entire section if installed (critical)
@@ -275,9 +295,23 @@
         document.getElementById('fixme-warning').style.display = 
           status.missingAdminWebhook ? 'block' : 'none';
 
+        // Trigger 5: Auto Discord - show section, toggle button and status
+        const autoDiscordSection = document.getElementById('trigger-autodiscord');
+        autoDiscordSection.style.display = 'block';
+        document.getElementById('install-autodiscord-btn').style.display = 
+          status.needsAutoDiscord ? 'inline-block' : 'none';
+        document.getElementById('disable-autodiscord-btn').style.display = 
+          status.hasAutoDiscord ? 'inline-block' : 'none';
+        document.getElementById('autodiscord-status-disabled').style.display = 
+          status.needsAutoDiscord ? 'block' : 'none';
+        document.getElementById('autodiscord-status-enabled').style.display = 
+          status.hasAutoDiscord ? 'block' : 'none';
+        document.getElementById('autodiscord-warning').style.display = 
+          status.missingScheduleWebhook ? 'block' : 'none';
+
         // Show "all installed" message only if everything is installed
         const allInstalled = status.hasAutomation && status.hasReminders && 
-                            status.hasAutoImport && status.hasFixMe;
+                            status.hasAutoImport && status.hasFixMe && status.hasAutoDiscord;
         document.getElementById('all-triggers-installed').style.display = 
           allInstalled ? 'block' : 'none';
       })
@@ -476,6 +510,104 @@
       .uninstallFixMeTriggers();
   }
 
+  function installAutoDiscordTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('autodiscord-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .installAutoDiscordTriggers();
+  }
+
+  function disableAutoDiscordTrigger() {
+    const btn = event.target;
+    const messageBox = document.getElementById('autodiscord-message');
+    const loader = document.getElementById('loader-overlay');
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response;
+        messageBox.classList.add('success');
+        setTimeout(() => initConfigurationSection(), 2000);
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .uninstallAutoDiscordTriggers();
+  }
+
+  function saveDeploymentUrlFromUI() {
+    const btn = event.target;
+    const input = document.getElementById('webapp-url-input');
+    const messageBox = document.getElementById('webapp-message');
+    const loader = document.getElementById('loader-overlay');
+    const url = input.value.trim();
+
+    if (!url) {
+      messageBox.innerText = 'Please enter the deployment URL';
+      messageBox.className = 'form-message error';
+      return;
+    }
+
+    // Validate URL format
+    if (!url.match(/^https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec$/)) {
+      messageBox.innerText = 'Invalid URL format. Expected: https://script.google.com/macros/s/.../exec';
+      messageBox.className = 'form-message error';
+      return;
+    }
+
+    btn.disabled = true;
+    messageBox.innerText = '';
+    messageBox.className = 'form-message';
+    loader.style.display = 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = response.message;
+        messageBox.classList.add(response.success ? 'success' : 'error');
+        if (response.success) {
+          setTimeout(() => initConfigurationSection(), 2000);
+        }
+      })
+      .withFailureHandler(function(error) {
+        loader.style.display = 'none';
+        btn.disabled = false;
+        messageBox.innerText = 'Error: ' + error.message;
+        messageBox.classList.add('error');
+      })
+      .saveDeploymentUrl(url);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // FIX-ME Section - Interactive Issue Fixing
   // ═══════════════════════════════════════════════════════════════════════════
@@ -510,7 +642,8 @@
           const dataChanged = !currentIssueData || 
                               currentIssueData.issueType !== result.issueType ||
                               currentIssueData.value !== result.value ||
-                              JSON.stringify(currentIssueData.targets) !== JSON.stringify(result.targets);
+                              JSON.stringify(currentIssueData.targets) !== JSON.stringify(result.targets) ||
+                              JSON.stringify(currentIssueData.maps) !== JSON.stringify(result.maps);
           
           // Store current issue data
           currentIssueData = result;
@@ -518,15 +651,87 @@
           // Update status
           status.style.color = '#2d8f2d';
           status.innerHTML = `<strong>Selected:</strong> ${result.issueType} - "${result.value}"`;
-          
-          // Show and populate dropdown
-          dropdownContainer.style.display = 'block';
-          
-          // Update label based on issue type
-          if (result.issueType === 'Unmatched Player') {
-            dropdownLabel.textContent = 'Select Player to add this Game Nick to:';
-          } else {
-            dropdownLabel.textContent = 'Select Team to add this Team Tag to:';
+
+          // Hide both containers by default
+          dropdownContainer.style.display = 'none';
+          const incorrectContainer = document.getElementById('incorrect-maps-container');
+          incorrectContainer.style.display = 'none';
+
+          // If it's a standard unmatched issue, show the dropdown
+          if (result.issueType === 'Unmatched Player' || result.issueType === 'Unmatched Team Tag') {
+            dropdownContainer.style.display = 'block';
+            if (result.issueType === 'Unmatched Player') {
+              dropdownLabel.textContent = 'Select Player to add this Game Nick to:';
+            } else {
+              dropdownLabel.textContent = 'Select Team to add this Team Tag to:';
+            }
+          }
+
+          // If it's Incorrect Number of Maps, show the custom radio-list UI
+          if (result.issueType === 'Incorrect Number of Maps') {
+            incorrectContainer.style.display = 'block';
+            // Populate heading and list
+            const heading = document.getElementById('incorrect-maps-heading');
+            const list = document.getElementById('incorrect-maps-list');
+            heading.textContent = `Incorrect number of maps in ${String(result.stage||'').toLowerCase()} match round ${String(result.round||'').toLowerCase()} at ${result.date || ''}`;
+            const matchDiv = document.getElementById('incorrect-maps-match');
+            if (matchDiv) {
+              if (result.match) {
+                matchDiv.textContent = result.match;
+                matchDiv.style.display = 'block';
+              } else {
+                matchDiv.textContent = '';
+                matchDiv.style.display = 'none';
+              }
+            }
+            // Only repopulate if data changed
+            if (dataChanged) {
+              list.innerHTML = '';
+              (result.maps || []).forEach(function(m, idx) {
+                const id = 'incmap_' + idx;
+                const wrapper = document.createElement('div');
+                wrapper.style.marginBottom = '6px';
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'incmap';
+                radio.value = m.gameUrl || m.mapUrl || '';
+                radio.id = id;
+
+                const label = document.createElement('label');
+                label.htmlFor = id;
+                const teamA = (m.teamAFrags != null) ? m.teamAFrags : '';
+                const teamB = (m.teamBFrags != null) ? m.teamBFrags : '';
+                label.textContent = `${m.mapName || m.map || ''} ${teamA} - ${teamB}`;
+                label.style.marginLeft = '6px';
+
+                const viewLink = document.createElement('a');
+                viewLink.href = m.gameUrl || m.mapUrl || '#';
+                viewLink.target = '_blank';
+                viewLink.textContent = ' view game';
+                viewLink.style.marginLeft = '8px';
+
+                wrapper.appendChild(radio);
+                wrapper.appendChild(label);
+                wrapper.appendChild(viewLink);
+                list.appendChild(wrapper);
+              });
+
+              // wire up change handler to toggle button
+              const radios = Array.from(document.getElementsByName('incmap'));
+              radios.forEach(r => r.onchange = function() {
+                const btn = document.getElementById('fix-selected-btn');
+                if (document.querySelector('input[name="incmap"]:checked')) {
+                  btn.disabled = false;
+                  btn.style.opacity = '1';
+                  btn.style.cursor = 'pointer';
+                } else {
+                  btn.disabled = true;
+                  btn.style.opacity = '0.5';
+                  btn.style.cursor = 'not-allowed';
+                }
+              });
+            }
           }
           
           // Only repopulate dropdown if data has changed
@@ -567,15 +772,28 @@
             };
           }
           
-          // Update button state based on current dropdown value
-          if (dropdown.value) {
-            button.disabled = false;
-            button.style.opacity = '1';
-            button.style.cursor = 'pointer';
+          // Update button state based on current issue type
+          if (result.issueType === 'Incorrect Number of Maps') {
+            const selectedRadio = document.querySelector('input[name="incmap"]:checked');
+            if (selectedRadio) {
+              button.disabled = false;
+              button.style.opacity = '1';
+              button.style.cursor = 'pointer';
+            } else {
+              button.disabled = true;
+              button.style.opacity = '0.5';
+              button.style.cursor = 'not-allowed';
+            }
           } else {
-            button.disabled = true;
-            button.style.opacity = '0.5';
-            button.style.cursor = 'not-allowed';
+            if (dropdown.value) {
+              button.disabled = false;
+              button.style.opacity = '1';
+              button.style.cursor = 'pointer';
+            } else {
+              button.disabled = true;
+              button.style.opacity = '0.5';
+              button.style.cursor = 'not-allowed';
+            }
           }
           
         } else {
@@ -602,12 +820,22 @@
       return;
     }
     
-    const dropdown = document.getElementById('fix-target-select');
-    const targetRow = parseInt(dropdown.value);
-    
-    if (!targetRow) {
-      alert('Please select a Player or Team from the dropdown');
-      return;
+    let targetRow = null;
+    // For Incorrect Number of Maps, read selected radio value (gameUrl)
+    if (currentIssueData.issueType === 'Incorrect Number of Maps') {
+      const sel = document.querySelector('input[name="incmap"]:checked');
+      if (!sel || !sel.value) {
+        alert('Please select a map to exclude');
+        return;
+      }
+      targetRow = sel.value; // pass URL string through
+    } else {
+      const dropdown = document.getElementById('fix-target-select');
+      targetRow = parseInt(dropdown.value);
+      if (!targetRow) {
+        alert('Please select a Player or Team from the dropdown');
+        return;
+      }
     }
     
     const button = document.getElementById('fix-selected-btn');
@@ -644,6 +872,116 @@
       .fixSelectedFixMeIssue(targetRow);
   }
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Discord Section - Round Selection
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function initDiscordSection() {
+    const select = document.getElementById('discordRoundSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Loading...</option>';
+    
+    google.script.run
+      .withSuccessHandler(function(scheduleConfig) {
+        populateDiscordRoundDropdown(scheduleConfig);
+      })
+      .withFailureHandler(function(error) {
+        select.innerHTML = '<option value="">Error loading rounds</option>';
+        console.error('Failed to load schedule config:', error);
+      })
+      .getScheduleConfigAPI();
+  }
+
+  function populateDiscordRoundDropdown(scheduleConfig) {
+    const select = document.getElementById('discordRoundSelect');
+    if (!select || !scheduleConfig || scheduleConfig.length === 0) {
+      select.innerHTML = '<option value="">No rounds found</option>';
+      return;
+    }
+    
+    // Clear and populate options
+    select.innerHTML = '';
+    scheduleConfig.forEach(function(config) {
+      const option = document.createElement('option');
+      option.value = config.round;
+      option.textContent = config.round + ' - Deadline: ' + config.deadline;
+      if (config.scheduleInfoSent === 'Yes') {
+        option.textContent += ' ✓';
+      }
+      select.appendChild(option);
+    });
+    
+    // Smart default selection
+    const defaultRound = getSmartDefaultRound(scheduleConfig);
+    if (defaultRound) {
+      select.value = defaultRound;
+    }
+  }
+
+  function getSmartDefaultRound(scheduleConfig) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Parse deadline string (dd/mm/yyyy) to Date
+    function parseDeadline(deadlineStr) {
+      if (!deadlineStr) return null;
+      const parts = String(deadlineStr).split('/');
+      if (parts.length !== 3) return null;
+      // dd/mm/yyyy -> new Date(yyyy, mm-1, dd)
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+    
+    // Find current round (first deadline >= today)
+    let currentRoundIndex = -1;
+    for (let i = 0; i < scheduleConfig.length; i++) {
+      const deadline = parseDeadline(scheduleConfig[i].deadline);
+      if (deadline && deadline >= today) {
+        currentRoundIndex = i;
+        break;
+      }
+    }
+    
+    // If no future deadline found, use last round
+    if (currentRoundIndex === -1) {
+      return scheduleConfig[scheduleConfig.length - 1].round;
+    }
+    
+    const currentRound = scheduleConfig[currentRoundIndex];
+    
+    // If current round's Schedule Info Sent is 'Yes', use next round if available
+    if (currentRound.scheduleInfoSent === 'Yes') {
+      if (currentRoundIndex + 1 < scheduleConfig.length) {
+        return scheduleConfig[currentRoundIndex + 1].round;
+      }
+    }
+    
+    return currentRound.round;
+  }
+
+  function runDiscordTask(functionName) {
+    const select = document.getElementById('discordRoundSelect');
+    const round = select ? select.value : null;
+    
+    if (!round) {
+      alert('Please select a round first.');
+      return;
+    }
+    
+    const loader = document.getElementById('loader-overlay');
+    loader.style.display = 'flex';
+    
+    google.script.run
+      .withSuccessHandler(function() {
+        loader.style.display = 'none';
+      })
+      .withFailureHandler(function(msg) {
+        loader.style.display = 'none';
+        alert('Error: ' + msg);
+      })
+      [functionName](round);
+  }
+
   //How responsive the admin sidebar is - experiment with values 
   setInterval(checkActiveSheet, 500);
   checkActiveSheet();  

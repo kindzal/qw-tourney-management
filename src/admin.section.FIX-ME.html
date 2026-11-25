@@ -27,6 +27,15 @@
           </select>
         </div>
         
+        <div id="incorrect-maps-container" style="display:none; margin-bottom:10px;">
+          <div id="incorrect-maps-heading" style="font-weight:bold; margin-bottom:8px;"></div>
+          <div id="incorrect-maps-match" style="margin-bottom:6px; color:#444;"></div>
+          <form id="incorrect-maps-form">
+            <div id="incorrect-maps-list" style="max-height:200px; overflow:auto; margin-bottom:8px;"></div>
+          </form>
+          <div style="font-size:0.9em; color:#333; margin-bottom:6px;">Select the map that should be excluded from the match</div>
+        </div>
+        
         <button id="fix-selected-btn" onclick="fixSelectedIssue()" disabled style="opacity: 0.5; cursor: not-allowed;">
           Fix Selected Issue
         </button>
